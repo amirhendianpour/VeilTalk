@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "74055867957",
+    "project_id": "veiltalk-6081c",
+    "storage_bucket": "veiltalk-6081c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:74055867957:android:00e42e43fab3e655a15b7c",
+        "android_client_info": {
+          "package_name": "com.example.veiltalk"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDmwEY826LVovBOIfM2qD1WQo4GvSL-xa0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

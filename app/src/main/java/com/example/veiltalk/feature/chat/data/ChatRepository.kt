@@ -1,0 +1,189 @@
+package com.example.veiltalk.feature.chat.data
+
+import com.example.veiltalk.common.model.ChatMessage
+import com.example.veiltalk.common.model.MessageStatus
+import com.example.veiltalk.common.model.MessageType
+import com.example.veiltalk.common.util.generateId
+import com.example.veiltalk.core.database.dao.MessageDao
+import com.example.veiltalk.core.database.entity.PrivateMessageEntity
+import com.example.veiltalk.core.di.ApplicationScope
+import com.example.veiltalk.core.session.SessionManager
+import com.example.veiltalk.core.websocket.StompManager
+import com.example.veiltalk.feature.chat.data.dto.ChatMessageDto
+import com.example.veiltalk.feature.chat.data.dto.ReceiptDto
+import com.example.veiltalk.feature.chat.data.dto.TypingEventDto
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.serialization.json.Json
+import java.time.Instant
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class ChatRepository @Inject constructor(
+    private val stompManager: StompManager,
+    private val messageDao: MessageDao,
+    private val sessionManager: SessionManager,
+    private val json: Json,
+    @ApplicationScope private val scope: CoroutineScope
+) {
+    private var currentUsername: String? = null
+
+    private val _typingUsers = MutableStateFlow<Set<String>>(emptySet())
+    val typingUsers: StateFlow<Set<String>> = _typingUsers.asStateFlow()
+
+    init {
+        // نگه‌داشتن username جاری برای برچسب‌زدن رکوردهای محلی
+        sessionManager.usernameFlow
+            .distinctUntilChanged()
+            .onEach { currentUsername = it }
+            .launchIn(scope)
+
+        // گوش دادن دائمی به فریم‌های سوکت — مستقل از باز/بسته بودن صفحه چت (معادل mount شدن WebSocketProvider در ریشه)
+        stompManager.framesForDestination("/user/queue/messages")
+            .onEach { frame -> handleIncomingMessage(frame.body) }
+            .launchIn(scope)
+
+        stompManager.framesForDestination("/user/queue/receipts")
+            .onEach { frame -> handleReceipt(frame.body) }
+            .launchIn(scope)
+
+        stompManager.framesForDestination("/user/queue/typing")
+            .onEach { frame -> handleTyping(frame.body) }
+            .launchIn(scope)
+    }
+
+    private suspend fun handleIncomingMessage(rawBody: String) {
+        val dto = runCatching { json.decodeFromString<ChatMessageDto>(rawBody) }.getOrNull() ?: return
+        val me = currentUsername ?: return
+
+        messageDao.upsert(dto.toEntity(ownerUsername = me, status = "DELIVERED"))
+
+        // ارسال رسید تحویل — معادل بخش subscribe(/user/queue/messages) در WebSocketContext.tsx
+        if (dto.sender != null && dto.sender != me) {
+            val receipt = ReceiptDto(
+                messageId = dto.id,
+                recipient = dto.sender,
+                status = "DELIVERED"
+            )
+            stompManager.publish("/app/chat/receipt", json.encodeToString(ReceiptDto.serializer(), receipt))
+        }
+    }
+
+    private suspend fun handleReceipt(rawBody: String) {
+        val dto = runCatching { json.decodeFromString<ReceiptDto>(rawBody) }.getOrNull() ?: return
+        val me = currentUsername ?: return
+        messageDao.updateStatus(dto.messageId, me, dto.status)
+    }
+
+    private fun handleTyping(rawBody: String) {
+        val dto = runCatching { json.decodeFromString<TypingEventDto>(rawBody) }.getOrNull() ?: return
+        val sender = dto.sender ?: return
+        _typingUsers.value = if (dto.typing) {
+            _typingUsers.value + sender
+        } else {
+            _typingUsers.value - sender
+        }
+    }
+
+    fun conversationFlow(partner: String): Flow<List<ChatMessage>> {
+        val me = currentUsername ?: return kotlinx.coroutines.flow.flowOf(emptyList())
+        return messageDao.getConversationFlow(me, partner).map { list -> list.map { it.toDomain() } }
+    }
+
+    // لیست مخاطبین چت + آخرین زمان پیام، برای صفحه‌ی لیست چت‌ها (معادل chatList در App.tsx)
+    fun chatPartnersFlow(): Flow<List<Pair<String, String?>>> {
+        val me = currentUsername
+        if (me == null) return kotlinx.coroutines.flow.flowOf(emptyList())
+        return messageDao.getAllForOwnerFlow(me).map { messages ->
+            val latestByPartner = mutableMapOf<String, String?>()
+            for (m in messages) {
+                val partner = if (m.sender == me) m.recipient else m.sender
+                val existing = latestByPartner[partner]
+                if (existing == null || (m.timestamp != null && m.timestamp > existing)) {
+                    latestByPartner[partner] = m.timestamp
+                }
+            }
+            latestByPartner.toList().sortedByDescending { it.second ?: "" }
+        }
+    }
+
+    suspend fun sendMessage(recipient: String, content: String, messageType: MessageType, fileUrl: String? = null) {
+        val me = currentUsername ?: return
+        val id = generateId()
+        val nowIso = Instant.now().toString()
+
+        // ذخیره محلی همچنان با timestamp خودمان — فقط برای نمایش فوری در UI
+        val entity = PrivateMessageEntity(
+            id = id,
+            ownerUsername = me,
+            sender = me,
+            recipient = recipient,
+            content = content,
+            messageType = messageType.name,
+            fileUrl = fileUrl,
+            timestamp = nowIso,
+            status = "SENT"
+        )
+        messageDao.upsert(entity)
+
+        // timestamp را در پیام ارسالی به سرور نمی‌فرستیم — بک‌اند خودش با Instant.now() تنظیمش می‌کند
+        // و فرمت متفاوت Instant.toString() اندروید با الگوی @JsonFormat سمت سرور ناسازگار بود و باعث fail شدن deserialization می‌شد
+        val dto = ChatMessageDto(
+            id = id,
+            sender = me,
+            recipient = recipient,
+            content = content,
+            messageType = messageType.name,
+            fileUrl = fileUrl,
+            timestamp = null
+        )
+        stompManager.publish("/app/chat", json.encodeToString(ChatMessageDto.serializer(), dto))
+    }
+
+    fun sendTyping(recipient: String, isTyping: Boolean) {
+        val dto = TypingEventDto(recipient = recipient, typing = isTyping)
+        stompManager.publish("/app/chat/typing", json.encodeToString(TypingEventDto.serializer(), dto))
+    }
+
+    suspend fun ensureUsernameLoaded() {
+        if (currentUsername == null) {
+            currentUsername = sessionManager.usernameFlow.first()
+        }
+    }
+}
+
+private fun ChatMessageDto.toEntity(ownerUsername: String, status: String): PrivateMessageEntity {
+    return PrivateMessageEntity(
+        id = id,
+        ownerUsername = ownerUsername,
+        sender = sender ?: "",
+        recipient = recipient,
+        content = content,
+        messageType = messageType,
+        fileUrl = fileUrl,
+        timestamp = timestamp,
+        status = status
+    )
+}
+
+private fun PrivateMessageEntity.toDomain(): ChatMessage {
+    return ChatMessage(
+        id = id,
+        sender = sender,
+        recipient = recipient,
+        content = content,
+        messageType = runCatching { MessageType.valueOf(messageType) }.getOrDefault(MessageType.TEXT),
+        fileUrl = fileUrl,
+        timestamp = timestamp,
+        status = runCatching { MessageStatus.valueOf(status) }.getOrDefault(MessageStatus.SENT)
+    )
+}
