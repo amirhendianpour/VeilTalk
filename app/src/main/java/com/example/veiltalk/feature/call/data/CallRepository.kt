@@ -33,8 +33,9 @@ class CallRepository @Inject constructor(
     private val stompManager: StompManager,
     private val json: Json,
     @ApplicationContext private val appContext: Context,
-    @ApplicationScope private val scope: CoroutineScope
+    @ApplicationScope private val scope: CoroutineScope,
 ) {
+    var remoteDescriptionSet: Boolean = false
     private val mainHandler = Handler(Looper.getMainLooper())
     private val _uiState = MutableStateFlow(CallUiSnapshot())
     val uiState: StateFlow<CallUiSnapshot> = _uiState.asStateFlow()
@@ -78,13 +79,20 @@ class CallRepository @Inject constructor(
             }
             CallSignalType.ANSWER -> {
                 signal.sdp?.let { raw ->
-                    decodeSdp(raw)?.let { sdp -> webRtcClient.setRemoteDescription(sdp) }
+                    decodeSdp(raw)?.let { sdp ->
+                        webRtcClient.setRemoteDescription(sdp)
+                        remoteDescriptionSet = true
+                    }
                 }
             }
             CallSignalType.ICE_CANDIDATE -> {
                 signal.candidate?.let { raw ->
                     val candidate = decodeIceCandidate(raw) ?: return
-                    webRtcClient.addIceCandidate(candidate)
+                    if (remoteDescriptionSet) {
+                        webRtcClient.addIceCandidate(candidate)
+                    } else {
+                        iceQueue.add(candidate)
+                    }
                 }
             }
             CallSignalType.REJECT, CallSignalType.END, CallSignalType.BUSY -> {
@@ -124,6 +132,7 @@ class CallRepository @Inject constructor(
 
         setupPeerConnection(withVideo = kind == CallKind.VIDEO)
         webRtcClient.setRemoteDescription(remoteSdp)
+        remoteDescriptionSet = true
 
         iceQueue.forEach { webRtcClient.addIceCandidate(it) }
         iceQueue.clear()

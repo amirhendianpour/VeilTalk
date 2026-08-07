@@ -17,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.example.veiltalk.common.model.GroupMessage
 import com.example.veiltalk.common.ui.components.AvatarView
 import com.example.veiltalk.common.util.formatMessageTime

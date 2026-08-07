@@ -14,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.example.veiltalk.common.ui.components.AvatarView
 import com.example.veiltalk.feature.group.ui.CreateGroupDialog
 
@@ -37,7 +37,7 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    androidx.compose.foundation.layout.Row(
+                    Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.clickable(onClick = onOpenProfile)
                     ) {
@@ -67,7 +67,7 @@ fun HomeScreen(
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
 
-            TabRow(selectedTabIndex = tab.ordinal) {
+            PrimaryTabRow(selectedTabIndex = tab.ordinal) {
                 Tab(selected = tab == HomeTab.ALL, onClick = { tab = HomeTab.ALL }, text = { Text("همه") })
                 Tab(selected = tab == HomeTab.CHATS, onClick = { tab = HomeTab.CHATS }, text = { Text("چت‌های خصوصی") })
                 Tab(selected = tab == HomeTab.GROUPS, onClick = { tab = HomeTab.GROUPS }, text = { Text("گروه‌ها") })

@@ -22,7 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.core.content.ContextCompat
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.example.veiltalk.core.service.ChatConnectionService
 import com.example.veiltalk.feature.user.ui.UserDirectoryEntryPointViewModel
 import com.example.veiltalk.navigation.VeilTalkNavGraph

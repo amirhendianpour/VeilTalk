@@ -14,7 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.example.veiltalk.common.model.GroupMemberInfo
 import com.example.veiltalk.common.ui.components.AvatarView
 import com.example.veiltalk.feature.user.data.UserDirectoryRepository

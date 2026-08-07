@@ -1,21 +1,20 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt.android)
     alias(libs.plugins.google.services)
 }
 
 android {
     namespace = "com.example.veiltalk"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.example.veiltalk"
         minSdk = 28
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 
@@ -41,11 +40,13 @@ android {
         buildConfig = true
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
-    kotlinOptions {
-        jvmTarget = "17"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+        }
     }
 }
 
@@ -59,6 +60,8 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.material.icons.core)
+    implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
 
     implementation(libs.hilt.android)
