@@ -24,7 +24,7 @@ android {
     buildTypes {
         debug {
             // آدرس بک‌اند در حالت توسعه — 10.0.2.2 یعنی localhost کامپیوتر از دید امولاتور
-            buildConfigField("String", "BASE_URL", "\"https://217.160.243.230.nip.io\"")
+            buildConfigField("String", "BASE_URL", "\"https://49.13.120.183.nip.io\"")
         }
         release {
             isMinifyEnabled = true
@@ -32,7 +32,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "BASE_URL", "\"https://217.160.243.230.nip.io\"")
+            buildConfigField("String", "BASE_URL", "\"https://49.13.120.183.nip.io\"")
         }
     }
     buildFeatures {

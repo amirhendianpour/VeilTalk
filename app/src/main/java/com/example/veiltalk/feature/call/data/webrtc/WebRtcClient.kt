@@ -169,6 +169,8 @@ class WebRtcClient(private val context: Context) {
         peerConnection?.addIceCandidate(candidate)
     }
 
+    fun hasRemoteDescription(): Boolean = peerConnection?.remoteDescription != null
+
     fun setAudioEnabled(enabled: Boolean) {
         localAudioTrack?.setEnabled(enabled)
     }
