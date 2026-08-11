@@ -1,6 +1,10 @@
 package com.example.veiltalk.feature.call.data
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
+import android.os.Build
 import com.example.veiltalk.common.model.CallKind
 import com.example.veiltalk.common.model.CallSignal
 import com.example.veiltalk.common.model.CallSignalType
@@ -9,6 +13,7 @@ import com.example.veiltalk.core.di.ApplicationScope
 import com.example.veiltalk.core.websocket.StompManager
 import com.example.veiltalk.feature.call.data.dto.CallSignalDto
 import com.example.veiltalk.feature.call.data.webrtc.WebRtcClient
+import com.example.veiltalk.feature.call.service.CallForegroundService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.*
@@ -25,7 +30,9 @@ data class CallUiSnapshot(
     val callType: CallKind? = null,
     val remoteUser: String? = null,
     val isMuted: Boolean = false,
-    val isCameraOff: Boolean = false
+    val isCameraOff: Boolean = false,
+    val isSpeakerOn: Boolean = false,
+    val isLocalVideoPrimary: Boolean = false
 )
 
 @Singleton
@@ -51,6 +58,10 @@ class CallRepository @Inject constructor(
     private var callId: String = ""
     private var pendingOffer: CallSignal? = null
     private val iceQueue = mutableListOf<IceCandidate>()
+    private var isRestartingIce = false
+
+    private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private var audioFocusRequest: AudioFocusRequest? = null
 
     init {
         stompManager.framesForDestination("/user/queue/call")
@@ -64,6 +75,27 @@ class CallRepository @Inject constructor(
 
         when (signal.type) {
             CallSignalType.OFFER -> {
+                if (_uiState.value.status != CallStatus.IDLE && callId == signal.callId) {
+                    // ICE Restart / Re-offer for current call
+                    signal.sdp?.let { raw ->
+                        decodeSdp(raw)?.let { sdp ->
+                            webRtcClient.setRemoteDescription(sdp)
+                            webRtcClient.createAnswer { answerSdp ->
+                                sendSignal(
+                                    CallSignal(
+                                        type = CallSignalType.ANSWER,
+                                        to = signal.from ?: return@createAnswer,
+                                        sdp = encodeSdp(answerSdp),
+                                        callId = callId,
+                                        callType = _uiState.value.callType
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    return
+                }
+                
                 if (_uiState.value.status != CallStatus.IDLE) {
                     sendSignal(CallSignal(CallSignalType.BUSY, to = signal.from ?: return, callId = signal.callId))
                     return
@@ -105,6 +137,7 @@ class CallRepository @Inject constructor(
         callId = UUID.randomUUID().toString()
         _uiState.value = _uiState.value.copy(status = CallStatus.CALLING, callType = kind, remoteUser = recipient)
 
+        CallForegroundService.start(appContext, recipient)
         setupPeerConnection(withVideo = kind == CallKind.VIDEO)
 
         webRtcClient.createOffer { sdp ->
@@ -128,6 +161,7 @@ class CallRepository @Inject constructor(
 
         val remoteSdp = decodeSdp(rawSdp) ?: return
 
+        CallForegroundService.start(appContext, from)
         setupPeerConnection(withVideo = kind == CallKind.VIDEO)
         webRtcClient.setRemoteDescription(remoteSdp)
 
@@ -176,7 +210,28 @@ class CallRepository @Inject constructor(
         _uiState.value = _uiState.value.copy(isCameraOff = newCameraOff)
     }
 
+    fun flipCamera() {
+        webRtcClient.flipCamera()
+    }
+
+    fun swapVideoViews() {
+        _uiState.value = _uiState.value.copy(isLocalVideoPrimary = !_uiState.value.isLocalVideoPrimary)
+    }
+
+    fun toggleSpeaker() {
+        val newSpeakerOn = !_uiState.value.isSpeakerOn
+        audioManager.isSpeakerphoneOn = newSpeakerOn
+        _uiState.value = _uiState.value.copy(isSpeakerOn = newSpeakerOn)
+    }
+
     private fun setupPeerConnection(withVideo: Boolean) {
+        requestAudioFocus()
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        
+        // WhatsApp style: Speaker defaults to ON for video, OFF for audio
+        audioManager.isSpeakerphoneOn = withVideo
+        _uiState.value = _uiState.value.copy(isSpeakerOn = withVideo)
+
         webRtcClient.initFactory()
         webRtcClient.createPeerConnection()
 
@@ -202,9 +257,12 @@ class CallRepository @Inject constructor(
         webRtcClient.onConnectionStateChanged = { state ->
             when (state) {
                 PeerConnection.PeerConnectionState.CONNECTED -> {
+                    isRestartingIce = false
                     _uiState.value = _uiState.value.copy(status = CallStatus.CONNECTED)
                 }
-                PeerConnection.PeerConnectionState.DISCONNECTED,
+                PeerConnection.PeerConnectionState.DISCONNECTED -> {
+                    scheduleIceRestart()
+                }
                 PeerConnection.PeerConnectionState.FAILED,
                 PeerConnection.PeerConnectionState.CLOSED -> {
                     cleanup()
@@ -230,7 +288,13 @@ class CallRepository @Inject constructor(
     }
 
     private fun cleanup() {
+        mainHandler.removeCallbacksAndMessages(null)
         mainHandler.post {
+            isRestartingIce = false
+            CallForegroundService.stop(appContext)
+            abandonAudioFocus()
+            audioManager.mode = AudioManager.MODE_NORMAL
+
             webRtcClient.close()
             webRtcClient = WebRtcClient(appContext)
             _localVideoTrack.value = null
@@ -239,6 +303,60 @@ class CallRepository @Inject constructor(
             iceQueue.clear()
             callId = ""
             _uiState.value = CallUiSnapshot()
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(null)
+        }
+    }
+
+    private fun scheduleIceRestart() {
+        if (isRestartingIce) return
+        isRestartingIce = true
+        
+        mainHandler.postDelayed({
+            if (isRestartingIce && _uiState.value.status == CallStatus.CONNECTED) {
+                webRtcClient.restartIce { sdp ->
+                    _uiState.value.remoteUser?.let { remote ->
+                        sendSignal(
+                            CallSignal(
+                                type = CallSignalType.OFFER,
+                                to = remote,
+                                sdp = encodeSdp(sdp),
+                                callId = callId,
+                                callType = _uiState.value.callType
+                            )
+                        )
+                    }
+                }
+            }
+        }, 3000) // 3 seconds delay before trying restart
+    }
+
+    private fun requestAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val playbackAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+            audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                .setAudioAttributes(playbackAttributes)
+                .setAcceptsDelayedFocusGain(true)
+                .setOnAudioFocusChangeListener { }
+                .build()
+            audioFocusRequest?.let { audioManager.requestAudioFocus(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.requestAudioFocus(
+                null,
+                AudioManager.STREAM_VOICE_CALL,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+            )
         }
     }
 

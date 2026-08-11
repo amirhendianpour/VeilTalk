@@ -8,11 +8,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -23,6 +29,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.example.veiltalk.common.model.CallKind
 import com.example.veiltalk.common.model.CallStatus
 import com.example.veiltalk.common.ui.components.AvatarView
+import com.example.veiltalk.ui.theme.WaTeal
+import com.example.veiltalk.ui.theme.WaTealDark
 import kotlinx.coroutines.delay
 import org.webrtc.RendererCommon
 import org.webrtc.SurfaceViewRenderer
@@ -47,119 +55,164 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
         }
     }
 
-    // درخواست دسترسی میکروفون/دوربین درست قبل از پذیرفتن یا شروع تماس متصل‌شده
+    // درخواست دسترسی میکروفون/دوربین برای پذیرفتن تماس
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { /* نتیجه در جریان عادی UI رصد می‌شود */ }
+    ) { granted ->
+        if (granted.values.all { it }) {
+            viewModel.acceptCall()
+        }
+    }
 
-    LaunchedEffect(uiState.status) {
-        if (uiState.status == CallStatus.CALLING || uiState.status == CallStatus.CONNECTED) {
-            val needed = mutableListOf(Manifest.permission.RECORD_AUDIO)
-            if (isVideo) needed.add(Manifest.permission.CAMERA)
-            val missing = needed.filter {
-                ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
-            }
-            if (missing.isNotEmpty()) permissionLauncher.launch(missing.toTypedArray())
+    fun handleAccept() {
+        val needed = mutableListOf(Manifest.permission.RECORD_AUDIO)
+        if (isVideo) needed.add(Manifest.permission.CAMERA)
+        val missing = needed.filter {
+            ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isEmpty()) {
+            viewModel.acceptCall()
+        } else {
+            permissionLauncher.launch(missing.toTypedArray())
         }
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(WaTeal, WaTealDark, Color.Black)
+                )
+            )
     ) {
         val remoteTrack by viewModel.remoteVideoTrack.collectAsState()
         val localTrack by viewModel.localVideoTrack.collectAsState()
-        val showRemoteVideo = isVideo && uiState.status == CallStatus.CONNECTED && remoteTrack != null
 
-        if (isVideo && showRemoteVideo) {
+        val primaryTrack = if (uiState.isLocalVideoPrimary) localTrack else remoteTrack
+        val secondaryTrack = if (uiState.isLocalVideoPrimary) remoteTrack else localTrack
+
+        val showPrimary = isVideo && uiState.status == CallStatus.CONNECTED && primaryTrack != null
+        val showSecondary = isVideo && uiState.status == CallStatus.CONNECTED && secondaryTrack != null
+
+        // تصویر اصلی (تمام صفحه)
+        if (isVideo && showPrimary) {
             VideoRendererView(
-                track = remoteTrack,
+                track = primaryTrack,
                 eglContext = viewModel.callRepository.eglBaseContext,
                 modifier = Modifier.fillMaxSize()
             )
         } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.85f))
-            )
+            // Background already set in the parent Box
         }
 
-        if (isVideo && localTrack != null && !uiState.isCameraOff) {
-            VideoRendererView(
-                track = localTrack,
-                eglContext = viewModel.callRepository.eglBaseContext,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 16.dp, bottom = 120.dp)
-                    .size(width = 110.dp, height = 160.dp)
-            )
-        }
-
-        if (!showRemoteVideo) {
-            Column(
-                modifier = Modifier.align(Alignment.Center),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                AvatarView(
-                    name = viewModel.remoteDisplayName().ifBlank { "?" },
-                    size = 96.dp,
-                    colorSeed = uiState.remoteUser
-                )
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    viewModel.remoteDisplayName(),
-                    color = Color.White,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
+        // تصویر ثانویه (کوچک)
+        if (isVideo && showSecondary && !(uiState.isLocalVideoPrimary && uiState.isCameraOff)) {
+            val isSecondaryLocal = !uiState.isLocalVideoPrimary
+            if (!(isSecondaryLocal && uiState.isCameraOff)) {
+                VideoRendererView(
+                    track = secondaryTrack,
+                    eglContext = viewModel.callRepository.eglBaseContext,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 64.dp, end = 16.dp)
+                        .size(width = 100.dp, height = 150.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { viewModel.swapVideoViews() }
                 )
             }
         }
 
+        // Top Info (Name, Status)
         Column(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 48.dp),
+                .fillMaxWidth()
+                .padding(top = 48.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            if (!showPrimary || uiState.isLocalVideoPrimary) {
+                AvatarView(
+                    name = viewModel.remoteDisplayName().ifBlank { "?" },
+                    size = 90.dp,
+                    colorSeed = uiState.remoteUser
+                )
+                Spacer(Modifier.height(16.dp))
+            }
+            
+            Text(
+                viewModel.remoteDisplayName(),
+                color = Color.White,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Medium
+            )
+            
             Text(
                 text = when (uiState.status) {
-                    CallStatus.CALLING -> if (isVideo) "در حال تماس تصویری..." else "در حال تماس..."
-                    CallStatus.RINGING -> if (isVideo) "تماس تصویری ورودی..." else "تماس ورودی..."
+                    CallStatus.CALLING -> "در حال تماس..."
+                    CallStatus.RINGING -> "تماس ورودی..."
                     CallStatus.CONNECTED -> formatDuration(duration)
                     else -> ""
                 },
-                color = Color(0xFFE5E7EB),
-                modifier = Modifier.padding(bottom = 24.dp)
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 16.sp,
+                modifier = Modifier.padding(top = 4.dp)
             )
+        }
 
-            if (uiState.status == CallStatus.RINGING) {
-                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    CallButton(icon = if (isVideo) "🎥" else "📞", background = Color(0xFF22C55E)) {
-                        viewModel.acceptCall()
-                    }
-                    CallButton(icon = "☎️", background = Color(0xFFEF4444)) {
-                        viewModel.rejectCall()
-                    }
-                }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+        // Bottom Controls
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 32.dp, start = 24.dp, end = 24.dp)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            color = Color.Black.copy(alpha = 0.4f)
+        ) {
+            Row(
+                modifier = Modifier.padding(vertical = 16.dp, horizontal = 8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (uiState.status == CallStatus.RINGING) {
                     CallButton(
-                        icon = if (uiState.isMuted) "🔇" else "🎤",
-                        background = if (uiState.isMuted) Color(0xFF9CA3AF) else Color(0xFF374151)
-                    ) { viewModel.toggleMute() }
+                        icon = Icons.Default.Videocam, 
+                        background = Color(0xFF22C55E),
+                        tint = Color.White
+                    ) { handleAccept() }
+                    
+                    CallButton(
+                        icon = Icons.Default.CallEnd, 
+                        background = Color(0xFFEF4444),
+                        tint = Color.White
+                    ) { viewModel.rejectCall() }
+                } else {
+                    CallButton(
+                        icon = if (uiState.isSpeakerOn) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                        background = if (uiState.isSpeakerOn) Color.White.copy(alpha = 0.2f) else Color.Transparent
+                    ) { viewModel.toggleSpeaker() }
 
                     if (isVideo) {
                         CallButton(
-                            icon = if (uiState.isCameraOff) "📷" else "🎥",
-                            background = if (uiState.isCameraOff) Color(0xFF9CA3AF) else Color(0xFF374151)
+                            icon = if (uiState.isCameraOff) Icons.Default.VideocamOff else Icons.Default.Videocam,
+                            background = if (uiState.isCameraOff) Color.White.copy(alpha = 0.2f) else Color.Transparent
                         ) { viewModel.toggleCamera() }
+                        
+                        CallButton(
+                            icon = Icons.Default.Cameraswitch,
+                            background = Color.Transparent
+                        ) { viewModel.flipCamera() }
                     }
 
-                    CallButton(icon = "☎️", background = Color(0xFFEF4444)) {
-                        viewModel.endCall()
-                    }
+                    CallButton(
+                        icon = if (uiState.isMuted) Icons.Default.MicOff else Icons.Default.Mic,
+                        background = if (uiState.isMuted) Color.White.copy(alpha = 0.2f) else Color.Transparent
+                    ) { viewModel.toggleMute() }
+
+                    CallButton(
+                        icon = Icons.Default.CallEnd,
+                        background = Color(0xFFEF4444),
+                        tint = Color.White
+                    ) { viewModel.endCall() }
                 }
             }
         }
@@ -167,15 +220,20 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun CallButton(icon: String, background: Color, onClick: () -> Unit) {
+private fun CallButton(
+    icon: ImageVector, 
+    background: Color = Color.Transparent, 
+    tint: Color = Color.White,
+    onClick: () -> Unit
+) {
     Box(
         modifier = Modifier
-            .size(56.dp)
+            .size(52.dp)
             .background(background, CircleShape)
             .clickableNoRipple(onClick),
         contentAlignment = Alignment.Center
     ) {
-        Text(icon, fontSize = 22.sp)
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(28.dp))
     }
 }
 
@@ -185,18 +243,23 @@ private fun VideoRendererView(
     eglContext: org.webrtc.EglBase.Context,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val renderer = remember { SurfaceViewRenderer(context) }
+    
+    DisposableEffect(track) {
+        renderer.init(eglContext, null)
+        renderer.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
+        track?.addSink(renderer)
+        
+        onDispose {
+            track?.removeSink(renderer)
+            renderer.release()
+        }
+    }
+
     AndroidView(
         modifier = modifier,
-        factory = { ctx ->
-            SurfaceViewRenderer(ctx).apply {
-                init(eglContext, null)
-                setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
-                setMirror(false)
-            }
-        },
-        update = { renderer ->
-            track?.addSink(renderer)
-        }
+        factory = { renderer }
     )
 }
 

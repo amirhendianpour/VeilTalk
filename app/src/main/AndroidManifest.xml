@@ -48,6 +48,10 @@
             android:foregroundServiceType="dataSync"
             android:exported="false" />
         <service
+            android:name=".feature.call.service.CallForegroundService"
+            android:foregroundServiceType="microphone|camera"
+            android:exported="false" />
+        <service
             android:name=".feature.notification.service.VeilTalkFirebaseMessagingService"
             android:exported="false">
             <intent-filter>

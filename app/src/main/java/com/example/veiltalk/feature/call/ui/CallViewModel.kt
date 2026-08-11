@@ -48,6 +48,9 @@ class CallViewModel @Inject constructor(
     fun endCall() = callRepository.endCall()
     fun toggleMute() = callRepository.toggleMute()
     fun toggleCamera() = callRepository.toggleCamera()
+    fun flipCamera() = callRepository.flipCamera()
+    fun swapVideoViews() = callRepository.swapVideoViews()
+    fun toggleSpeaker() = callRepository.toggleSpeaker()
 
     override fun onCleared() {
         ringtone.stop()

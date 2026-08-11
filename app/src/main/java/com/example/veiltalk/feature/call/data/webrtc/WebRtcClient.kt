@@ -151,6 +151,18 @@ class WebRtcClient(private val context: Context) {
         }, constraints)
     }
 
+    fun restartIce(onSuccess: (SessionDescription) -> Unit) {
+        val constraints = MediaConstraints().apply {
+            mandatory.add(MediaConstraints.KeyValuePair("IceRestart", "true"))
+        }
+        peerConnection?.createOffer(object : SdpObserverAdapter() {
+            override fun onCreateSuccess(sdp: SessionDescription?) {
+                peerConnection?.setLocalDescription(SdpObserverAdapter(), sdp)
+                mainHandler.post { sdp?.let { onSuccess(it) } }
+            }
+        }, constraints)
+    }
+
     fun createAnswer(onSuccess: (SessionDescription) -> Unit) {
         val constraints = MediaConstraints()
         peerConnection?.createAnswer(object : SdpObserverAdapter() {
@@ -177,6 +189,10 @@ class WebRtcClient(private val context: Context) {
 
     fun setVideoEnabled(enabled: Boolean) {
         localVideoTrack?.setEnabled(enabled)
+    }
+
+    fun flipCamera() {
+        videoCapturer?.switchCamera(null)
     }
 
     // این متد اکنون همیشه باید از main thread صدا زده شود (CallRepository.cleanup این تضمین را رعایت می‌کند)
