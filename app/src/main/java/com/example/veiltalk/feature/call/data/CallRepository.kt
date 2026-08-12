@@ -2,6 +2,7 @@ package com.example.veiltalk.feature.call.data
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Build
@@ -180,7 +181,6 @@ class CallRepository @Inject constructor(
             )
         }
 
-        _uiState.value = _uiState.value.copy(status = CallStatus.CONNECTED)
         pendingOffer = null
     }
 
@@ -220,8 +220,25 @@ class CallRepository @Inject constructor(
 
     fun toggleSpeaker() {
         val newSpeakerOn = !_uiState.value.isSpeakerOn
-        audioManager.isSpeakerphoneOn = newSpeakerOn
+        setSpeakerphone(newSpeakerOn)
         _uiState.value = _uiState.value.copy(isSpeakerOn = newSpeakerOn)
+    }
+
+    private fun setSpeakerphone(on: Boolean) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (on) {
+                val speakerDevice = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                    .find { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+                if (speakerDevice != null) {
+                    audioManager.setCommunicationDevice(speakerDevice)
+                }
+            } else {
+                audioManager.clearCommunicationDevice()
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.isSpeakerphoneOn = on
+        }
     }
 
     private fun setupPeerConnection(withVideo: Boolean) {
@@ -229,7 +246,7 @@ class CallRepository @Inject constructor(
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
         
         // WhatsApp style: Speaker defaults to ON for video, OFF for audio
-        audioManager.isSpeakerphoneOn = withVideo
+        setSpeakerphone(withVideo)
         _uiState.value = _uiState.value.copy(isSpeakerOn = withVideo)
 
         webRtcClient.initFactory()
