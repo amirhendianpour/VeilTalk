@@ -69,7 +69,8 @@ class GroupRepository @Inject constructor(
                 groupId = dto.groupId,
                 sender = dto.sender,
                 content = dto.content,
-                timestamp = dto.timestamp
+                timestamp = dto.timestamp,
+                isPinned = false
             )
         )
     }
@@ -91,24 +92,44 @@ class GroupRepository @Inject constructor(
     fun groupMessagesFlow(groupId: Long): Flow<List<GroupMessage>> {
         val me = currentUsername ?: return flowOf(emptyList())
         return groupMessageDao.getGroupMessagesFlow(me, groupId).map { list ->
-            list.map { GroupMessage(it.id, it.groupId, it.sender, it.content, it.timestamp) }
+            list.map { GroupMessage(it.id, it.groupId, it.sender, it.content, it.timestamp, it.isPinned) }
         }
     }
 
-    // آخرین زمان پیام هر گروه — برای مرتب‌سازی در تب "همه" (معادل getLastGroupMessageTime در Sidebar.tsx)
-    fun latestGroupMessageTimesFlow(): Flow<Map<Long, String?>> {
+    suspend fun deleteMessages(messageIds: List<String>) {
+        val me = currentUsername ?: return
+        groupMessageDao.deleteMessages(messageIds, me)
+    }
+
+    suspend fun togglePin(messageId: String, currentPinned: Boolean) {
+        val me = currentUsername ?: return
+        groupMessageDao.updatePinStatus(messageId, me, !currentPinned)
+    }
+
+    // لیست خلاصه‌ی پیام‌های گروه‌ها
+    fun groupConversationSummariesFlow(): Flow<Map<Long, GroupSummary>> {
         val me = currentUsername ?: return flowOf(emptyMap())
         return groupMessageDao.getAllForOwnerFlow(me).map { messages ->
-            val map = mutableMapOf<Long, String?>()
+            val map = mutableMapOf<Long, GroupSummary>()
             for (m in messages) {
                 val existing = map[m.groupId]
-                if (existing == null || (m.timestamp != null && m.timestamp > existing)) {
-                    map[m.groupId] = m.timestamp
+                if (existing == null || (m.timestamp != null && (existing.timestamp == null || m.timestamp > existing.timestamp))) {
+                    map[m.groupId] = GroupSummary(
+                        lastMessage = m.content,
+                        timestamp = m.timestamp,
+                        unreadCount = 0 // در حال حاضر سیستم خوانده شدن پیام گروهی نداریم
+                    )
                 }
             }
             map
         }
     }
+
+data class GroupSummary(
+    val lastMessage: String,
+    val timestamp: String?,
+    val unreadCount: Int
+)
 
     suspend fun sendGroupMessage(groupId: Long, content: String) {
         val me = currentUsername ?: return

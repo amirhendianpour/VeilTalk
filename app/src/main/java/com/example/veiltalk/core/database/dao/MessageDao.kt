@@ -29,4 +29,16 @@ interface MessageDao {
 
     @Query("UPDATE private_messages SET status = :status WHERE id = :messageId AND ownerUsername = :owner")
     suspend fun updateStatus(messageId: String, owner: String, status: String)
+
+    @Query("UPDATE private_messages SET status = 'READ' WHERE ownerUsername = :owner AND sender = :partner AND status != 'READ'")
+    suspend fun markConversationAsRead(owner: String, partner: String)
+
+    @Query("DELETE FROM private_messages WHERE id = :messageId AND ownerUsername = :owner")
+    suspend fun deleteMessage(messageId: String, owner: String)
+
+    @Query("DELETE FROM private_messages WHERE id IN (:messageIds) AND ownerUsername = :owner")
+    suspend fun deleteMessages(messageIds: List<String>, owner: String)
+
+    @Query("UPDATE private_messages SET isPinned = :pinned WHERE id = :messageId AND ownerUsername = :owner")
+    suspend fun updatePinStatus(messageId: String, owner: String, pinned: Boolean)
 }

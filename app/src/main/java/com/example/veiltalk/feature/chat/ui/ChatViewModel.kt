@@ -65,6 +65,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             chatRepository.ensureUsernameLoaded()
             userDirectory.ensureLoaded(listOf(partner))
+            chatRepository.markAsRead(partner)
         }
     }
 
@@ -120,6 +121,18 @@ class ChatViewModel @Inject constructor(
 
     fun clearUploadError() {
         _uploadError.value = null
+    }
+
+    fun deleteMessages(messageIds: List<String>) {
+        viewModelScope.launch {
+            chatRepository.deleteMessages(messageIds)
+        }
+    }
+
+    fun togglePin(messageId: String, currentPinned: Boolean) {
+        viewModelScope.launch {
+            chatRepository.togglePin(messageId, currentPinned)
+        }
     }
 
     override fun onCleared() {

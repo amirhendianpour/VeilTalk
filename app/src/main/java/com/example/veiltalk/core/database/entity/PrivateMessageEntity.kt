@@ -12,5 +12,6 @@ data class PrivateMessageEntity(
     val messageType: String,
     val fileUrl: String?,
     val timestamp: String?,
-    val status: String // SENT, DELIVERED, READ
+    val status: String, // SENT, DELIVERED, READ
+    val isPinned: Boolean = false
 )

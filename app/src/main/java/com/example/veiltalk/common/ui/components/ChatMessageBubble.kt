@@ -1,0 +1,116 @@
+package com.example.veiltalk.common.ui.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.veiltalk.common.util.formatMessageTime
+import com.example.veiltalk.ui.theme.WaLightGreen
+import com.example.veiltalk.ui.theme.WaTeal
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+fun ChatMessageBubble(
+    content: String,
+    timestamp: String?,
+    isMine: Boolean,
+    senderName: String? = null,
+    isPinned: Boolean = false,
+    isSelected: Boolean = false,
+    onLongClick: () -> Unit = {},
+    onClick: () -> Unit = {},
+    status: @Composable (() -> Unit)? = null,
+    mediaContent: @Composable (() -> Unit)? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(if (isSelected) WaTeal.copy(alpha = 0.2f) else Color.Transparent)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
+            .padding(vertical = 2.dp),
+        horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 8.dp)
+                .shadow(
+                    elevation = 1.dp,
+                    shape = RoundedCornerShape(
+                        topStart = 12.dp,
+                        topEnd = 12.dp,
+                        bottomStart = if (isMine) 12.dp else 2.dp,
+                        bottomEnd = if (isMine) 2.dp else 12.dp
+                    )
+                )
+                .background(
+                    color = if (isMine) WaLightGreen else Color.White,
+                    shape = RoundedCornerShape(
+                        topStart = 12.dp,
+                        topEnd = 12.dp,
+                        bottomStart = if (isMine) 12.dp else 2.dp,
+                        bottomEnd = if (isMine) 2.dp else 12.dp
+                    )
+                )
+                .padding(horizontal = 10.dp, vertical = 6.dp)
+                .widthIn(max = 300.dp)
+        ) {
+            Column {
+                if (isPinned) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.PushPin, null, modifier = Modifier.size(12.dp), tint = WaTeal)
+                        Spacer(Modifier.width(4.dp))
+                        Text("سنجاق شده", fontSize = 10.sp, color = WaTeal)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                }
+
+                if (!isMine && senderName != null) {
+                    Text(
+                        senderName,
+                        fontSize = 11.sp,
+                        color = Color(0xFF2563EB),
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(2.dp))
+                }
+                
+                mediaContent?.invoke()
+                
+                if (content.isNotBlank()) {
+                    Text(content, style = MaterialTheme.typography.bodyMedium)
+                }
+
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier.align(Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        formatMessageTime(timestamp),
+                        fontSize = 10.sp,
+                        color = Color.Gray
+                    )
+                    if (isMine && status != null) {
+                        Spacer(Modifier.width(4.dp))
+                        status()
+                    }
+                }
+            }
+        }
+    }
+}

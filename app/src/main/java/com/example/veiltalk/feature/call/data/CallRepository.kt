@@ -5,6 +5,9 @@ import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.media.MediaPlayer
+import android.media.RingtoneManager
+import android.media.ToneGenerator
 import android.os.Build
 import com.example.veiltalk.common.model.CallKind
 import com.example.veiltalk.common.model.CallSignal
@@ -63,6 +66,8 @@ class CallRepository @Inject constructor(
 
     private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var audioFocusRequest: AudioFocusRequest? = null
+    private var mediaPlayer: MediaPlayer? = null
+    private var toneGenerator: ToneGenerator? = null
 
     init {
         stompManager.framesForDestination("/user/queue/call")
@@ -375,6 +380,47 @@ class CallRepository @Inject constructor(
                 AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
             )
         }
+    }
+
+    private fun playRingtone() {
+        stopAudio()
+        try {
+            val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(appContext, ringtoneUri)
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                isLooping = true
+                prepare()
+                start()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun playRingback() {
+        stopAudio()
+        try {
+            toneGenerator = ToneGenerator(AudioManager.STREAM_VOICE_CALL, 80)
+            toneGenerator?.startTone(ToneGenerator.TONE_SUP_RINGTONE)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun stopAudio() {
+        mediaPlayer?.stop()
+        mediaPlayer?.release()
+        mediaPlayer = null
+        
+        toneGenerator?.stopTone()
+        toneGenerator?.release()
+        toneGenerator = null
     }
 
     private fun encodeIceCandidate(candidate: IceCandidate): String {

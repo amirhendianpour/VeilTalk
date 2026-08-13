@@ -9,7 +9,7 @@ import com.example.veiltalk.core.database.entity.PrivateMessageEntity
 
 @Database(
     entities = [PrivateMessageEntity::class, GroupMessageEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

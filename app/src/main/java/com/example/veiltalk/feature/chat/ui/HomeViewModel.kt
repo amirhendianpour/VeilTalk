@@ -18,17 +18,34 @@ enum class HomeTab { ALL, CHATS, GROUPS }
 sealed class HomeListItem {
     abstract val key: String
     abstract val time: String
+    abstract val lastMessage: String
+    abstract val unreadCount: Int
 
-    data class ChatItem(val username: String, val displayName: String, val profilePictureUrl: String?, override val time: String) : HomeListItem() {
+    data class ChatItem(
+        val username: String,
+        val displayName: String,
+        val profilePictureUrl: String?,
+        override val time: String,
+        override val lastMessage: String,
+        override val unreadCount: Int
+    ) : HomeListItem() {
         override val key = "chat-$username"
     }
-    data class GroupItem(val group: GroupInfo, override val time: String) : HomeListItem() {
+
+    data class GroupItem(
+        val group: GroupInfo,
+        override val time: String,
+        override val lastMessage: String,
+        override val unreadCount: Int
+    ) : HomeListItem() {
         override val key = "group-${group.id}"
     }
 }
 
 data class HomeUiState(
+    val myUsername: String = "",
     val myDisplayName: String = "",
+    val myProfilePictureUrl: String? = null,
     val allItems: List<HomeListItem> = emptyList(),
     val chatItems: List<HomeListItem.ChatItem> = emptyList(),
     val groups: List<GroupInfo> = emptyList(),
@@ -56,32 +73,56 @@ class HomeViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            sessionManager.displayNameFlow.collect { name ->
-                _uiState.value = _uiState.value.copy(myDisplayName = name ?: "")
+            combine(
+                sessionManager.usernameFlow,
+                sessionManager.displayNameFlow,
+                userDirectory.directory
+            ) { username, displayName, directory ->
+                val myUsername = username ?: ""
+                val info = directory[myUsername]
+                if (info == null && myUsername.isNotBlank()) {
+                    userDirectory.ensureLoaded(listOf(myUsername))
+                }
+                
+                Triple(myUsername, displayName ?: "", info?.profilePictureUrl)
+            }.collect { (username, displayName, photo) ->
+                _uiState.value = _uiState.value.copy(
+                    myUsername = username,
+                    myDisplayName = displayName,
+                    myProfilePictureUrl = photo
+                )
             }
         }
 
         viewModelScope.launch {
             combine(
-                chatRepository.chatPartnersFlow(),
+                chatRepository.conversationSummariesFlow(),
                 groupRepository.myGroups,
-                groupRepository.latestGroupMessageTimesFlow(),
+                groupRepository.groupConversationSummariesFlow(),
                 userDirectory.directory
-            ) { partners, groups, groupTimes, directory ->
-                userDirectory.ensureLoaded(partners.map { it.first })
+            ) { summaries, groups, groupSummaries, directory ->
+                userDirectory.ensureLoaded(summaries.map { it.partner })
 
-                val chatItems = partners.map { (username, time) ->
-                    val info = directory[username]
+                val chatItems = summaries.map { summary ->
+                    val info = directory[summary.partner]
                     HomeListItem.ChatItem(
-                        username = username,
-                        displayName = if (info != null) "${info.firstName} ${info.lastName}".trim().ifBlank { username } else username,
+                        username = summary.partner,
+                        displayName = if (info != null) "${info.firstName} ${info.lastName}".trim().ifBlank { summary.partner } else summary.partner,
                         profilePictureUrl = info?.profilePictureUrl,
-                        time = time ?: ""
+                        time = summary.timestamp ?: "",
+                        lastMessage = summary.lastMessage,
+                        unreadCount = summary.unreadCount
                     )
                 }
 
                 val groupItems = groups.map { group ->
-                    HomeListItem.GroupItem(group = group, time = groupTimes[group.id] ?: "")
+                    val summary = groupSummaries[group.id]
+                    HomeListItem.GroupItem(
+                        group = group,
+                        time = summary?.timestamp ?: "",
+                        lastMessage = summary?.lastMessage ?: "",
+                        unreadCount = summary?.unreadCount ?: 0
+                    )
                 }
 
                 val combined = (chatItems + groupItems).sortedByDescending { it.time }

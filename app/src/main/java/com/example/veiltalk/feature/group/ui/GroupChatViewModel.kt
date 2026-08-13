@@ -56,4 +56,16 @@ class GroupChatViewModel @Inject constructor(
         viewModelScope.launch { groupRepository.sendGroupMessage(groupId, text) }
         _inputText.value = ""
     }
+
+    fun deleteMessages(messageIds: List<String>) {
+        viewModelScope.launch {
+            groupRepository.deleteMessages(messageIds)
+        }
+    }
+
+    fun togglePin(messageId: String, currentPinned: Boolean) {
+        viewModelScope.launch {
+            groupRepository.togglePin(messageId, currentPinned)
+        }
+    }
 }

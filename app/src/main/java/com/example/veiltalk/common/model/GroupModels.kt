@@ -12,7 +12,8 @@ data class GroupMessage(
     val groupId: Long,
     val sender: String?,
     val content: String,
-    val timestamp: String?
+    val timestamp: String?,
+    val isPinned: Boolean = false
 )
 
 data class GroupMemberInfo(

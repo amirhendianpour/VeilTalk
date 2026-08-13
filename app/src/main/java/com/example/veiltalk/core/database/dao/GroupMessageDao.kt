@@ -26,4 +26,13 @@ interface GroupMessageDao {
         ORDER BY timestamp ASC, id ASC
     """)
     fun getAllForOwnerFlow(owner: String): Flow<List<GroupMessageEntity>>
+
+    @Query("DELETE FROM group_messages WHERE id = :messageId AND ownerUsername = :owner")
+    suspend fun deleteMessage(messageId: String, owner: String)
+
+    @Query("DELETE FROM group_messages WHERE id IN (:messageIds) AND ownerUsername = :owner")
+    suspend fun deleteMessages(messageIds: List<String>, owner: String)
+
+    @Query("UPDATE group_messages SET isPinned = :pinned WHERE id = :messageId AND ownerUsername = :owner")
+    suspend fun updatePinStatus(messageId: String, owner: String, pinned: Boolean)
 }

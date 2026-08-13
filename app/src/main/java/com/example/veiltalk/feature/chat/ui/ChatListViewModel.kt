@@ -42,10 +42,10 @@ class ChatListViewModel @Inject constructor(
 
         viewModelScope.launch {
             combine(
-                chatRepository.chatPartnersFlow(),
+                chatRepository.conversationSummariesFlow(),
                 userDirectory.directory
-            ) { partners, directory ->
-                val usernames = partners.map { it.first }
+            ) { summaries, directory ->
+                val usernames = summaries.map { it.partner }
                 userDirectory.ensureLoaded(usernames)
                 usernames.map { username ->
                     val info = directory[username]

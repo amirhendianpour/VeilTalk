@@ -30,7 +30,7 @@ fun ChatListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("پیام‌رسان من") },
+                title = { Text("VeilTalk") },
                 actions = {
                     IconButton(onClick = { viewModel.logout(onLoggedOut) }) {
                         Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "خروج")

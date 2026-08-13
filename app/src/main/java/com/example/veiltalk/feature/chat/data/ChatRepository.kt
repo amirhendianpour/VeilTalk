@@ -99,22 +99,38 @@ class ChatRepository @Inject constructor(
         return messageDao.getConversationFlow(me, partner).map { list -> list.map { it.toDomain() } }
     }
 
-    // لیست مخاطبین چت + آخرین زمان پیام، برای صفحه‌ی لیست چت‌ها (معادل chatList در App.tsx)
-    fun chatPartnersFlow(): Flow<List<Pair<String, String?>>> {
-        val me = currentUsername
-        if (me == null) return kotlinx.coroutines.flow.flowOf(emptyList())
+    // لیست مخاطبین چت + جزئیات آخرین پیام و تعداد پیام‌های نخوانده
+    fun conversationSummariesFlow(): Flow<List<ConversationSummary>> {
+        val me = currentUsername ?: return kotlinx.coroutines.flow.flowOf(emptyList())
         return messageDao.getAllForOwnerFlow(me).map { messages ->
-            val latestByPartner = mutableMapOf<String, String?>()
+            val summaries = mutableMapOf<String, ConversationSummary>()
             for (m in messages) {
                 val partner = if (m.sender == me) m.recipient else m.sender
-                val existing = latestByPartner[partner]
-                if (existing == null || (m.timestamp != null && m.timestamp > existing)) {
-                    latestByPartner[partner] = m.timestamp
+                val existing = summaries[partner]
+                
+                val isUnread = m.recipient == me && m.status != "READ"
+                
+                if (existing == null || (m.timestamp != null && (existing.timestamp == null || m.timestamp > existing.timestamp))) {
+                    summaries[partner] = ConversationSummary(
+                        partner = partner,
+                        lastMessage = m.content,
+                        timestamp = m.timestamp,
+                        unreadCount = (existing?.unreadCount ?: 0) + (if (isUnread) 1 else 0)
+                    )
+                } else if (isUnread) {
+                    summaries[partner] = existing.copy(unreadCount = existing.unreadCount + 1)
                 }
             }
-            latestByPartner.toList().sortedByDescending { it.second ?: "" }
+            summaries.values.sortedByDescending { it.timestamp ?: "" }
         }
     }
+
+data class ConversationSummary(
+    val partner: String,
+    val lastMessage: String,
+    val timestamp: String?,
+    val unreadCount: Int
+)
 
     suspend fun sendMessage(recipient: String, content: String, messageType: MessageType, fileUrl: String? = null) {
         val me = currentUsername ?: return
@@ -154,6 +170,21 @@ class ChatRepository @Inject constructor(
         stompManager.publish("/app/chat/typing", json.encodeToString(TypingEventDto.serializer(), dto))
     }
 
+    suspend fun markAsRead(partner: String) {
+        val me = currentUsername ?: return
+        messageDao.markConversationAsRead(me, partner)
+    }
+
+    suspend fun deleteMessages(messageIds: List<String>) {
+        val me = currentUsername ?: return
+        messageDao.deleteMessages(messageIds, me)
+    }
+
+    suspend fun togglePin(messageId: String, currentPinned: Boolean) {
+        val me = currentUsername ?: return
+        messageDao.updatePinStatus(messageId, me, !currentPinned)
+    }
+
     suspend fun ensureUsernameLoaded() {
         if (currentUsername == null) {
             currentUsername = sessionManager.usernameFlow.first()
@@ -171,7 +202,8 @@ private fun ChatMessageDto.toEntity(ownerUsername: String, status: String): Priv
         messageType = messageType,
         fileUrl = fileUrl,
         timestamp = timestamp,
-        status = status
+        status = status,
+        isPinned = false
     )
 }
 
@@ -184,6 +216,7 @@ private fun PrivateMessageEntity.toDomain(): ChatMessage {
         messageType = runCatching { MessageType.valueOf(messageType) }.getOrDefault(MessageType.TEXT),
         fileUrl = fileUrl,
         timestamp = timestamp,
-        status = runCatching { MessageStatus.valueOf(status) }.getOrDefault(MessageStatus.SENT)
+        status = runCatching { MessageStatus.valueOf(status) }.getOrDefault(MessageStatus.SENT),
+        isPinned = isPinned
     )
 }

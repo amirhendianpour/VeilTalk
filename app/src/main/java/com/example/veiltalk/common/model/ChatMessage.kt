@@ -11,5 +11,6 @@ data class ChatMessage(
     val messageType: MessageType,
     val fileUrl: String? = null,
     val timestamp: String? = null,
-    val status: MessageStatus = MessageStatus.SENT
+    val status: MessageStatus = MessageStatus.SENT,
+    val isPinned: Boolean = false
 )
