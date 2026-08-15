@@ -173,8 +173,17 @@ class WebRtcClient(private val context: Context) {
         }, constraints)
     }
 
-    fun setRemoteDescription(sdp: SessionDescription) {
-        peerConnection?.setRemoteDescription(SdpObserverAdapter(), sdp)
+    fun setRemoteDescription(sdp: SessionDescription, onComplete: () -> Unit = {}) {
+        peerConnection?.setRemoteDescription(object : SdpObserverAdapter() {
+            override fun onSetSuccess() {
+                mainHandler.post { onComplete() }
+            }
+            override fun onSetFailure(error: String?) {
+                mainHandler.post { 
+                    android.util.Log.e("WebRtcClient", "Failed to set remote description: $error")
+                }
+            }
+        }, sdp)
     }
 
     fun addIceCandidate(candidate: IceCandidate) {

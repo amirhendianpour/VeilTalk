@@ -8,7 +8,9 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.media.ToneGenerator
+import android.net.Uri
 import android.os.Build
+import android.util.Log
 import com.example.veiltalk.common.model.CallKind
 import com.example.veiltalk.common.model.CallSignal
 import com.example.veiltalk.common.model.CallSignalType
@@ -71,7 +73,9 @@ class CallRepository @Inject constructor(
 
     init {
         stompManager.framesForDestination("/user/queue/call")
-            .onEach { frame -> handleSignal(frame.body) }
+            .onEach { frame -> 
+                mainHandler.post { handleSignal(frame.body) }
+            }
             .launchIn(scope)
     }
 
@@ -81,21 +85,23 @@ class CallRepository @Inject constructor(
 
         when (signal.type) {
             CallSignalType.OFFER -> {
+                Log.d("CallRepo", "Received OFFER from ${signal.from} (CallId: ${signal.callId})")
                 if (_uiState.value.status != CallStatus.IDLE && callId == signal.callId) {
                     // ICE Restart / Re-offer for current call
                     signal.sdp?.let { raw ->
                         decodeSdp(raw)?.let { sdp ->
-                            webRtcClient.setRemoteDescription(sdp)
-                            webRtcClient.createAnswer { answerSdp ->
-                                sendSignal(
-                                    CallSignal(
-                                        type = CallSignalType.ANSWER,
-                                        to = signal.from ?: return@createAnswer,
-                                        sdp = encodeSdp(answerSdp),
-                                        callId = callId,
-                                        callType = _uiState.value.callType
+                            webRtcClient.setRemoteDescription(sdp) {
+                                webRtcClient.createAnswer { answerSdp ->
+                                    sendSignal(
+                                        CallSignal(
+                                            type = CallSignalType.ANSWER,
+                                            to = signal.from ?: return@createAnswer,
+                                            sdp = encodeSdp(answerSdp),
+                                            callId = callId,
+                                            callType = _uiState.value.callType
+                                        )
                                     )
-                                )
+                                }
                             }
                         }
                     }
@@ -113,15 +119,23 @@ class CallRepository @Inject constructor(
                     callType = signal.callType ?: CallKind.AUDIO,
                     remoteUser = signal.from
                 )
+                playRingtone()
             }
             CallSignalType.ANSWER -> {
+                Log.d("CallRepo", "Received ANSWER from ${signal.from}")
+                stopAudio()
                 signal.sdp?.let { raw ->
                     decodeSdp(raw)?.let { sdp ->
-                        webRtcClient.setRemoteDescription(sdp)
+                        webRtcClient.setRemoteDescription(sdp) {
+                            Log.d("CallRepo", "Remote Description (Answer) set successfully. Draining iceQueue (${iceQueue.size} items)")
+                            iceQueue.forEach { webRtcClient.addIceCandidate(it) }
+                            iceQueue.clear()
+                        }
                     }
                 }
             }
             CallSignalType.ICE_CANDIDATE -> {
+                Log.d("CallRepo", "Received ICE_CANDIDATE from ${signal.from}")
                 signal.candidate?.let { raw ->
                     val candidate = decodeIceCandidate(raw) ?: return
                     if (webRtcClient.hasRemoteDescription()) {
@@ -132,6 +146,7 @@ class CallRepository @Inject constructor(
                 }
             }
             CallSignalType.REJECT, CallSignalType.END, CallSignalType.BUSY -> {
+                Log.d("CallRepo", "Received ${signal.type} from ${signal.from}")
                 cleanup()
             }
         }
@@ -142,6 +157,7 @@ class CallRepository @Inject constructor(
 
         callId = UUID.randomUUID().toString()
         _uiState.value = _uiState.value.copy(status = CallStatus.CALLING, callType = kind, remoteUser = recipient)
+        playRingback()
 
         CallForegroundService.start(appContext, recipient)
         setupPeerConnection(withVideo = kind == CallKind.VIDEO)
@@ -166,24 +182,26 @@ class CallRepository @Inject constructor(
         val kind = offer.callType ?: CallKind.AUDIO
 
         val remoteSdp = decodeSdp(rawSdp) ?: return
+        stopAudio()
 
         CallForegroundService.start(appContext, from)
         setupPeerConnection(withVideo = kind == CallKind.VIDEO)
-        webRtcClient.setRemoteDescription(remoteSdp)
+        webRtcClient.setRemoteDescription(remoteSdp) {
+            Log.d("CallRepo", "Remote Description (Offer) set successfully. Draining iceQueue (${iceQueue.size} items)")
+            iceQueue.forEach { webRtcClient.addIceCandidate(it) }
+            iceQueue.clear()
 
-        iceQueue.forEach { webRtcClient.addIceCandidate(it) }
-        iceQueue.clear()
-
-        webRtcClient.createAnswer { answerSdp ->
-            sendSignal(
-                CallSignal(
-                    type = CallSignalType.ANSWER,
-                    to = from,
-                    sdp = encodeSdp(answerSdp),
-                    callId = callId,
-                    callType = kind
+            webRtcClient.createAnswer { answerSdp ->
+                sendSignal(
+                    CallSignal(
+                        type = CallSignalType.ANSWER,
+                        to = from,
+                        sdp = encodeSdp(answerSdp),
+                        callId = callId,
+                        callType = kind
+                    )
                 )
-            )
+            }
         }
 
         pendingOffer = null
@@ -277,6 +295,7 @@ class CallRepository @Inject constructor(
         }
 
         webRtcClient.onConnectionStateChanged = { state ->
+            Log.d("CallRepo", "Connection state changed: $state")
             when (state) {
                 PeerConnection.PeerConnectionState.CONNECTED -> {
                     isRestartingIce = false
@@ -299,6 +318,7 @@ class CallRepository @Inject constructor(
 
     private fun sendSignal(signal: CallSignal) {
         val dto = signal.toDto()
+        Log.d("CallRepo", "Sending ${signal.type} to ${signal.to}")
         val destination = when (signal.type) {
             CallSignalType.OFFER -> "/app/call/offer"
             CallSignalType.ANSWER -> "/app/call/answer"
@@ -312,12 +332,13 @@ class CallRepository @Inject constructor(
     private fun cleanup() {
         mainHandler.removeCallbacksAndMessages(null)
         mainHandler.post {
+            stopAudio()
             isRestartingIce = false
             CallForegroundService.stop(appContext)
             abandonAudioFocus()
             audioManager.mode = AudioManager.MODE_NORMAL
 
-            webRtcClient.close()
+            webRtcClient.release()
             webRtcClient = WebRtcClient(appContext)
             _localVideoTrack.value = null
             _remoteVideoTrack.value = null
@@ -385,7 +406,15 @@ class CallRepository @Inject constructor(
     private fun playRingtone() {
         stopAudio()
         try {
-            val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            // تلاش برای پخش صدای زنگ اختصاصی VeilTalk (در صورت وجود در res/raw)
+            val customRingtoneId = appContext.resources.getIdentifier("veiltalk_ringtone", "raw", appContext.packageName)
+            val ringtoneUri = if (customRingtoneId != 0) {
+                Uri.parse("android.resource://${appContext.packageName}/$customRingtoneId")
+            } else {
+                // در غیر این صورت استفاده از زنگ پیش‌فرض گوشی
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            }
+
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(appContext, ringtoneUri)
                 setAudioAttributes(
