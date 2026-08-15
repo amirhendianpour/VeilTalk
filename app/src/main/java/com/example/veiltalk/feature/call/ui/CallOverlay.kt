@@ -4,8 +4,10 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -55,6 +58,18 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
         }
     }
 
+    // Pulsating animation for calling state
+    val infiniteTransition = rememberInfiniteTransition(label = "pulsating")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = if (uiState.status == CallStatus.CALLING || uiState.status == CallStatus.RINGING) 1.15f else 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+
     // درخواست دسترسی میکروفون/دوربین برای پذیرفتن تماس
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -82,8 +97,17 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    colors = listOf(WaTeal, WaTealDark, Color.Black)
+                    colors = listOf(
+                        Color(0xFF075E54),
+                        Color(0xFF128C7E),
+                        Color(0xFF000000)
+                    )
                 )
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {} // Consume touches to prevent leaking to underlying screens
             )
     ) {
         val remoteTrack by viewModel.remoteVideoTrack.collectAsState()
@@ -102,8 +126,6 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
                 eglContext = viewModel.callRepository.eglBaseContext,
                 modifier = Modifier.fillMaxSize()
             )
-        } else {
-            // Background already set in the parent Box
         }
 
         // تصویر ثانویه (کوچک)
@@ -116,8 +138,8 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(top = 64.dp, end = 16.dp)
-                        .size(width = 100.dp, height = 150.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .size(width = 110.dp, height = 160.dp)
+                        .clip(RoundedCornerShape(16.dp))
                         .clickable { viewModel.swapVideoViews() }
                 )
             }
@@ -127,91 +149,107 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 48.dp),
+                .padding(top = 80.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (!showPrimary || uiState.isLocalVideoPrimary) {
-                AvatarView(
-                    name = viewModel.remoteDisplayName().ifBlank { "?" },
-                    size = 90.dp,
-                    colorSeed = uiState.remoteUser
-                )
-                Spacer(Modifier.height(16.dp))
+                Box(modifier = Modifier.scale(scale)) {
+                    AvatarView(
+                        name = viewModel.remoteDisplayName().ifBlank { "?" },
+                        size = 120.dp,
+                        colorSeed = uiState.remoteUser
+                    )
+                }
+                Spacer(Modifier.height(24.dp))
             }
             
             Text(
                 viewModel.remoteDisplayName(),
                 color = Color.White,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Medium
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold
             )
             
-            Text(
-                text = when (uiState.status) {
-                    CallStatus.CALLING -> "در حال تماس..."
-                    CallStatus.RINGING -> "تماس ورودی..."
-                    CallStatus.CONNECTED -> formatDuration(duration)
-                    else -> ""
-                },
-                color = Color.White.copy(alpha = 0.7f),
-                fontSize = 16.sp,
-                modifier = Modifier.padding(top = 4.dp)
-            )
+            Surface(
+                color = Color.White.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                Text(
+                    text = when (uiState.status) {
+                        CallStatus.CALLING -> "در حال تماس..."
+                        CallStatus.RINGING -> "تماس ورودی..."
+                        CallStatus.CONNECTED -> formatDuration(duration)
+                        else -> ""
+                    },
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 16.sp,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+            }
         }
 
         // Bottom Controls
         Surface(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 32.dp, start = 24.dp, end = 24.dp)
+                .padding(bottom = 48.dp, start = 20.dp, end = 20.dp)
                 .fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            color = Color.Black.copy(alpha = 0.4f)
+            shape = RoundedCornerShape(32.dp),
+            color = Color.White.copy(alpha = 0.15f),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
         ) {
             Row(
-                modifier = Modifier.padding(vertical = 16.dp, horizontal = 8.dp),
+                modifier = Modifier.padding(vertical = 20.dp, horizontal = 12.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (uiState.status == CallStatus.RINGING) {
                     CallButton(
-                        icon = Icons.Default.Videocam, 
+                        icon = Icons.Default.Call, 
                         background = Color(0xFF22C55E),
-                        tint = Color.White
+                        tint = Color.White,
+                        label = "پاسخ"
                     ) { handleAccept() }
                     
                     CallButton(
                         icon = Icons.Default.CallEnd, 
                         background = Color(0xFFEF4444),
-                        tint = Color.White
+                        tint = Color.White,
+                        label = "رد تماس"
                     ) { viewModel.rejectCall() }
                 } else {
                     CallButton(
                         icon = if (uiState.isSpeakerOn) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
-                        background = if (uiState.isSpeakerOn) Color.White.copy(alpha = 0.2f) else Color.Transparent
+                        background = if (uiState.isSpeakerOn) Color.White.copy(alpha = 0.3f) else Color.Transparent,
+                        label = "بلندگو"
                     ) { viewModel.toggleSpeaker() }
 
                     if (isVideo) {
                         CallButton(
                             icon = if (uiState.isCameraOff) Icons.Default.VideocamOff else Icons.Default.Videocam,
-                            background = if (uiState.isCameraOff) Color.White.copy(alpha = 0.2f) else Color.Transparent
+                            background = if (uiState.isCameraOff) Color.White.copy(alpha = 0.3f) else Color.Transparent,
+                            label = "دوربین"
                         ) { viewModel.toggleCamera() }
                         
                         CallButton(
                             icon = Icons.Default.Cameraswitch,
-                            background = Color.Transparent
+                            background = Color.Transparent,
+                            label = "چرخش"
                         ) { viewModel.flipCamera() }
                     }
 
                     CallButton(
                         icon = if (uiState.isMuted) Icons.Default.MicOff else Icons.Default.Mic,
-                        background = if (uiState.isMuted) Color.White.copy(alpha = 0.2f) else Color.Transparent
+                        background = if (uiState.isMuted) Color.White.copy(alpha = 0.3f) else Color.Transparent,
+                        label = "بی‌صدا"
                     ) { viewModel.toggleMute() }
 
                     CallButton(
                         icon = Icons.Default.CallEnd,
                         background = Color(0xFFEF4444),
-                        tint = Color.White
+                        tint = Color.White,
+                        label = "پایان"
                     ) { viewModel.endCall() }
                 }
             }
@@ -224,16 +262,27 @@ private fun CallButton(
     icon: ImageVector, 
     background: Color = Color.Transparent, 
     tint: Color = Color.White,
+    label: String? = null,
     onClick: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .size(52.dp)
-            .background(background, CircleShape)
-            .clickableNoRipple(onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(28.dp))
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(60.dp)
+                .background(background, CircleShape)
+                .clickableNoRipple(onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(30.dp))
+        }
+        if (label != null) {
+            Text(
+                label,
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 11.sp,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
     }
 }
 
@@ -272,7 +321,7 @@ private fun formatDuration(seconds: Int): String {
 // یک Modifier کوچک برای کلیک بدون افکت ریپل روی دکمه‌های دایره‌ای تماس
 @Composable
 private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier {
-    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val interactionSource = remember { MutableInteractionSource() }
     return this.then(
         Modifier.clickable(
             indication = null,

@@ -144,13 +144,25 @@ fun ChatScreen(
                     onTitleClick = { /* Partner Profile */ },
                     actions = {
                         IconButton(onClick = { requestCallStart(CallKind.VIDEO) }) {
-                            Icon(Icons.Default.Videocam, contentDescription = "Video Call")
+                            Icon(
+                                imageVector = Icons.Default.Videocam,
+                                contentDescription = "Video Call",
+                                tint = Color.White
+                            )
                         }
                         IconButton(onClick = { requestCallStart(CallKind.AUDIO) }) {
-                            Icon(Icons.Default.Call, contentDescription = "Audio Call")
+                            Icon(
+                                imageVector = Icons.Default.Call,
+                                contentDescription = "Audio Call",
+                                tint = Color.White
+                            )
                         }
                         IconButton(onClick = { /* Menu */ }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "More")
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "More",
+                                tint = Color.White
+                            )
                         }
                     }
                 )
@@ -208,45 +220,20 @@ fun ChatScreen(
 
     if (showMessageMenu != null) {
         val msg = showMessageMenu!!
-        AlertDialog(
-            onDismissRequest = { showMessageMenu = null },
-            confirmButton = {},
-            title = { Text("گزینه‌ها") },
-            text = {
-                Column {
-                    ListItem(
-                        headlineContent = { Text("کپی") },
-                        leadingContent = { Icon(Icons.Default.ContentCopy, null) },
-                        modifier = Modifier.clickable {
-                            clipboardManager.setText(AnnotatedString(msg.content))
-                            showMessageMenu = null
-                        }
-                    )
-                    ListItem(
-                        headlineContent = { Text(if (msg.isPinned) "برداشتن سنجاق" else "سنجاق کردن") },
-                        leadingContent = { Icon(Icons.Default.PushPin, null) },
-                        modifier = Modifier.clickable {
-                            viewModel.togglePin(msg.id, msg.isPinned)
-                            showMessageMenu = null
-                        }
-                    )
-                    ListItem(
-                        headlineContent = { Text("فوروارد") },
-                        leadingContent = { Icon(Icons.AutoMirrored.Filled.Forward, null) },
-                        modifier = Modifier.clickable {
-                            // Forward logic
-                            showMessageMenu = null
-                        }
-                    )
-                    ListItem(
-                        headlineContent = { Text("حذف", color = Color.Red) },
-                        leadingContent = { Icon(Icons.Default.Delete, null, tint = Color.Red) },
-                        modifier = Modifier.clickable {
-                            viewModel.deleteMessages(listOf(msg.id))
-                            showMessageMenu = null
-                        }
-                    )
-                }
+        MessageActionMenu(
+            isPinned = msg.isPinned,
+            onDismiss = { showMessageMenu = null },
+            onCopy = {
+                clipboardManager.setText(AnnotatedString(msg.content))
+            },
+            onTogglePin = {
+                viewModel.togglePin(msg.id, msg.isPinned)
+            },
+            onForward = {
+                // Forward logic
+            },
+            onDelete = {
+                viewModel.deleteMessages(listOf(msg.id))
             }
         )
     }
