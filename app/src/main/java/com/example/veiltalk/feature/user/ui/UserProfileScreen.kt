@@ -1,6 +1,7 @@
 package com.example.veiltalk.feature.user.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -8,21 +9,26 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.example.veiltalk.common.ui.components.AvatarView
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,6 +40,7 @@ fun UserProfileScreen(
     onStartCall: (String, Boolean) -> Unit // Boolean for isVideo
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showFullScreenImage by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -83,7 +90,10 @@ fun UserProfileScreen(
                             name = "${user.firstName} ${user.lastName}",
                             imageUrl = user.profilePictureUrl,
                             size = 120.dp,
-                            colorSeed = user.username
+                            colorSeed = user.username,
+                            modifier = Modifier.clickable {
+                                if (user.profilePictureUrl != null) showFullScreenImage = true
+                            }
                         )
                         Spacer(Modifier.height(16.dp))
                         Text(
@@ -144,7 +154,7 @@ fun UserProfileScreen(
                         InfoRow(
                             icon = Icons.Default.Info,
                             title = "بیوگرافی",
-                            value = user.bio ?: "این کاربر هنوز بیوگرافی تنظیم نکرده است."
+                            value = user.bio?.takeIf { it.isNotBlank() } ?: "توضیحی وجود ندارد."
                         )
                         HorizontalDivider(
                             modifier = Modifier.padding(vertical = 12.dp),
@@ -156,31 +166,74 @@ fun UserProfileScreen(
                             value = "@${user.username}"
                         )
                         
-                        if (!user.phoneNumber.isNullOrBlank()) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = 12.dp),
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                            )
-                            InfoRow(
-                                icon = Icons.Default.Call,
-                                title = "شماره موبایل",
-                                value = user.phoneNumber
-                            )
-                        }
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                        )
+                        InfoRow(
+                            icon = Icons.Default.Call,
+                            title = "شماره موبایل",
+                            value = user.phoneNumber?.takeIf { it.isNotBlank() } ?: "ثبت نشده"
+                        )
 
-                        if (!user.email.isNullOrBlank()) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = 12.dp),
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                            )
-                            InfoRow(
-                                icon = Icons.Default.Email,
-                                title = "ایمیل",
-                                value = user.email
-                            )
-                        }
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                        )
+                        InfoRow(
+                            icon = Icons.Default.Email,
+                            title = "ایمیل",
+                            value = user.email?.takeIf { it.isNotBlank() } ?: "ثبت نشده"
+                        )
                     }
                 }
+            }
+        }
+
+        if (showFullScreenImage && user.profilePictureUrl != null) {
+            FullScreenImageViewer(
+                imageUrl = user.profilePictureUrl,
+                onDismiss = { showFullScreenImage = false }
+            )
+        }
+    }
+}
+
+@Composable
+private fun FullScreenImageViewer(
+    imageUrl: String,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .clickable { onDismiss() },
+            contentAlignment = Alignment.Center
+        ) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f),
+                contentScale = ContentScale.Fit
+            )
+            
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = 48.dp, start = 16.dp)
+            ) {
+                Icon(Icons.Default.Close, contentDescription = "بستن", tint = Color.White)
             }
         }
     }

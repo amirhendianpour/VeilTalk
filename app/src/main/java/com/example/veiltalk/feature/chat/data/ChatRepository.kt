@@ -43,6 +43,7 @@ import javax.inject.Singleton
 class ChatRepository @Inject constructor(
     private val stompManager: StompManager,
     private val messageDao: MessageDao,
+    private val contactDao: com.example.veiltalk.core.database.dao.ContactDao,
     private val sessionManager: SessionManager,
     private val userDirectory: UserDirectoryRepository,
     private val json: Json,
@@ -85,6 +86,11 @@ class ChatRepository @Inject constructor(
         val me = currentUsername ?: return
 
         messageDao.upsert(dto.toEntity(ownerUsername = me, status = "DELIVERED"))
+        
+        // ذخیره به عنوان مخاطب به صورت خودکار
+        if (dto.sender != null) {
+            saveAsContact(dto.sender, me)
+        }
 
         // ارسال رسید تحویل
         if (dto.sender != null && dto.sender != me) {
@@ -208,6 +214,9 @@ data class ConversationSummary(
         val id = generateId()
         val nowIso = Instant.now().toString()
 
+        // ذخیره به عنوان مخاطب
+        saveAsContact(recipient, me)
+
         // ذخیره محلی همچنان با timestamp خودمان — فقط برای نمایش فوری در UI
         val entity = PrivateMessageEntity(
             id = id,
@@ -251,9 +260,31 @@ data class ConversationSummary(
         messageDao.deleteMessages(messageIds, me)
     }
 
+    suspend fun deleteConversation(partner: String) {
+        val me = currentUsername ?: return
+        messageDao.deleteConversation(me, partner)
+    }
+
     suspend fun togglePin(messageId: String, currentPinned: Boolean) {
         val me = currentUsername ?: return
         messageDao.updatePinStatus(messageId, me, !currentPinned)
+    }
+
+    private suspend fun saveAsContact(username: String, owner: String) {
+        if (username == owner || username.isBlank()) return
+        scope.launch {
+            userDirectory.ensureLoaded(listOf(username))
+            val info = userDirectory.directory.value[username] ?: return@launch
+            contactDao.upsert(
+                com.example.veiltalk.core.database.entity.ContactEntity(
+                    username = username,
+                    ownerUsername = owner,
+                    firstName = info.firstName,
+                    lastName = info.lastName,
+                    profilePictureUrl = info.profilePictureUrl
+                )
+            )
+        }
     }
 
     suspend fun ensureUsernameLoaded() {

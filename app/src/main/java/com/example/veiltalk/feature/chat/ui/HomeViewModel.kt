@@ -9,6 +9,7 @@ import com.example.veiltalk.feature.group.data.GroupRepository
 import com.example.veiltalk.feature.notification.data.FcmTokenRepository
 import com.example.veiltalk.feature.user.data.UserDirectoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -51,20 +52,26 @@ data class HomeUiState(
     val groups: List<GroupInfo> = emptyList(),
     val lookupError: String? = null,
     val isLookingUp: Boolean = false,
-    val isDarkMode: Boolean? = null
+    val isDarkMode: Boolean? = null,
+    val selectedKeys: Set<String> = emptySet()
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
     private val groupRepository: GroupRepository,
     private val userDirectory: UserDirectoryRepository,
+    private val contactDao: com.example.veiltalk.core.database.dao.ContactDao,
     private val sessionManager: SessionManager,
     private val fcmTokenRepository: FcmTokenRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    private val _contacts = MutableStateFlow<List<HomeListItem.ChatItem>>(emptyList())
+    val contacts: StateFlow<List<HomeListItem.ChatItem>> = _contacts.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -76,6 +83,23 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             sessionManager.darkModeFlow.collect { enabled ->
                 _uiState.value = _uiState.value.copy(isDarkMode = enabled)
+            }
+        }
+
+        viewModelScope.launch {
+            sessionManager.usernameFlow.flatMapLatest { me ->
+                if (me != null) contactDao.getContactsFlow(me) else flowOf(emptyList())
+            }.collect { entities ->
+                _contacts.value = entities.map { e ->
+                    HomeListItem.ChatItem(
+                        username = e.username,
+                        displayName = "${e.firstName} ${e.lastName}".trim().ifBlank { e.username },
+                        profilePictureUrl = e.profilePictureUrl,
+                        time = "", // Not needed for contact list
+                        lastMessage = "", // Not needed
+                        unreadCount = 0
+                    )
+                }
             }
         }
 
@@ -104,6 +128,23 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             sessionManager.darkModeFlow.collect { enabled ->
                 _uiState.value = _uiState.value.copy(isDarkMode = enabled)
+            }
+        }
+
+        viewModelScope.launch {
+            sessionManager.usernameFlow.flatMapLatest { me ->
+                if (me != null) contactDao.getContactsFlow(me) else flowOf(emptyList())
+            }.collect { entities ->
+                _contacts.value = entities.map { e ->
+                    HomeListItem.ChatItem(
+                        username = e.username,
+                        displayName = "${e.firstName} ${e.lastName}".trim().ifBlank { e.username },
+                        profilePictureUrl = e.profilePictureUrl,
+                        time = "", // Not needed for contact list
+                        lastMessage = "", // Not needed
+                        unreadCount = 0
+                    )
+                }
             }
         }
 
@@ -175,6 +216,35 @@ class HomeViewModel @Inject constructor(
     fun toggleDarkMode(enabled: Boolean) {
         viewModelScope.launch {
             sessionManager.setDarkMode(enabled)
+        }
+    }
+
+    fun toggleSelection(key: String) {
+        val current = _uiState.value.selectedKeys
+        _uiState.value = _uiState.value.copy(
+            selectedKeys = if (current.contains(key)) current - key else current + key
+        )
+    }
+
+    fun clearSelection() {
+        _uiState.value = _uiState.value.copy(selectedKeys = emptySet())
+    }
+
+    fun deleteSelectedChats() {
+        val keys = _uiState.value.selectedKeys
+        viewModelScope.launch {
+            keys.forEach { key ->
+                if (key.startsWith("chat-")) {
+                    val username = key.removePrefix("chat-")
+                    chatRepository.deleteConversation(username)
+                } else if (key.startsWith("group-")) {
+                    val groupId = key.removePrefix("group-").toLongOrNull()
+                    if (groupId != null) {
+                        groupRepository.deleteConversation(groupId)
+                    }
+                }
+            }
+            clearSelection()
         }
     }
 

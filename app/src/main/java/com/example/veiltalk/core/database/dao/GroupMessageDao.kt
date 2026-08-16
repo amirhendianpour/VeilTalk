@@ -36,6 +36,9 @@ interface GroupMessageDao {
     @Query("UPDATE group_messages SET isPinned = :pinned WHERE id = :messageId AND ownerUsername = :owner")
     suspend fun updatePinStatus(messageId: String, owner: String, pinned: Boolean)
 
+    @Query("DELETE FROM group_messages WHERE ownerUsername = :owner AND groupId = :groupId")
+    suspend fun deleteGroupConversation(owner: String, groupId: Long)
+
     @Query("""
         SELECT * FROM group_messages 
         WHERE ownerUsername = :owner AND groupId = :groupId

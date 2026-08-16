@@ -42,6 +42,9 @@ interface MessageDao {
     @Query("UPDATE private_messages SET isPinned = :pinned WHERE id = :messageId AND ownerUsername = :owner")
     suspend fun updatePinStatus(messageId: String, owner: String, pinned: Boolean)
 
+    @Query("DELETE FROM private_messages WHERE ownerUsername = :owner AND (sender = :partner OR recipient = :partner)")
+    suspend fun deleteConversation(owner: String, partner: String)
+
     @Query("""
         SELECT * FROM private_messages 
         WHERE ownerUsername = :owner AND (sender = :partner OR recipient = :partner)

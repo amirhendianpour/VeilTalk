@@ -1,7 +1,9 @@
 package com.example.veiltalk.feature.chat.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -39,6 +41,7 @@ fun HomeScreen(
     onLoggedOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val contacts by viewModel.contacts.collectAsState()
     var tab by remember { mutableStateOf(HomeTab.ALL) }
     var bottomNavTab by remember { mutableIntStateOf(0) }
     var newChatInput by remember { mutableStateOf("") }
@@ -46,9 +49,31 @@ fun HomeScreen(
     var showCreateGroup by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
 
+    val isSelectionMode = uiState.selectedKeys.isNotEmpty()
+
     Scaffold(
         topBar = {
-            if (bottomNavTab == 0) {
+            if (isSelectionMode) {
+                TopAppBar(
+                    title = { Text(uiState.selectedKeys.size.toString()) },
+                    navigationIcon = {
+                        IconButton(onClick = viewModel::clearSelection) {
+                            Icon(Icons.Default.Close, contentDescription = "لغو")
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = viewModel::deleteSelectedChats) {
+                            Icon(Icons.Default.Delete, contentDescription = "حذف")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                        actionIconContentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                )
+            } else if (bottomNavTab == 0) {
                 TopAppBar(
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surface,
@@ -253,6 +278,7 @@ fun HomeScreen(
                 when (tab) {
                     HomeTab.ALL -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(uiState.allItems, key = { it.key }) { item ->
+                            val isSelected = uiState.selectedKeys.contains(item.key)
                             when (item) {
                                 is HomeListItem.ChatItem -> ChatRow(
                                     displayName = item.displayName,
@@ -261,7 +287,12 @@ fun HomeScreen(
                                     subtitle = item.lastMessage,
                                     time = item.time,
                                     unreadCount = item.unreadCount,
-                                    onClick = { onOpenChat(item.username) }
+                                    isSelected = isSelected,
+                                    onClick = { 
+                                        if (isSelectionMode) viewModel.toggleSelection(item.key)
+                                        else onOpenChat(item.username) 
+                                    },
+                                    onLongClick = { viewModel.toggleSelection(item.key) }
                                 )
                                 is HomeListItem.GroupItem -> ChatRow(
                                     displayName = item.group.name,
@@ -270,7 +301,12 @@ fun HomeScreen(
                                     subtitle = item.lastMessage.ifBlank { "گروه" },
                                     time = item.time,
                                     unreadCount = item.unreadCount,
-                                    onClick = { onOpenGroup(item.group.id) }
+                                    isSelected = isSelected,
+                                    onClick = { 
+                                        if (isSelectionMode) viewModel.toggleSelection(item.key)
+                                        else onOpenGroup(item.group.id) 
+                                    },
+                                    onLongClick = { viewModel.toggleSelection(item.key) }
                                 )
                             }
                             HorizontalDivider(modifier = Modifier.padding(start = 76.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.5f))
@@ -278,6 +314,7 @@ fun HomeScreen(
                     }
                     HomeTab.CHATS -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(uiState.chatItems, key = { it.key }) { item ->
+                            val isSelected = uiState.selectedKeys.contains(item.key)
                             ChatRow(
                                 displayName = item.displayName,
                                 imageUrl = item.profilePictureUrl,
@@ -285,13 +322,20 @@ fun HomeScreen(
                                 subtitle = item.lastMessage,
                                 time = item.time,
                                 unreadCount = item.unreadCount,
-                                onClick = { onOpenChat(item.username) }
+                                isSelected = isSelected,
+                                onClick = { 
+                                    if (isSelectionMode) viewModel.toggleSelection(item.key)
+                                    else onOpenChat(item.username) 
+                                },
+                                onLongClick = { viewModel.toggleSelection(item.key) }
                             )
                             HorizontalDivider(modifier = Modifier.padding(start = 76.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.5f))
                         }
                     }
                     HomeTab.GROUPS -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(uiState.groups, key = { it.id }) { group ->
+                            val key = "group-${group.id}"
+                            val isSelected = uiState.selectedKeys.contains(key)
                             val summary = uiState.allItems.filterIsInstance<HomeListItem.GroupItem>().find { it.group.id == group.id }
                             ChatRow(
                                 displayName = group.name,
@@ -300,7 +344,12 @@ fun HomeScreen(
                                 subtitle = summary?.lastMessage ?: (if (group.role == "ADMIN") "ادمین" else "عضو"),
                                 time = summary?.time ?: "",
                                 unreadCount = summary?.unreadCount ?: 0,
-                                onClick = { onOpenGroup(group.id) }
+                                isSelected = isSelected,
+                                onClick = { 
+                                    if (isSelectionMode) viewModel.toggleSelection(key)
+                                    else onOpenGroup(group.id) 
+                                },
+                                onLongClick = { viewModel.toggleSelection(key) }
                             )
                             HorizontalDivider(modifier = Modifier.padding(start = 76.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.5f))
                         }
@@ -308,7 +357,7 @@ fun HomeScreen(
                 }
             } else if (bottomNavTab == 1) {
                 ContactsTab(
-                    allItems = uiState.allItems.filterIsInstance<HomeListItem.ChatItem>(),
+                    allItems = contacts,
                     onOpenChat = onOpenChat,
                     onOpenProfile = onOpenProfile
                 )
@@ -646,12 +695,18 @@ private fun ChatRow(
     subtitle: String,
     time: String,
     unreadCount: Int = 0,
-    onClick: () -> Unit
+    isSelected: Boolean = false,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

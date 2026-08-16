@@ -343,6 +343,11 @@ data class GroupSummary(
         }
     }
 
+    suspend fun deleteConversation(groupId: Long) {
+        val me = currentUsername ?: return
+        groupMessageDao.deleteGroupConversation(me, groupId)
+    }
+
     private fun updateLocalGroup(updated: GroupInfo) {
         _myGroups.value = _myGroups.value.map {
             if (it.id == updated.id) it.copy(name = updated.name, imageUrl = updated.imageUrl) else it
