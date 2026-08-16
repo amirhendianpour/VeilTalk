@@ -103,10 +103,10 @@ fun ChatScreen(
             if (isSelectionMode) {
                 TopAppBar(
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = com.example.veiltalk.ui.theme.WaTeal,
-                        titleContentColor = Color.White,
-                        navigationIconContentColor = Color.White,
-                        actionIconContentColor = Color.White
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                        actionIconContentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     title = { Text(selectedMessages.size.toString()) },
                     navigationIcon = {
@@ -146,22 +146,19 @@ fun ChatScreen(
                         IconButton(onClick = { requestCallStart(CallKind.VIDEO) }) {
                             Icon(
                                 imageVector = Icons.Default.Videocam,
-                                contentDescription = "Video Call",
-                                tint = Color.White
+                                contentDescription = "Video Call"
                             )
                         }
                         IconButton(onClick = { requestCallStart(CallKind.AUDIO) }) {
                             Icon(
                                 imageVector = Icons.Default.Call,
-                                contentDescription = "Audio Call",
-                                tint = Color.White
+                                contentDescription = "Audio Call"
                             )
                         }
                         IconButton(onClick = { /* Menu */ }) {
                             Icon(
                                 imageVector = Icons.Default.MoreVert,
-                                contentDescription = "More",
-                                tint = Color.White
+                                contentDescription = "More"
                             )
                         }
                     }
@@ -263,7 +260,7 @@ private fun MessageBubble(
                 Text(
                     text = if (message.status == MessageStatus.DELIVERED || message.status == MessageStatus.READ) "✓✓" else "✓",
                     fontSize = 10.sp,
-                    color = if (message.status == MessageStatus.READ) Color(0xFF3B82F6) else Color.Gray
+                    color = if (message.status == MessageStatus.READ) Color(0xFF3B82F6) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
             }
         },

@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.compose.rememberNavController
+import com.example.veiltalk.ui.theme.VeilTalkTheme
 import com.example.veiltalk.core.service.ChatConnectionService
 import com.example.veiltalk.feature.user.ui.UserDirectoryEntryPointViewModel
 import com.example.veiltalk.navigation.VeilTalkNavGraph
@@ -49,9 +50,15 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            MaterialTheme {
+            val sessionManager = hiltViewModel<SessionCheckViewModel>().sessionManager
+            val darkMode by sessionManager.darkModeFlow.collectAsState(initial = null)
+            
+            VeilTalkTheme(darkTheme = darkMode) {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    Surface(modifier = Modifier.fillMaxSize()) {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
                         RootContent()
                     }
                 }

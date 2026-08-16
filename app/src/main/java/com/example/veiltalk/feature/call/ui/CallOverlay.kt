@@ -32,8 +32,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.example.veiltalk.common.model.CallKind
 import com.example.veiltalk.common.model.CallStatus
 import com.example.veiltalk.common.ui.components.AvatarView
-import com.example.veiltalk.ui.theme.WaTeal
-import com.example.veiltalk.ui.theme.WaTealDark
+import com.example.veiltalk.ui.theme.*
 import kotlinx.coroutines.delay
 import org.webrtc.RendererCommon
 import org.webrtc.SurfaceViewRenderer
@@ -98,9 +97,9 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF075E54),
-                        Color(0xFF128C7E),
-                        Color(0xFF000000)
+                        VeilRedDark,
+                        VeilBlack,
+                        Color.Black
                     )
                 )
             )

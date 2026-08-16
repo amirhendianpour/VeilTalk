@@ -50,13 +50,18 @@ fun HomeScreen(
             if (bottomNavTab == 0) {
                 TopAppBar(
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = com.example.veiltalk.ui.theme.WaTeal,
-                        titleContentColor = Color.White,
-                        navigationIconContentColor = Color.White,
-                        actionIconContentColor = Color.White
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.primary,
+                        navigationIconContentColor = MaterialTheme.colorScheme.primary,
+                        actionIconContentColor = MaterialTheme.colorScheme.primary
                     ),
                     title = {
-                        Text("VeilTalk", fontWeight = FontWeight.Bold)
+                        AsyncImage(
+                            model = "file:///android_asset/logo-text-veil-talk.png",
+                            contentDescription = "VeilTalk",
+                            modifier = Modifier.height(32.dp),
+                            contentScale = ContentScale.Fit
+                        )
                     },
                     actions = {
                         IconButton(onClick = { showMenu = true }) {
@@ -86,9 +91,17 @@ fun HomeScreen(
                             )
                             HorizontalDivider()
                             DropdownMenuItem(
-                                leadingIcon = { Icon(Icons.Default.Brightness4, null) },
-                                text = { Text("حالت شب") },
-                                onClick = { showMenu = false }
+                                leadingIcon = { 
+                                    Icon(
+                                        if (uiState.isDarkMode == true) Icons.Default.BrightnessHigh else Icons.Default.Brightness4, 
+                                        null
+                                    ) 
+                                },
+                                text = { Text(if (uiState.isDarkMode == true) "حالت روز" else "حالت شب") },
+                                onClick = { 
+                                    showMenu = false
+                                    viewModel.toggleDarkMode(uiState.isDarkMode != true)
+                                }
                             )
                             DropdownMenuItem(
                                 leadingIcon = { Icon(Icons.Default.Bookmark, null) },
@@ -119,7 +132,7 @@ fun HomeScreen(
         },
         bottomBar = {
             NavigationBar(
-                containerColor = Color.White,
+                containerColor = MaterialTheme.colorScheme.surface,
                 tonalElevation = 8.dp
             ) {
                 NavigationBarItem(
@@ -128,9 +141,9 @@ fun HomeScreen(
                     icon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "چت‌ها") },
                     label = { Text("چت‌ها") },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = com.example.veiltalk.ui.theme.WaTeal,
-                        selectedTextColor = com.example.veiltalk.ui.theme.WaTeal,
-                        indicatorColor = com.example.veiltalk.ui.theme.WaTeal.copy(alpha = 0.1f)
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                     )
                 )
                 NavigationBarItem(
@@ -139,9 +152,9 @@ fun HomeScreen(
                     icon = { Icon(Icons.Default.Person, contentDescription = "مخاطبین") },
                     label = { Text("مخاطبین") },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = com.example.veiltalk.ui.theme.WaTeal,
-                        selectedTextColor = com.example.veiltalk.ui.theme.WaTeal,
-                        indicatorColor = com.example.veiltalk.ui.theme.WaTeal.copy(alpha = 0.1f)
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                     )
                 )
                 NavigationBarItem(
@@ -150,9 +163,9 @@ fun HomeScreen(
                     icon = { Icon(Icons.Default.Settings, contentDescription = "تنظیمات") },
                     label = { Text("تنظیمات") },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = com.example.veiltalk.ui.theme.WaTeal,
-                        selectedTextColor = com.example.veiltalk.ui.theme.WaTeal,
-                        indicatorColor = com.example.veiltalk.ui.theme.WaTeal.copy(alpha = 0.1f)
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                     )
                 )
                 NavigationBarItem(
@@ -168,9 +181,9 @@ fun HomeScreen(
                     },
                     label = { Text("پروفایل") },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = com.example.veiltalk.ui.theme.WaTeal,
-                        selectedTextColor = com.example.veiltalk.ui.theme.WaTeal,
-                        indicatorColor = com.example.veiltalk.ui.theme.WaTeal.copy(alpha = 0.1f)
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                     )
                 )
             }
@@ -181,7 +194,7 @@ fun HomeScreen(
                     onClick = {
                         if (tab == HomeTab.GROUPS) showCreateGroup = true else showNewChatField = true
                     },
-                    containerColor = com.example.veiltalk.ui.theme.WaTeal,
+                    containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = Color.White
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "جدید")
@@ -193,8 +206,8 @@ fun HomeScreen(
             if (bottomNavTab == 0) {
                 PrimaryTabRow(
                     selectedTabIndex = tab.ordinal,
-                    containerColor = Color.White,
-                    contentColor = com.example.veiltalk.ui.theme.WaTeal,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary,
                     divider = {}
                 ) {
                     Tab(selected = tab == HomeTab.ALL, onClick = { tab = HomeTab.ALL }, text = { Text("همه") })
@@ -226,7 +239,7 @@ fun HomeScreen(
                                 }
                             },
                             enabled = !uiState.isLookingUp,
-                            colors = ButtonDefaults.buttonColors(containerColor = com.example.veiltalk.ui.theme.WaTeal)
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
                             Text(if (uiState.isLookingUp) "..." else "+ چت")
                         }
@@ -302,6 +315,8 @@ fun HomeScreen(
                     displayName = uiState.myDisplayName,
                     username = uiState.myUsername,
                     profilePicture = uiState.myProfilePictureUrl,
+                    isDarkMode = uiState.isDarkMode == true,
+                    onToggleDarkMode = viewModel::toggleDarkMode,
                     onLogout = { viewModel.logout(onLoggedOut) }
                 )
             } else if (bottomNavTab == 3) {
@@ -326,11 +341,12 @@ private fun ContactsTab(
     allItems: List<HomeListItem.ChatItem>,
     onOpenChat: (String) -> Unit
 ) {
+    val primaryColor = MaterialTheme.colorScheme.primary
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item {
             ListItem(
-                headlineContent = { Text("مخاطب جدید", color = com.example.veiltalk.ui.theme.WaTeal) },
-                leadingContent = { Icon(Icons.Default.Add, null, tint = com.example.veiltalk.ui.theme.WaTeal) },
+                headlineContent = { Text("مخاطب جدید", color = primaryColor) },
+                leadingContent = { Icon(Icons.Default.Add, null, tint = primaryColor) },
                 modifier = Modifier.clickable { /* logic to add contact */ }
             )
         }
@@ -357,16 +373,18 @@ private fun SettingsTab(
     displayName: String,
     username: String,
     profilePicture: String?,
+    isDarkMode: Boolean,
+    onToggleDarkMode: (Boolean) -> Unit,
     onLogout: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
+            .background(MaterialTheme.colorScheme.background)
     ) {
         item {
             Surface(
-                color = Color.White,
+                color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 2.dp
             ) {
                 Column(
@@ -390,7 +408,33 @@ private fun SettingsTab(
                     Text(
                         "@$username",
                         fontSize = 14.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            }
+        }
+
+        item { Spacer(Modifier.height(12.dp)) }
+
+        item {
+            Surface(color = MaterialTheme.colorScheme.surface) {
+                Column {
+                    Text(
+                        "تنظیمات ظاهری",
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                    ListItem(
+                        headlineContent = { Text("حالت شب") },
+                        leadingContent = { Icon(Icons.Default.Brightness4, null) },
+                        trailingContent = {
+                            Switch(
+                                checked = isDarkMode,
+                                onCheckedChange = onToggleDarkMode
+                            )
+                        }
                     )
                 }
             }
@@ -413,7 +457,7 @@ private fun SettingsTab(
         item { Spacer(Modifier.height(12.dp)) }
 
         item {
-            Surface(color = Color.White) {
+            Surface(color = MaterialTheme.colorScheme.surface) {
                 ListItem(
                     headlineContent = { Text("خروج از حساب", color = Color.Red) },
                     leadingContent = { Icon(Icons.AutoMirrored.Filled.ExitToApp, null, tint = Color.Red) },
@@ -428,19 +472,19 @@ private data class SettingsItemData(val title: String, val icon: androidx.compos
 
 @Composable
 private fun SettingsSection(title: String, items: List<SettingsItemData>) {
-    Surface(color = Color.White) {
+    Surface(color = MaterialTheme.colorScheme.surface) {
         Column {
             Text(
                 title,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                color = com.example.veiltalk.ui.theme.WaTeal,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp
             )
             items.forEach { item ->
                 ListItem(
                     headlineContent = { Text(item.title) },
-                    leadingContent = { Icon(item.icon, null, tint = Color.Gray) },
+                    leadingContent = { Icon(item.icon, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)) },
                     modifier = Modifier.clickable { /* action */ }
                 )
             }
@@ -457,7 +501,7 @@ private fun ProfileTab(viewModel: ProfileViewModel) {
 
     if (uiState.isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = com.example.veiltalk.ui.theme.WaTeal)
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         }
         return
     }
@@ -467,11 +511,11 @@ private fun ProfileTab(viewModel: ProfileViewModel) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
+            .background(MaterialTheme.colorScheme.background)
     ) {
         item {
             Surface(
-                color = Color.White,
+                color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 2.dp
             ) {
                 Column(
@@ -518,7 +562,7 @@ private fun ProfileTab(viewModel: ProfileViewModel) {
                         )
                         Spacer(Modifier.height(8.dp))
                         TextButton(onClick = viewModel::enterEditMode) {
-                            Text("ویرایش اطلاعات", color = com.example.veiltalk.ui.theme.WaTeal)
+                            Text("ویرایش اطلاعات", color = MaterialTheme.colorScheme.primary)
                         }
                     } else {
                         Column(modifier = Modifier.padding(horizontal = 24.dp)) {
@@ -554,7 +598,7 @@ private fun ProfileTab(viewModel: ProfileViewModel) {
                                 Button(
                                     onClick = viewModel::save,
                                     modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.buttonColors(containerColor = com.example.veiltalk.ui.theme.WaTeal),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                                     enabled = !uiState.isSaving
                                 ) {
                                     Text(if (uiState.isSaving) "در حال ذخیره..." else "ذخیره")
@@ -569,7 +613,7 @@ private fun ProfileTab(viewModel: ProfileViewModel) {
         item { Spacer(Modifier.height(12.dp)) }
 
         item {
-            Surface(color = Color.White) {
+            Surface(color = MaterialTheme.colorScheme.surface) {
                 Column {
                     ProfileDetailRow(label = "آیدی", value = "@${profile.username}")
                     ProfileDetailRow(label = "شماره موبایل", value = profile.phoneNumber ?: "تنظیم نشده")
@@ -625,7 +669,7 @@ private fun ChatRow(
                 Text(
                     com.example.veiltalk.common.util.formatMessageTime(time),
                     fontSize = 12.sp,
-                    color = if (unreadCount > 0) com.example.veiltalk.ui.theme.WaTeal else Color.Gray
+                    color = if (unreadCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
             }
             Spacer(Modifier.height(4.dp))
@@ -636,14 +680,14 @@ private fun ChatRow(
             ) {
                 Text(
                     subtitle,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
                     modifier = Modifier.weight(1f)
                 )
                 if (unreadCount > 0) {
                     Surface(
-                        color = com.example.veiltalk.ui.theme.WaTeal,
+                        color = MaterialTheme.colorScheme.primary,
                         shape = androidx.compose.foundation.shape.CircleShape,
                         modifier = Modifier.sizeIn(minWidth = 20.dp, minHeight = 20.dp)
                     ) {

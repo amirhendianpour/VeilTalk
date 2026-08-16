@@ -12,7 +12,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SessionCheckViewModel @Inject constructor(
-    sessionManager: SessionManager
+    val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _startDestination = MutableStateFlow<String?>(null)

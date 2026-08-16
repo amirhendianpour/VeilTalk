@@ -1,5 +1,6 @@
 package com.example.veiltalk.feature.auth.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,12 +10,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.example.veiltalk.feature.auth.data.dto.AuthResponseDto
 
 private enum class LoginMode { PASSWORD, OTP }
@@ -43,113 +47,163 @@ fun LoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF3F4F6)),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth(0.9f)
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp)
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
+            // لوگوی متنی در بالای صفحه
+            AsyncImage(
+                model = "file:///android_asset/logo-text-veil-talk.png",
+                contentDescription = "VeilTalk",
+                modifier = Modifier
+                    .fillMaxWidth(0.7f)
+                    .height(80.dp),
+                contentScale = ContentScale.Fit
+            )
 
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .align(Alignment.CenterHorizontally)
-                        .background(Color(0xFF3B82F6), shape = androidx.compose.foundation.shape.CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("💬", fontSize = 28.sp)
-                }
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    "ورود به پیام‌رسان",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-                Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(32.dp))
 
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    TextButton(
-                        onClick = { mode = LoginMode.PASSWORD },
-                        modifier = Modifier.weight(1f)
-                    ) { Text("ورود با رمز عبور") }
-                    TextButton(
-                        onClick = { mode = LoginMode.OTP },
-                        modifier = Modifier.weight(1f)
-                    ) { Text("ورود با کد یکبار مصرف") }
-                }
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .padding(16.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(modifier = Modifier.padding(24.dp)) {
 
-                if (uiState.errorMessage != null) {
-                    Spacer(Modifier.height(8.dp))
+                    // لوگوی آیکون هود
+                    AsyncImage(
+                        model = "file:///android_asset/logo-veil-talk.png",
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(100.dp)
+                            .align(Alignment.CenterHorizontally),
+                        contentScale = ContentScale.Fit
+                    )
+                    
+                    Spacer(Modifier.height(16.dp))
+                    
                     Text(
-                        uiState.errorMessage!!,
-                        color = Color(0xFFDC2626),
+                        "خوش آمدید",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                    
+                    Spacer(Modifier.height(24.dp))
+
+                    TabRow(
+                        selectedTabIndex = if (mode == LoginMode.PASSWORD) 0 else 1,
+                        containerColor = Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.primary,
+                        divider = {}
+                    ) {
+                        Tab(
+                            selected = mode == LoginMode.PASSWORD,
+                            onClick = { mode = LoginMode.PASSWORD },
+                            text = { Text("رمز عبور", fontWeight = FontWeight.Bold) }
+                        )
+                        Tab(
+                            selected = mode == LoginMode.OTP,
+                            onClick = { mode = LoginMode.OTP },
+                            text = { Text("کد تایید", fontWeight = FontWeight.Bold) }
+                        )
+                    }
+
+                    if (uiState.errorMessage != null) {
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            uiState.errorMessage!!,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .padding(12.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.height(24.dp))
+
+                    OutlinedTextField(
+                        value = identifier,
+                        onValueChange = { identifier = it },
+                        label = { Text("ایمیل یا شماره موبایل") },
+                        placeholder = { Text("+989120000000") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    if (mode == LoginMode.PASSWORD) {
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it },
+                            label = { Text("رمز عبور") },
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.height(32.dp))
+
+                    Button(
+                        onClick = {
+                            if (mode == LoginMode.PASSWORD) {
+                                viewModel.loginWithPassword(identifier.trim(), password)
+                            } else {
+                                viewModel.requestOtpForLogin(identifier.trim())
+                            }
+                        },
+                        enabled = !uiState.isLoading,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFFFEE2E2), RoundedCornerShape(8.dp))
-                            .padding(12.dp)
-                    )
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                OutlinedTextField(
-                    value = identifier,
-                    onValueChange = { identifier = it },
-                    label = { Text("ایمیل یا شماره موبایل") },
-                    placeholder = { Text("+989120000000 یا you@example.com") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                if (mode == LoginMode.PASSWORD) {
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        label = { Text("رمز عبور") },
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                }
-
-                Spacer(Modifier.height(20.dp))
-
-                Button(
-                    onClick = {
-                        if (mode == LoginMode.PASSWORD) {
-                            viewModel.loginWithPassword(identifier.trim(), password)
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        if (uiState.isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp
+                            )
                         } else {
-                            viewModel.requestOtpForLogin(identifier.trim())
+                            Text(
+                                if (mode == LoginMode.PASSWORD) "ورود به حساب" else "ارسال کد تایید",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
-                    },
-                    enabled = !uiState.isLoading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                ) {
-                    Text(
-                        if (uiState.isLoading) "در حال ارتباط با سرور..."
-                        else if (mode == LoginMode.PASSWORD) "ورود" else "ارسال کد تایید"
-                    )
-                }
+                    }
 
-                Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(24.dp))
 
-                Row(
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("حساب کاربری ندارید؟ ")
-                    TextButton(onClick = onSwitchToRegister) {
-                        Text("ثبت‌نام کنید")
+                    Row(
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("حساب کاربری ندارید؟ ", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                        TextButton(onClick = onSwitchToRegister) {
+                            Text("ثبت‌نام سریع", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }

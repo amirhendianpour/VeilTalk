@@ -16,8 +16,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.veiltalk.common.util.formatMessageTime
-import com.example.veiltalk.ui.theme.WaLightGreen
-import com.example.veiltalk.ui.theme.WaTeal
+
+import androidx.compose.ui.graphics.luminance
+import com.example.veiltalk.ui.theme.*
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -33,10 +34,21 @@ fun ChatMessageBubble(
     status: @Composable (() -> Unit)? = null,
     mediaContent: @Composable (() -> Unit)? = null
 ) {
+    // تشخیص دقیق حالت تیره بر اساس رنگ‌های تم فعلی (نه لزوماً تم سیستم)
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    
+    val bubbleColor = if (isMine) {
+        if (isDark) DarkBubbleMine else LightBubbleMine
+    } else {
+        if (isDark) DarkBubbleOthers else LightBubbleOthers
+    }
+    val contentColor = if (isDark) VeilWhite else Color.Black
+    val primaryColor = MaterialTheme.colorScheme.primary
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (isSelected) WaTeal.copy(alpha = 0.2f) else Color.Transparent)
+            .background(if (isSelected) primaryColor.copy(alpha = 0.2f) else Color.Transparent)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -48,32 +60,32 @@ fun ChatMessageBubble(
             modifier = Modifier
                 .padding(horizontal = 8.dp)
                 .shadow(
-                    elevation = 1.dp,
+                    elevation = if (isDark) 0.dp else 1.dp,
                     shape = RoundedCornerShape(
-                        topStart = 12.dp,
-                        topEnd = 12.dp,
-                        bottomStart = if (isMine) 12.dp else 2.dp,
-                        bottomEnd = if (isMine) 2.dp else 12.dp
+                        topStart = 16.dp,
+                        topEnd = 16.dp,
+                        bottomStart = if (isMine) 16.dp else 4.dp,
+                        bottomEnd = if (isMine) 4.dp else 16.dp
                     )
                 )
                 .background(
-                    color = if (isMine) WaLightGreen else Color.White,
+                    color = bubbleColor,
                     shape = RoundedCornerShape(
-                        topStart = 12.dp,
-                        topEnd = 12.dp,
-                        bottomStart = if (isMine) 12.dp else 2.dp,
-                        bottomEnd = if (isMine) 2.dp else 12.dp
+                        topStart = 16.dp,
+                        topEnd = 16.dp,
+                        bottomStart = if (isMine) 16.dp else 4.dp,
+                        bottomEnd = if (isMine) 4.dp else 16.dp
                     )
                 )
-                .padding(horizontal = 10.dp, vertical = 6.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
                 .widthIn(max = 300.dp)
         ) {
             Column {
                 if (isPinned) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.PushPin, null, modifier = Modifier.size(12.dp), tint = WaTeal)
+                        Icon(Icons.Default.PushPin, null, modifier = Modifier.size(12.dp), tint = primaryColor)
                         Spacer(Modifier.width(4.dp))
-                        Text("سنجاق شده", fontSize = 10.sp, color = WaTeal)
+                        Text("سنجاق شده", fontSize = 10.sp, color = primaryColor)
                     }
                     Spacer(Modifier.height(4.dp))
                 }
@@ -82,7 +94,7 @@ fun ChatMessageBubble(
                     Text(
                         senderName,
                         fontSize = 11.sp,
-                        color = Color(0xFF2563EB),
+                        color = primaryColor,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.height(2.dp))
@@ -91,7 +103,11 @@ fun ChatMessageBubble(
                 mediaContent?.invoke()
                 
                 if (content.isNotBlank()) {
-                    Text(content, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        content, 
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = contentColor
+                    )
                 }
 
                 Spacer(Modifier.height(4.dp))
@@ -103,7 +119,7 @@ fun ChatMessageBubble(
                     Text(
                         formatMessageTime(timestamp),
                         fontSize = 10.sp,
-                        color = Color.Gray
+                        color = contentColor.copy(alpha = 0.6f)
                     )
                     if (isMine && status != null) {
                         Spacer(Modifier.width(4.dp))

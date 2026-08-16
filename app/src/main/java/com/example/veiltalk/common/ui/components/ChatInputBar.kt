@@ -16,8 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.veiltalk.ui.theme.WaChatBg
-import com.example.veiltalk.ui.theme.WaTeal
 
 @Composable
 fun ChatInputBar(
@@ -32,21 +30,24 @@ fun ChatInputBar(
     placeholder: String = "پیام..."
 ) {
     var showAttachMenu by remember { mutableStateOf(false) }
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val backgroundColor = MaterialTheme.colorScheme.surfaceVariant
+    val inputBackgroundColor = MaterialTheme.colorScheme.surface
 
-    Column(modifier = Modifier.background(WaChatBg)) {
+    Column(modifier = Modifier.background(backgroundColor)) {
         if (isUploading) {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = WaTeal)
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = primaryColor)
         }
         if (uploadError != null) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFFFEE2E2))
+                    .background(MaterialTheme.colorScheme.errorContainer)
                     .padding(horizontal = 16.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(uploadError, color = Color(0xFFDC2626), fontSize = 12.sp)
+                Text(uploadError, color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 12.sp)
                 TextButton(onClick = onClearUploadError) { Text("باشه") }
             }
         }
@@ -59,7 +60,7 @@ fun ChatInputBar(
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .background(Color.White, RoundedCornerShape(24.dp))
+                    .background(inputBackgroundColor, RoundedCornerShape(24.dp))
                     .padding(horizontal = 12.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -72,10 +73,10 @@ fun ChatInputBar(
                         value = value,
                         onValueChange = onValueChange,
                         modifier = Modifier.fillMaxWidth(),
-                        textStyle = LocalTextStyle.current.copy(fontSize = 16.sp),
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                         decorationBox = { innerTextField ->
                             if (value.isEmpty()) {
-                                Text(placeholder, color = Color.Gray, fontSize = 16.sp)
+                                Text(placeholder, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 16.sp)
                             }
                             innerTextField()
                         }
@@ -83,7 +84,7 @@ fun ChatInputBar(
                 }
 
                 IconButton(onClick = { showAttachMenu = true }, enabled = !isUploading) {
-                    Icon(Icons.Default.Add, contentDescription = "پیوست", tint = Color.Gray)
+                    Icon(Icons.Default.Add, contentDescription = "پیوست", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 }
 
                 DropdownMenu(
@@ -114,8 +115,8 @@ fun ChatInputBar(
                     if (value.isNotBlank()) onSendMessage()
                     else { /* Voice record placeholder */ }
                 },
-                containerColor = WaTeal,
-                contentColor = Color.White,
+                containerColor = primaryColor,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape,
                 modifier = Modifier.size(48.dp),
                 elevation = FloatingActionButtonDefaults.elevation(2.dp)

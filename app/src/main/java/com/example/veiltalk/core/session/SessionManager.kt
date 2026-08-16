@@ -1,6 +1,7 @@
 package com.example.veiltalk.core.session
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -21,14 +22,20 @@ class SessionManager @Inject constructor(
         val USERNAME = stringPreferencesKey("chat_username")
         val DISPLAY_NAME = stringPreferencesKey("chat_display_name")
         val FCM_TOKEN = stringPreferencesKey("fcm_token")
+        val DARK_MODE = booleanPreferencesKey("dark_mode")
     }
 
     val tokenFlow: Flow<String?> = context.dataStore.data.map { it[Keys.TOKEN] }
     val usernameFlow: Flow<String?> = context.dataStore.data.map { it[Keys.USERNAME] }
     val displayNameFlow: Flow<String?> = context.dataStore.data.map { it[Keys.DISPLAY_NAME] }
+    val darkModeFlow: Flow<Boolean?> = context.dataStore.data.map { it[Keys.DARK_MODE] }
 
     suspend fun getToken(): String? = tokenFlow.first()
     suspend fun getUsername(): String? = usernameFlow.first()
+
+    suspend fun setDarkMode(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.DARK_MODE] = enabled }
+    }
 
     suspend fun saveSession(token: String, username: String, displayName: String) {
         context.dataStore.edit { prefs ->

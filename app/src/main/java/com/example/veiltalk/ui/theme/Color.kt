@@ -2,16 +2,24 @@ package com.example.veiltalk.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+// VeilTalk Brand Colors (Derived from Logo)
+val VeilRed = Color(0xFFE60000)
+val VeilRedLight = Color(0xFFFF3333)
+val VeilRedDark = Color(0xFFB30000)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+val VeilBlack = Color(0xFF0A0A0A)
+val VeilDarkGray = Color(0xFF1A1A1A)
+val VeilMediumGray = Color(0xFF4A4A4A)
 
-// WhatsApp Colors
-val WaTeal = Color(0xFF008069)
-val WaTealDark = Color(0xFF005E4D)
-val WaLightGreen = Color(0xFFE7FFDB)
-val WaChatBg = Color(0xFFEFE7DE)
+val VeilWhite = Color(0xFFFFFFFF)
+val VeilLightGray = Color(0xFFF5F5F5)
+
+// Legacy Colors (Keeping for compatibility during migration)
+val WaTeal = VeilRed
+val WaTealDark = VeilRedDark
+
+// Bubble Colors
+val LightBubbleMine = Color(0xFFFFEBEE) // Very light red
+val LightBubbleOthers = Color(0xFFFFFFFF)
+val DarkBubbleMine = Color(0xFF420000) // Deep dark red
+val DarkBubbleOthers = Color(0xFF1E1E1E)

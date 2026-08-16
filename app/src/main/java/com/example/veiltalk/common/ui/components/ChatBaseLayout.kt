@@ -7,7 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.example.veiltalk.ui.theme.WaChatBg
 
 @Composable
 fun ChatBaseLayout(
@@ -15,13 +14,15 @@ fun ChatBaseLayout(
     bottomBar: @Composable () -> Unit,
     content: @Composable (PaddingValues) -> Unit
 ) {
+    val backgroundColor = MaterialTheme.colorScheme.background
+    
     Scaffold(
         topBar = topBar,
         bottomBar = {
             // این بخش باعث می‌شود قسمت پایین صفحه با باز شدن کیبورد بالا بیاید
             Box(
                 modifier = Modifier
-                    .background(WaChatBg)
+                    .background(backgroundColor)
                     .navigationBarsPadding()
                     .imePadding()
             ) {
@@ -33,7 +34,7 @@ fun ChatBaseLayout(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .background(WaChatBg)
+                    .background(backgroundColor)
             ) {
                 content(PaddingValues(horizontal = 8.dp, vertical = 8.dp))
             }

@@ -27,7 +27,6 @@ import com.example.veiltalk.common.model.GroupMessage
 import com.example.veiltalk.common.ui.components.*
 import com.example.veiltalk.common.util.formatMessageTime
 import com.example.veiltalk.feature.user.data.UserDirectoryRepository
-import com.example.veiltalk.ui.theme.WaChatBg
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,10 +59,10 @@ fun GroupChatScreen(
             if (isSelectionMode) {
                 TopAppBar(
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = com.example.veiltalk.ui.theme.WaTeal,
-                        titleContentColor = Color.White,
-                        navigationIconContentColor = Color.White,
-                        actionIconContentColor = Color.White
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                        actionIconContentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     title = { Text(selectedMessages.size.toString()) },
                     navigationIcon = {

@@ -50,7 +50,8 @@ data class HomeUiState(
     val chatItems: List<HomeListItem.ChatItem> = emptyList(),
     val groups: List<GroupInfo> = emptyList(),
     val lookupError: String? = null,
-    val isLookingUp: Boolean = false
+    val isLookingUp: Boolean = false,
+    val isDarkMode: Boolean? = null
 )
 
 @HiltViewModel
@@ -73,6 +74,12 @@ class HomeViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            sessionManager.darkModeFlow.collect { enabled ->
+                _uiState.value = _uiState.value.copy(isDarkMode = enabled)
+            }
+        }
+
+        viewModelScope.launch {
             combine(
                 sessionManager.usernameFlow,
                 sessionManager.displayNameFlow,
@@ -91,6 +98,12 @@ class HomeViewModel @Inject constructor(
                     myDisplayName = displayName,
                     myProfilePictureUrl = photo
                 )
+            }
+        }
+
+        viewModelScope.launch {
+            sessionManager.darkModeFlow.collect { enabled ->
+                _uiState.value = _uiState.value.copy(isDarkMode = enabled)
             }
         }
 
@@ -156,6 +169,12 @@ class HomeViewModel @Inject constructor(
     fun createGroup(name: String, onSuccess: (groupId: Long) -> Unit) {
         viewModelScope.launch {
             groupRepository.createGroup(name).onSuccess { onSuccess(it.id) }
+        }
+    }
+
+    fun toggleDarkMode(enabled: Boolean) {
+        viewModelScope.launch {
+            sessionManager.setDarkMode(enabled)
         }
     }
 
