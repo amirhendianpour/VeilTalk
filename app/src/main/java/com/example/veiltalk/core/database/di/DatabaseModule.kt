@@ -31,4 +31,8 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideGroupMessageDao(db: AppDatabase): GroupMessageDao = db.groupMessageDao()
+
+    @Provides
+    @Singleton
+    fun provideContactDao(db: AppDatabase): com.example.veiltalk.core.database.dao.ContactDao = db.contactDao()
 }
