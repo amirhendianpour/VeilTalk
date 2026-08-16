@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.navigation.compose.rememberNavController
 import com.example.veiltalk.core.service.ChatConnectionService
 import com.example.veiltalk.feature.user.ui.UserDirectoryEntryPointViewModel
 import com.example.veiltalk.navigation.VeilTalkNavGraph
@@ -65,6 +66,8 @@ private fun RootContent(
 ) {
     val startDestination by sessionViewModel.startDestination.collectAsState()
     val token by sessionViewModel.tokenFlow.collectAsState(initial = null)
+    
+    val navController = rememberNavController()
 
     val context = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(token) {
@@ -72,6 +75,23 @@ private fun RootContent(
             ChatConnectionService.start(context)
         } else {
             ChatConnectionService.stop(context)
+        }
+    }
+    
+    // مدیریت ناوبری از طریق نوتیفیکیشن
+    val activity = context as? androidx.activity.ComponentActivity
+    LaunchedEffect(activity?.intent) {
+        val chatUsername = activity?.intent?.getStringExtra("chat_username")
+        val groupId = activity?.intent?.getLongExtra("group_id", -1L)?.takeIf { it != -1L }
+        
+        if (startDestination != null) {
+            if (chatUsername != null) {
+                navController.navigate(com.example.veiltalk.navigation.Routes.chatRoute(chatUsername))
+                activity.intent.removeExtra("chat_username")
+            } else if (groupId != null) {
+                navController.navigate(com.example.veiltalk.navigation.Routes.groupChatRoute(groupId))
+                activity.intent.removeExtra("group_id")
+            }
         }
     }
 
@@ -82,6 +102,7 @@ private fun RootContent(
     } else {
         Box(modifier = Modifier.fillMaxSize()) {
             VeilTalkNavGraph(
+                navController = navController,
                 startDestination = startDestination!!,
                 userDirectoryRepository = hiltViewModel<com.example.veiltalk.feature.user.ui.UserDirectoryEntryPointViewModel>().repository
             )

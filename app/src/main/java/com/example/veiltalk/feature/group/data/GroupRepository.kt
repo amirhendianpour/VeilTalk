@@ -1,6 +1,11 @@
 package com.example.veiltalk.feature.group.data
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
+import coil.ImageLoader
+import coil.request.ImageRequest
+import coil.request.SuccessResult
 import com.example.veiltalk.common.model.GroupInfo
 import com.example.veiltalk.common.model.GroupMemberInfo
 import com.example.veiltalk.common.model.GroupMessage
@@ -10,13 +15,17 @@ import com.example.veiltalk.common.util.uriToMultipart
 import com.example.veiltalk.core.database.dao.GroupMessageDao
 import com.example.veiltalk.core.database.entity.GroupMessageEntity
 import com.example.veiltalk.core.di.ApplicationScope
+import com.example.veiltalk.core.service.NotificationHelper
 import com.example.veiltalk.core.session.SessionManager
 import com.example.veiltalk.core.websocket.StompManager
 import com.example.veiltalk.feature.group.data.dto.*
+import com.example.veiltalk.feature.user.data.UserDirectoryRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.time.Instant
 import javax.inject.Inject
@@ -28,14 +37,20 @@ class GroupRepository @Inject constructor(
     private val stompManager: StompManager,
     private val groupMessageDao: GroupMessageDao,
     private val sessionManager: SessionManager,
+    private val userDirectory: UserDirectoryRepository,
     private val json: Json,
     @ApplicationContext private val appContext: Context,
     @ApplicationScope private val scope: CoroutineScope
 ) {
     private var currentUsername: String? = null
+    private var activeGroupId: Long? = null
 
     private val _myGroups = MutableStateFlow<List<GroupInfo>>(emptyList())
     val myGroups: StateFlow<List<GroupInfo>> = _myGroups.asStateFlow()
+
+    fun setActiveGroupId(groupId: Long?) {
+        activeGroupId = groupId
+    }
 
     private val _groupUpdateEvent = MutableStateFlow<GroupUpdateEvent?>(null)
     val groupUpdateEvent: StateFlow<GroupUpdateEvent?> = _groupUpdateEvent.asStateFlow()
@@ -73,6 +88,65 @@ class GroupRepository @Inject constructor(
                 isPinned = false
             )
         )
+
+        // نمایش نوتیفیکیشن اگر کاربر در صفحه این گروه نیست
+        if (dto.sender != me && activeGroupId != dto.groupId) {
+            showGroupNotification(dto)
+        }
+    }
+
+    private fun showGroupNotification(dto: GroupChatMessageDto) {
+        val sender = dto.sender ?: return
+        scope.launch {
+            userDirectory.ensureLoaded(listOf(sender))
+            val groupInfo = _myGroups.value.find { it.id == dto.groupId }
+            
+            // دریافت آخرین پیام‌های گروه برای نمایش تاریخچه در نوتیفیکیشن
+            val lastEntities = groupMessageDao.getLastMessages(currentUsername ?: "", dto.groupId, 5).reversed()
+            
+            // لود کردن نام فرستنده‌های تمام پیام‌های اخیر
+            val senderUsernames = lastEntities.mapNotNull { it.sender }.distinct()
+            userDirectory.ensureLoaded(senderUsernames)
+            
+            val notificationMessages = lastEntities.map { entity ->
+                val s = entity.sender ?: "Unknown"
+                NotificationHelper.NotificationMessage(
+                    senderUsername = s,
+                    senderName = userDirectory.getDisplayName(s),
+                    content = entity.content,
+                    timestamp = runCatching { Instant.parse(entity.timestamp).toEpochMilli() }.getOrDefault(System.currentTimeMillis())
+                )
+            }
+            
+            val partnerAvatarUrl = userDirectory.getProfilePicture(sender)
+            val bitmap = partnerAvatarUrl?.let { loadAvatar(it) }
+
+            withContext(Dispatchers.Main) {
+                NotificationHelper.showMessageNotification(
+                    context = appContext,
+                    partnerUsername = sender, // اینجا در گروه، پارتنر اصلی همون فرستنده پیام آخره
+                    partnerDisplayName = userDirectory.getDisplayName(sender),
+                    messages = notificationMessages,
+                    avatarBitmap = bitmap,
+                    isGroup = true,
+                    groupId = dto.groupId,
+                    groupName = groupInfo?.name ?: "گروه #${dto.groupId}"
+                )
+            }
+        }
+    }
+
+    private suspend fun loadAvatar(url: String): Bitmap? {
+        val loader = ImageLoader(appContext)
+        val request = ImageRequest.Builder(appContext)
+            .data(url)
+            .allowHardware(false)
+            .build()
+        
+        return when (val result = loader.execute(request)) {
+            is SuccessResult -> (result.drawable as? BitmapDrawable)?.bitmap
+            else -> null
+        }
     }
 
     private fun handleGroupUpdate(rawBody: String) {

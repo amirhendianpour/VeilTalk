@@ -119,6 +119,10 @@ class CallRepository @Inject constructor(
                     callType = signal.callType ?: CallKind.AUDIO,
                     remoteUser = signal.from
                 )
+                
+                signal.from?.let { from ->
+                    CallForegroundService.start(appContext, from, "RINGING", signal.callType == CallKind.VIDEO)
+                }
                 playRingtone()
             }
             CallSignalType.ANSWER -> {
@@ -159,7 +163,7 @@ class CallRepository @Inject constructor(
         _uiState.value = _uiState.value.copy(status = CallStatus.CALLING, callType = kind, remoteUser = recipient)
         playRingback()
 
-        CallForegroundService.start(appContext, recipient)
+        CallForegroundService.start(appContext, recipient, "CALLING", kind == CallKind.VIDEO)
         setupPeerConnection(withVideo = kind == CallKind.VIDEO)
 
         webRtcClient.createOffer { sdp ->
@@ -184,7 +188,7 @@ class CallRepository @Inject constructor(
         val remoteSdp = decodeSdp(rawSdp) ?: return
         stopAudio()
 
-        CallForegroundService.start(appContext, from)
+        CallForegroundService.start(appContext, from, "CONNECTED", kind == CallKind.VIDEO)
         setupPeerConnection(withVideo = kind == CallKind.VIDEO)
         webRtcClient.setRemoteDescription(remoteSdp) {
             Log.d("CallRepo", "Remote Description (Offer) set successfully. Draining iceQueue (${iceQueue.size} items)")

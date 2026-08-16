@@ -8,6 +8,6 @@ import dagger.hilt.android.HiltAndroidApp
 class VeilTalkApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        NotificationHelper.createChannel(this)
+        NotificationHelper.createChannels(this)
     }
 }

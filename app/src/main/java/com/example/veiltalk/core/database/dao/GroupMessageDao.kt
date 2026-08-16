@@ -35,4 +35,12 @@ interface GroupMessageDao {
 
     @Query("UPDATE group_messages SET isPinned = :pinned WHERE id = :messageId AND ownerUsername = :owner")
     suspend fun updatePinStatus(messageId: String, owner: String, pinned: Boolean)
+
+    @Query("""
+        SELECT * FROM group_messages 
+        WHERE ownerUsername = :owner AND groupId = :groupId
+        ORDER BY timestamp DESC
+        LIMIT :limit
+    """)
+    suspend fun getLastMessages(owner: String, groupId: Long, limit: Int): List<GroupMessageEntity>
 }

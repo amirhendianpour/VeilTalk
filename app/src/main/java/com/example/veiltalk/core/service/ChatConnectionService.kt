@@ -25,7 +25,8 @@ class ChatConnectionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        startForeground(NotificationHelper.NOTIFICATION_ID, NotificationHelper.buildConnectionNotification(this))
+        NotificationHelper.createChannels(this)
+        startForeground(NotificationHelper.CONNECTION_NOTIFICATION_ID, NotificationHelper.buildConnectionNotification(this))
 
         serviceScope.launch {
             val token = sessionManager.getToken()

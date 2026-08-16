@@ -45,6 +45,7 @@ class GroupChatViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), GroupChatUiState())
 
     init {
+        groupRepository.setActiveGroupId(groupId)
         viewModelScope.launch { groupRepository.ensureUsernameLoaded() }
     }
 
@@ -67,5 +68,10 @@ class GroupChatViewModel @Inject constructor(
         viewModelScope.launch {
             groupRepository.togglePin(messageId, currentPinned)
         }
+    }
+
+    override fun onCleared() {
+        groupRepository.setActiveGroupId(null)
+        super.onCleared()
     }
 }

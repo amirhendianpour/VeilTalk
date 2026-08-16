@@ -62,6 +62,7 @@ class ChatViewModel @Inject constructor(
     private var typingResetJob: kotlinx.coroutines.Job? = null
 
     init {
+        chatRepository.setActiveChatPartner(partner)
         viewModelScope.launch {
             chatRepository.ensureUsernameLoaded()
             userDirectory.ensureLoaded(listOf(partner))
@@ -136,6 +137,7 @@ class ChatViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        chatRepository.setActiveChatPartner(null)
         chatRepository.sendTyping(partner, false)
         super.onCleared()
     }

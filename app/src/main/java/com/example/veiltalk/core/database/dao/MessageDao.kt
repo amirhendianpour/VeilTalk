@@ -41,4 +41,12 @@ interface MessageDao {
 
     @Query("UPDATE private_messages SET isPinned = :pinned WHERE id = :messageId AND ownerUsername = :owner")
     suspend fun updatePinStatus(messageId: String, owner: String, pinned: Boolean)
+
+    @Query("""
+        SELECT * FROM private_messages 
+        WHERE ownerUsername = :owner AND (sender = :partner OR recipient = :partner)
+        ORDER BY timestamp DESC
+        LIMIT :limit
+    """)
+    suspend fun getLastMessages(owner: String, partner: String, limit: Int): List<PrivateMessageEntity>
 }
