@@ -1,6 +1,7 @@
 package com.example.veiltalk.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -25,11 +26,13 @@ object Routes {
     const val CHAT = "chat/{username}"
     const val GROUP_CHAT = "groupChat/{groupId}"
     const val GROUP_INFO = "groupInfo/{groupId}"
+    const val USER_PROFILE = "userProfile/{username}"
 
     fun otpRoute(identifier: String) = "otp/$identifier"
     fun chatRoute(username: String) = "chat/$username"
     fun groupChatRoute(groupId: Long) = "groupChat/$groupId"
     fun groupInfoRoute(groupId: Long) = "groupInfo/$groupId"
+    fun userProfileRoute(username: String) = "userProfile/$username"
 }
 
 @Composable
@@ -71,7 +74,8 @@ fun VeilTalkNavGraph(
             HomeScreen(
                 onOpenChat = { username -> navController.navigate(Routes.chatRoute(username)) },
                 onOpenGroup = { groupId -> navController.navigate(Routes.groupChatRoute(groupId)) },
-                onOpenProfile = { navController.navigate(Routes.PROFILE) },
+                onOpenProfile = { username -> navController.navigate(Routes.userProfileRoute(username)) },
+                onOpenMyProfile = { navController.navigate(Routes.PROFILE) },
                 onLoggedOut = { navController.navigate(Routes.LOGIN) { popUpTo(0) } }
             )
         }
@@ -80,7 +84,30 @@ fun VeilTalkNavGraph(
             route = Routes.CHAT,
             arguments = listOf(navArgument("username") { type = NavType.StringType })
         ) {
-            ChatScreen(onBack = { navController.popBackStack() })
+            ChatScreen(
+                onBack = { navController.popBackStack() },
+                onOpenProfile = { username -> navController.navigate(Routes.userProfileRoute(username)) }
+            )
+        }
+
+        composable(
+            route = Routes.USER_PROFILE,
+            arguments = listOf(navArgument("username") { type = NavType.StringType })
+        ) {
+            val callViewModel: com.example.veiltalk.feature.call.ui.CallViewModel = hiltViewModel()
+            com.example.veiltalk.feature.user.ui.UserProfileScreen(
+                onBack = { navController.popBackStack() },
+                onStartChat = { username -> 
+                    navController.navigate(Routes.chatRoute(username)) {
+                        popUpTo(Routes.HOME) { saveState = true }
+                        launchSingleTop = true
+                    }
+                },
+                onStartCall = { username, isVideo ->
+                    val kind = if (isVideo) com.example.veiltalk.common.model.CallKind.VIDEO else com.example.veiltalk.common.model.CallKind.AUDIO
+                    callViewModel.startCall(username, kind)
+                }
+            )
         }
 
         composable(
@@ -91,7 +118,8 @@ fun VeilTalkNavGraph(
             GroupChatScreen(
                 userDirectory = userDirectoryRepository,
                 onBack = { navController.popBackStack() },
-                onOpenInfo = { navController.navigate(Routes.groupInfoRoute(groupId)) }
+                onOpenInfo = { navController.navigate(Routes.groupInfoRoute(groupId)) },
+                onOpenProfile = { username -> navController.navigate(Routes.userProfileRoute(username)) }
             )
         }
 

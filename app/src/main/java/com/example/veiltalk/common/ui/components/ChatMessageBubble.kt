@@ -1,6 +1,7 @@
 package com.example.veiltalk.common.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,6 +32,7 @@ fun ChatMessageBubble(
     isSelected: Boolean = false,
     onLongClick: () -> Unit = {},
     onClick: () -> Unit = {},
+    onSenderClick: () -> Unit = {},
     status: @Composable (() -> Unit)? = null,
     mediaContent: @Composable (() -> Unit)? = null
 ) {
@@ -95,7 +97,8 @@ fun ChatMessageBubble(
                         senderName,
                         fontSize = 11.sp,
                         color = primaryColor,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { onSenderClick() }
                     )
                     Spacer(Modifier.height(2.dp))
                 }

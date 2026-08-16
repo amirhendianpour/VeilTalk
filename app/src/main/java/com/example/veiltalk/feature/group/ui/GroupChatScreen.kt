@@ -34,7 +34,8 @@ fun GroupChatScreen(
     viewModel: GroupChatViewModel = hiltViewModel(),
     userDirectory: UserDirectoryRepository,
     onBack: () -> Unit,
-    onOpenInfo: () -> Unit
+    onOpenInfo: () -> Unit,
+    onOpenProfile: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val inputText by viewModel.inputText.collectAsState()
@@ -146,6 +147,9 @@ fun GroupChatScreen(
                     },
                     onLongClick = {
                         selectedMessages = setOf(message.id)
+                    },
+                    onSenderClick = {
+                        message.sender?.let { onOpenProfile(it) }
                     }
                 )
             }
@@ -180,7 +184,8 @@ private fun GroupMessageBubble(
     isSelected: Boolean,
     senderDisplayName: String,
     onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onLongClick: () -> Unit,
+    onSenderClick: () -> Unit
 ) {
     ChatMessageBubble(
         content = message.content,
@@ -190,6 +195,7 @@ private fun GroupMessageBubble(
         isSelected = isSelected,
         senderName = if (!mine) senderDisplayName else null,
         onClick = onClick,
-        onLongClick = onLongClick
+        onLongClick = onLongClick,
+        onSenderClick = onSenderClick
     )
 }

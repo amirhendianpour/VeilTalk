@@ -34,7 +34,8 @@ fun HomeScreen(
     profileViewModel: ProfileViewModel = hiltViewModel(),
     onOpenChat: (username: String) -> Unit,
     onOpenGroup: (groupId: Long) -> Unit,
-    onOpenProfile: () -> Unit,
+    onOpenProfile: (username: String) -> Unit, // تغییر یافته برای پروفایل سایرین
+    onOpenMyProfile: () -> Unit, // نام جدید برای پروفایل خود کاربر
     onLoggedOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -86,7 +87,7 @@ fun HomeScreen(
                                 },
                                 onClick = { 
                                     showMenu = false
-                                    bottomNavTab = 3 // برو به تب پروفایل
+                                    onOpenMyProfile()
                                 }
                             )
                             HorizontalDivider()
@@ -308,7 +309,8 @@ fun HomeScreen(
             } else if (bottomNavTab == 1) {
                 ContactsTab(
                     allItems = uiState.allItems.filterIsInstance<HomeListItem.ChatItem>(),
-                    onOpenChat = onOpenChat
+                    onOpenChat = onOpenChat,
+                    onOpenProfile = onOpenProfile
                 )
             } else if (bottomNavTab == 2) {
                 SettingsTab(
@@ -339,7 +341,8 @@ fun HomeScreen(
 @Composable
 private fun ContactsTab(
     allItems: List<HomeListItem.ChatItem>,
-    onOpenChat: (String) -> Unit
+    onOpenChat: (String) -> Unit,
+    onOpenProfile: (String) -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -359,7 +362,8 @@ private fun ContactsTab(
                         name = item.displayName,
                         imageUrl = item.profilePictureUrl,
                         size = 40.dp,
-                        colorSeed = item.username
+                        colorSeed = item.username,
+                        modifier = Modifier.clickable { onOpenProfile(item.username) }
                     )
                 },
                 modifier = Modifier.clickable { onOpenChat(item.username) }

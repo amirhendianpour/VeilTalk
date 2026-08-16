@@ -42,7 +42,8 @@ import com.example.veiltalk.common.ui.components.*
 fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel(),
     callViewModel: com.example.veiltalk.feature.call.ui.CallViewModel = hiltViewModel(),
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenProfile: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val inputText by viewModel.inputText.collectAsState()
@@ -141,7 +142,7 @@ fun ChatScreen(
                     imageUrl = uiState.partnerProfilePicture,
                     colorSeed = viewModel.partner,
                     onBack = onBack,
-                    onTitleClick = { /* Partner Profile */ },
+                    onTitleClick = { onOpenProfile(viewModel.partner) },
                     actions = {
                         IconButton(onClick = { requestCallStart(CallKind.VIDEO) }) {
                             Icon(
@@ -208,6 +209,9 @@ fun ChatScreen(
                         },
                         onLongClick = {
                             selectedMessages = setOf(message.id)
+                        },
+                        onSenderClick = {
+                            onOpenProfile(viewModel.partner)
                         }
                     )
                 }
@@ -242,7 +246,8 @@ private fun MessageBubble(
     partner: String,
     isSelected: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onLongClick: () -> Unit,
+    onSenderClick: () -> Unit
 ) {
     val mine = message.recipient == partner
     val context = LocalContext.current
@@ -255,6 +260,7 @@ private fun MessageBubble(
         isSelected = isSelected,
         onClick = onClick,
         onLongClick = onLongClick,
+        onSenderClick = onSenderClick,
         status = {
             if (mine) {
                 Text(
