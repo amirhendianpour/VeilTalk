@@ -7,6 +7,9 @@ data class UserInfoDto(
     val username: String,
     val firstName: String,
     val lastName: String,
+    val email: String? = null,
+    val phoneNumber: String? = null,
+    val bio: String? = null,
     val profilePictureUrl: String? = null
 )
 

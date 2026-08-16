@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Videocam
@@ -143,7 +144,7 @@ fun UserProfileScreen(
                         InfoRow(
                             icon = Icons.Default.Info,
                             title = "بیوگرافی",
-                            value = "این کاربر هنوز بیوگرافی تنظیم نکرده است." // چون در UserInfoDto نداریم
+                            value = user.bio ?: "این کاربر هنوز بیوگرافی تنظیم نکرده است."
                         )
                         HorizontalDivider(
                             modifier = Modifier.padding(vertical = 12.dp),
@@ -152,8 +153,32 @@ fun UserProfileScreen(
                         InfoRow(
                             icon = Icons.Default.Person,
                             title = "نام کاربری",
-                            value = user.username
+                            value = "@${user.username}"
                         )
+                        
+                        if (!user.phoneNumber.isNullOrBlank()) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 12.dp),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                            )
+                            InfoRow(
+                                icon = Icons.Default.Call,
+                                title = "شماره موبایل",
+                                value = user.phoneNumber
+                            )
+                        }
+
+                        if (!user.email.isNullOrBlank()) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 12.dp),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                            )
+                            InfoRow(
+                                icon = Icons.Default.Email,
+                                title = "ایمیل",
+                                value = user.email
+                            )
+                        }
                     }
                 }
             }
