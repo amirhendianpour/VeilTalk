@@ -36,18 +36,17 @@ class WebRtcClient(private val context: Context) {
     // پایین یک TURN تستی رایگان گذاشته‌ام صرفاً برای عیب‌یابی — برای Production حتماً TURN خودت را جایگزین کن.
     private val iceServers = listOf(
         PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
-        PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer(),
-        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:80")
-            .setUsername("openrelayproject")
-            .setPassword("openrelayproject")
+        PeerConnection.IceServer.builder("turn:49.13.120.183:3478?transport=udp")
+            .setUsername("amir")
+            .setPassword("Amir1234")
             .createIceServer(),
-        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443")
-            .setUsername("openrelayproject")
-            .setPassword("openrelayproject")
+        PeerConnection.IceServer.builder("turn:49.13.120.183:3478?transport=tcp")
+            .setUsername("amir")
+            .setPassword("Amir1234")
             .createIceServer(),
-        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443?transport=tcp")
-            .setUsername("openrelayproject")
-            .setPassword("openrelayproject")
+        PeerConnection.IceServer.builder("turns:49.13.120.183.nip.io:5349?transport=tcp")
+            .setUsername("amir")
+            .setPassword("Amir1234")
             .createIceServer()
     )
 
