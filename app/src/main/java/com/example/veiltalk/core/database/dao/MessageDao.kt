@@ -30,8 +30,23 @@ interface MessageDao {
     @Query("UPDATE private_messages SET status = :status WHERE id = :messageId AND ownerUsername = :owner")
     suspend fun updateStatus(messageId: String, owner: String, status: String)
 
+    @Query("""
+        UPDATE private_messages
+        SET status = :newStatus
+        WHERE id = :messageId AND ownerUsername = :owner
+        AND (CASE status WHEN 'READ' THEN 2 WHEN 'DELIVERED' THEN 1 ELSE 0 END)
+            <= (CASE :newStatus WHEN 'READ' THEN 2 WHEN 'DELIVERED' THEN 1 ELSE 0 END)
+    """)
+    suspend fun updateStatusIfHigher(messageId: String, owner: String, newStatus: String)
+
     @Query("UPDATE private_messages SET status = 'READ' WHERE ownerUsername = :owner AND sender = :partner AND status != 'READ'")
     suspend fun markConversationAsRead(owner: String, partner: String)
+
+    @Query("""
+        SELECT * FROM private_messages
+        WHERE ownerUsername = :owner AND sender = :partner AND status != 'READ'
+    """)
+    suspend fun getUnreadFromSender(owner: String, partner: String): List<PrivateMessageEntity>
 
     @Query("DELETE FROM private_messages WHERE id = :messageId AND ownerUsername = :owner")
     suspend fun deleteMessage(messageId: String, owner: String)

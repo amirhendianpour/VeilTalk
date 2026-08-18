@@ -36,6 +36,32 @@ interface GroupMessageDao {
     @Query("UPDATE group_messages SET isPinned = :pinned WHERE id = :messageId AND ownerUsername = :owner")
     suspend fun updatePinStatus(messageId: String, owner: String, pinned: Boolean)
 
+    @Query("""
+        UPDATE group_messages
+        SET status = :newStatus
+        WHERE id = :messageId AND ownerUsername = :owner
+        AND (CASE status WHEN 'READ' THEN 2 WHEN 'DELIVERED' THEN 1 ELSE 0 END)
+            <= (CASE :newStatus WHEN 'READ' THEN 2 WHEN 'DELIVERED' THEN 1 ELSE 0 END)
+    """)
+    suspend fun updateStatusIfHigher(messageId: String, owner: String, newStatus: String)
+
+    @Query("UPDATE group_messages SET status = 'READ' WHERE ownerUsername = :owner AND groupId = :groupId AND sender != :owner AND status != 'READ'")
+    suspend fun markGroupAsRead(owner: String, groupId: Long)
+
+    @Query("""
+        SELECT * FROM group_messages
+        WHERE ownerUsername = :owner AND groupId = :groupId AND sender != :owner AND status != 'READ'
+    """)
+    suspend fun getUnreadInGroup(owner: String, groupId: Long): List<GroupMessageEntity>
+
+    @Query("""
+        UPDATE group_messages 
+        SET status = 'READ' 
+        WHERE ownerUsername = :owner AND groupId = :groupId 
+        AND sender = :owner AND status != 'READ'
+    """)
+    suspend fun markAllSentMessagesAsRead(owner: String, groupId: Long)
+
     @Query("DELETE FROM group_messages WHERE ownerUsername = :owner AND groupId = :groupId")
     suspend fun deleteGroupConversation(owner: String, groupId: Long)
 

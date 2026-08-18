@@ -85,24 +85,28 @@ class ChatRepository @Inject constructor(
         val dto = runCatching { json.decodeFromString<ChatMessageDto>(rawBody) }.getOrNull() ?: return
         val me = currentUsername ?: return
 
-        messageDao.upsert(dto.toEntity(ownerUsername = me, status = "DELIVERED"))
+        // اگر کاربر همین الان در صفحه چتِ این شخص است، وضعیت را READ بگذار، در غیر این صورت DELIVERED
+        val isChatOpen = activeChatPartner == dto.sender
+        val finalStatus = if (isChatOpen) "READ" else "DELIVERED"
+
+        messageDao.upsert(dto.toEntity(ownerUsername = me, status = finalStatus))
         
         // ذخیره به عنوان مخاطب به صورت خودکار
         if (dto.sender != null) {
             saveAsContact(dto.sender, me)
         }
 
-        // ارسال رسید تحویل
+        // ارسال رسید (اگر پیام از طرف ما نیست)
         if (dto.sender != null && dto.sender != me) {
             val receipt = ReceiptDto(
                 messageId = dto.id,
                 recipient = dto.sender,
-                status = "DELIVERED"
+                status = finalStatus // بر اساس باز بودن چت، READ یا DELIVERED می‌فرستد
             )
             stompManager.publish("/app/chat/receipt", json.encodeToString(ReceiptDto.serializer(), receipt))
             
-            // اگر کاربر در صفحه چتِ این شخص نیست، نوتیفیکیشن نشان بده
-            if (activeChatPartner != dto.sender) {
+            // فقط اگر کاربر در صفحه چت نیست، نوتیفیکیشن نشان بده
+            if (!isChatOpen) {
                 showNotificationForMessage(dto)
             }
         }
@@ -157,8 +161,9 @@ class ChatRepository @Inject constructor(
 
     private suspend fun handleReceipt(rawBody: String) {
         val dto = runCatching { json.decodeFromString<ReceiptDto>(rawBody) }.getOrNull() ?: return
+        val messageId = dto.messageId ?: return
         val me = currentUsername ?: return
-        messageDao.updateStatus(dto.messageId, me, dto.status)
+        messageDao.updateStatusIfHigher(messageId, me, dto.status)
     }
 
     private fun handleTyping(rawBody: String) {
@@ -252,7 +257,22 @@ data class ConversationSummary(
 
     suspend fun markAsRead(partner: String) {
         val me = currentUsername ?: return
+
+        // پیام‌های دریافتی از این partner که هنوز READ نشدن رو پیدا کن
+        val unread = messageDao.getUnreadFromSender(me, partner)
+
+        // دیتابیس محلی رو آپدیت کن (مثل قبل)
         messageDao.markConversationAsRead(me, partner)
+
+        // برای هرکدوم به فرستنده اصلی رسید READ بفرست تا تیکش آبی بشه
+        unread.forEach { entity ->
+            val receipt = ReceiptDto(
+                messageId = entity.id,
+                recipient = entity.sender,
+                status = "READ"
+            )
+            stompManager.publish("/app/chat/receipt", json.encodeToString(ReceiptDto.serializer(), receipt))
+        }
     }
 
     suspend fun deleteMessages(messageIds: List<String>) {

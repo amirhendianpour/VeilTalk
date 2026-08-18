@@ -77,7 +77,7 @@ object NotificationHelper {
         return NotificationCompat.Builder(context, CONNECTION_CHANNEL_ID)
             .setContentTitle("VeilTalk")
             .setContentText("در حال دریافت پیام‌ها...")
-            .setSmallIcon(android.R.drawable.stat_notify_chat)
+            .setSmallIcon(com.example.veiltalk.R.mipmap.ic_launcher)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .build()
@@ -176,7 +176,7 @@ object NotificationHelper {
 
         // ساخت نهایی نوتیفیکیشن
         val notification = NotificationCompat.Builder(context, MESSAGE_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_notify_chat)
+            .setSmallIcon(com.example.veiltalk.R.mipmap.ic_launcher)
             .setStyle(messagingStyle)
             .setContentIntent(pendingContent)
             .addAction(replyAction)
@@ -203,7 +203,7 @@ object NotificationHelper {
 
     private fun updateSummaryNotification(context: Context) {
         val summary = NotificationCompat.Builder(context, MESSAGE_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_notify_chat)
+            .setSmallIcon(com.example.veiltalk.R.mipmap.ic_launcher)
             .setStyle(NotificationCompat.InboxStyle().setSummaryText("پیام‌های VeilTalk"))
             .setGroup(MESSAGE_GROUP_ID)
             .setGroupSummary(true)
@@ -225,7 +225,7 @@ object NotificationHelper {
         )
 
         val builder = NotificationCompat.Builder(context, CALL_CHANNEL_ID)
-            .setSmallIcon(if (isVideo) android.R.drawable.presence_video_online else android.R.drawable.stat_sys_phone_call)
+            .setSmallIcon(com.example.veiltalk.R.mipmap.ic_launcher)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setOngoing(true)

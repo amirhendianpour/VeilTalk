@@ -194,6 +194,15 @@ private fun GroupMessageBubble(
         isPinned = message.isPinned,
         isSelected = isSelected,
         senderName = if (!mine) senderDisplayName else null,
+        status = {
+            if (mine) {
+                Text(
+                    text = if (message.status == com.example.veiltalk.common.model.MessageStatus.DELIVERED || message.status == com.example.veiltalk.common.model.MessageStatus.READ) "✓✓" else "✓",
+                    fontSize = 10.sp,
+                    color = if (message.status == com.example.veiltalk.common.model.MessageStatus.READ) Color(0xFF3B82F6) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                )
+            }
+        },
         onClick = onClick,
         onLongClick = onLongClick,
         onSenderClick = onSenderClick

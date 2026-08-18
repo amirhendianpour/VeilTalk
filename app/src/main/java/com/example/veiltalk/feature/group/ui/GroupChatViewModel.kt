@@ -46,7 +46,10 @@ class GroupChatViewModel @Inject constructor(
 
     init {
         groupRepository.setActiveGroupId(groupId)
-        viewModelScope.launch { groupRepository.ensureUsernameLoaded() }
+        viewModelScope.launch { 
+            groupRepository.ensureUsernameLoaded()
+            groupRepository.markGroupAsRead(groupId)
+        }
     }
 
     fun onInputChange(text: String) { _inputText.value = text }

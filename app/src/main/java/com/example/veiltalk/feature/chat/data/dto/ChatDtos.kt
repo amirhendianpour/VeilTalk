@@ -15,9 +15,22 @@ data class ChatMessageDto(
 
 @Serializable
 data class ReceiptDto(
-    val messageId: String,
+    val messageId: String? = null,
     val sender: String? = null,
     val recipient: String,
+    val status: String,
+    val groupId: Long? = null
+)
+
+@Serializable
+data class GroupReadRequestDto(
+    val groupId: Long
+)
+
+@Serializable
+data class GroupMessageStatusEventDto(
+    val messageId: String? = null,
+    val groupId: Long,
     val status: String
 )
 

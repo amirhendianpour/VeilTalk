@@ -10,5 +10,6 @@ data class GroupMessageEntity(
     val sender: String?,
     val content: String,
     val timestamp: String?,
+    val status: String = "SENT",
     val isPinned: Boolean = false
 )

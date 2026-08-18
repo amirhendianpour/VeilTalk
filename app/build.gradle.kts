@@ -87,4 +87,11 @@ dependencies {
     implementation(libs.stream.webrtc)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+    // androidTestImplementation(libs.androidx.ui.test.junit4)
+    // debugImplementation(libs.androidx.ui.test.manifest)
 }

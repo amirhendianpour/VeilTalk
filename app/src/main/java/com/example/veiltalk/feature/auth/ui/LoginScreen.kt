@@ -19,7 +19,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.example.veiltalk.common.util.CountryCodes
+import com.example.veiltalk.common.util.CountryInfo
 import com.example.veiltalk.feature.auth.data.dto.AuthResponseDto
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 private enum class LoginMode { PASSWORD, OTP }
 
@@ -34,6 +38,9 @@ fun LoginScreen(
     var mode by remember { mutableStateOf(LoginMode.PASSWORD) }
     var identifier by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var selectedCountry by remember { mutableStateOf(CountryCodes.countries.find { it.code == "+98" } ?: CountryCodes.countries[0]) }
+    var showCountryPicker by remember { mutableStateOf(false) }
+    var useCountryCode by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -137,14 +144,77 @@ fun LoginScreen(
 
                     OutlinedTextField(
                         value = identifier,
-                        onValueChange = { identifier = it },
+                        onValueChange = { 
+                            identifier = it
+                            // اگر ورودی با عدد شروع شود، احتمالاً شماره موبایل است
+                            if (it.isNotEmpty() && it.first().isDigit()) {
+                                useCountryCode = true
+                            } else if (it.contains("@")) {
+                                useCountryCode = false
+                            }
+                        },
                         label = { Text("ایمیل یا شماره موبایل") },
-                        placeholder = { Text("+989120000000") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        placeholder = { Text("example@mail.com یا 9120000000") },
+                        leadingIcon = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TextButton(onClick = { showCountryPicker = true }) {
+                                    Text(if (useCountryCode) "${selectedCountry.flag} ${selectedCountry.code}" else "📧")
+                                }
+                                if (useCountryCode) {
+                                    VerticalDivider(modifier = Modifier.height(24.dp).padding(horizontal = 4.dp))
+                                }
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = if (useCountryCode) KeyboardType.Phone else KeyboardType.Email),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp)
                     )
+
+                    if (showCountryPicker) {
+                        AlertDialog(
+                            onDismissRequest = { showCountryPicker = false },
+                            title = { Text("انتخاب پیش‌شماره یا ایمیل") },
+                            text = {
+                                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                                    TextButton(
+                                        onClick = {
+                                            useCountryCode = false
+                                            showCountryPicker = false
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text("📧 استفاده از ایمیل", modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Start)
+                                    }
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                                    CountryCodes.countries.forEach { country ->
+                                        TextButton(
+                                            onClick = {
+                                                selectedCountry = country
+                                                useCountryCode = true
+                                                showCountryPicker = false
+                                            },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.Start
+                                            ) {
+                                                Text(country.flag, modifier = Modifier.padding(end = 8.dp))
+                                                Text(country.name, modifier = Modifier.weight(1f))
+                                                Text(country.code, color = Color.Gray)
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            confirmButton = {
+                                TextButton(onClick = { showCountryPicker = false }) {
+                                    Text("بستن")
+                                }
+                            }
+                        )
+                    }
 
                     if (mode == LoginMode.PASSWORD) {
                         Spacer(Modifier.height(16.dp))
@@ -164,10 +234,17 @@ fun LoginScreen(
 
                     Button(
                         onClick = {
-                            if (mode == LoginMode.PASSWORD) {
-                                viewModel.loginWithPassword(identifier.trim(), password)
+                            val finalIdentifier = if (useCountryCode && identifier.isNotBlank()) {
+                                val cleanNumber = identifier.trim().removePrefix("0")
+                                "${selectedCountry.code}$cleanNumber"
                             } else {
-                                viewModel.requestOtpForLogin(identifier.trim())
+                                identifier.trim()
+                            }
+
+                            if (mode == LoginMode.PASSWORD) {
+                                viewModel.loginWithPassword(finalIdentifier, password)
+                            } else {
+                                viewModel.requestOtpForLogin(finalIdentifier)
                             }
                         },
                         enabled = !uiState.isLoading,

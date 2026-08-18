@@ -38,6 +38,7 @@ class StompManager @Inject constructor(
         "/user/queue/group-history",
         "/user/queue/group-messages",
         "/user/queue/group-updates",
+        "/user/queue/group-receipts",
         "/user/queue/call"
     )
 

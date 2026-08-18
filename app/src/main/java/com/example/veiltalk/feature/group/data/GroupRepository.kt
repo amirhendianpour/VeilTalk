@@ -18,6 +18,9 @@ import com.example.veiltalk.core.di.ApplicationScope
 import com.example.veiltalk.core.service.NotificationHelper
 import com.example.veiltalk.core.session.SessionManager
 import com.example.veiltalk.core.websocket.StompManager
+import com.example.veiltalk.feature.chat.data.dto.ReceiptDto
+import com.example.veiltalk.feature.chat.data.dto.GroupReadRequestDto
+import com.example.veiltalk.feature.chat.data.dto.GroupMessageStatusEventDto
 import com.example.veiltalk.feature.group.data.dto.*
 import com.example.veiltalk.feature.user.data.UserDirectoryRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -72,11 +75,19 @@ class GroupRepository @Inject constructor(
         stompManager.framesForDestination("/user/queue/group-updates")
             .onEach { frame -> handleGroupUpdate(frame.body) }
             .launchIn(scope)
+
+        stompManager.framesForDestination("/user/queue/group-receipts")
+            .onEach { frame -> handleGroupReceipt(frame.body) }
+            .launchIn(scope)
     }
 
     private suspend fun handleIncomingGroupMessage(rawBody: String) {
         val dto = runCatching { json.decodeFromString<GroupChatMessageDto>(rawBody) }.getOrNull() ?: return
         val me = currentUsername ?: return
+        
+        val isGroupOpen = activeGroupId == dto.groupId
+        val status = if (dto.sender == me) "SENT" else if (isGroupOpen) "READ" else "DELIVERED"
+        
         groupMessageDao.upsert(
             GroupMessageEntity(
                 id = dto.id,
@@ -85,13 +96,51 @@ class GroupRepository @Inject constructor(
                 sender = dto.sender,
                 content = dto.content,
                 timestamp = dto.timestamp,
+                status = status,
                 isPinned = false
             )
         )
 
+        // ارسال رسید به فرستنده (اگر پیام از طرف ما نیست)
+        if (dto.sender != null && dto.sender != me) {
+            val receipt = ReceiptDto(
+                messageId = dto.id,
+                recipient = dto.sender,
+                status = if (isGroupOpen) "READ" else "DELIVERED",
+                groupId = dto.groupId
+            )
+            stompManager.publish("/app/chat/receipt", json.encodeToString(ReceiptDto.serializer(), receipt))
+        }
+
         // نمایش نوتیفیکیشن اگر کاربر در صفحه این گروه نیست
-        if (dto.sender != me && activeGroupId != dto.groupId) {
+        if (dto.sender != me && !isGroupOpen) {
             showGroupNotification(dto)
+        }
+    }
+
+    private suspend fun handleGroupReceipt(rawBody: String) {
+        // سرور رسیدهای رله شده را با مدل ReceiptDto یا GroupMessageStatusEventDto می‌فرستد
+        // ابتدا با ReceiptDto امتحان می‌کنیم
+        val receiptDto = runCatching { json.decodeFromString<ReceiptDto>(rawBody) }.getOrNull()
+        val me = currentUsername ?: return
+
+        if (receiptDto != null) {
+            if (receiptDto.messageId != null) {
+                groupMessageDao.updateStatusIfHigher(receiptDto.messageId, me, receiptDto.status)
+            } else if (receiptDto.groupId != null && receiptDto.status == "READ") {
+                groupMessageDao.markAllSentMessagesAsRead(me, receiptDto.groupId)
+            }
+            return
+        }
+
+        // اگر نشد، با GroupMessageStatusEventDto امتحان می‌کنیم
+        val eventDto = runCatching { json.decodeFromString<GroupMessageStatusEventDto>(rawBody) }.getOrNull()
+        if (eventDto != null) {
+            if (eventDto.messageId != null) {
+                groupMessageDao.updateStatusIfHigher(eventDto.messageId, me, eventDto.status)
+            } else if (eventDto.status == "READ") {
+                groupMessageDao.markAllSentMessagesAsRead(me, eventDto.groupId)
+            }
         }
     }
 
@@ -166,7 +215,17 @@ class GroupRepository @Inject constructor(
     fun groupMessagesFlow(groupId: Long): Flow<List<GroupMessage>> {
         val me = currentUsername ?: return flowOf(emptyList())
         return groupMessageDao.getGroupMessagesFlow(me, groupId).map { list ->
-            list.map { GroupMessage(it.id, it.groupId, it.sender, it.content, it.timestamp, it.isPinned) }
+            list.map { entity ->
+                GroupMessage(
+                    id = entity.id,
+                    groupId = entity.groupId,
+                    sender = entity.sender,
+                    content = entity.content,
+                    timestamp = entity.timestamp,
+                    status = runCatching { com.example.veiltalk.common.model.MessageStatus.valueOf(entity.status) }.getOrDefault(com.example.veiltalk.common.model.MessageStatus.SENT),
+                    isPinned = entity.isPinned
+                )
+            }
         }
     }
 
@@ -187,12 +246,17 @@ class GroupRepository @Inject constructor(
             val map = mutableMapOf<Long, GroupSummary>()
             for (m in messages) {
                 val existing = map[m.groupId]
+                
+                val isUnread = m.sender != me && m.status != "READ"
+                
                 if (existing == null || (m.timestamp != null && (existing.timestamp == null || m.timestamp > existing.timestamp))) {
                     map[m.groupId] = GroupSummary(
                         lastMessage = m.content,
                         timestamp = m.timestamp,
-                        unreadCount = 0 // در حال حاضر سیستم خوانده شدن پیام گروهی نداریم
+                        unreadCount = (existing?.unreadCount ?: 0) + (if (isUnread) 1 else 0)
                     )
+                } else if (isUnread) {
+                    map[m.groupId] = existing.copy(unreadCount = existing.unreadCount + 1)
                 }
             }
             map
@@ -210,11 +274,32 @@ data class GroupSummary(
         val id = generateId()
         val nowIso = Instant.now().toString()
 
-        // نمایش فوری برای خود فرستنده — چون بک‌اند پیام رو به خود فرستنده برنمی‌گردونه
-        groupMessageDao.upsert(GroupMessageEntity(id, me, groupId, me, content, nowIso))
+        // نمایش فوری برای خود فرستنده
+        groupMessageDao.upsert(
+            GroupMessageEntity(
+                id = id,
+                ownerUsername = me,
+                groupId = groupId,
+                sender = me,
+                content = content,
+                timestamp = nowIso,
+                status = "SENT"
+            )
+        )
 
         val dto = GroupChatMessageDto(id = id, groupId = groupId, content = content)
         stompManager.publish("/app/group/chat", json.encodeToString(GroupChatMessageDto.serializer(), dto))
+    }
+
+    suspend fun markGroupAsRead(groupId: Long) {
+        val me = currentUsername ?: return
+        
+        // آپدیت دیتابیس محلی
+        groupMessageDao.markGroupAsRead(me, groupId)
+        
+        // اطلاع به سرور برای آپدیت وضعیت برای بقیه
+        val request = GroupReadRequestDto(groupId = groupId)
+        stompManager.publish("/app/group/read", json.encodeToString(GroupReadRequestDto.serializer(), request))
     }
 
     suspend fun refreshMyGroups() {

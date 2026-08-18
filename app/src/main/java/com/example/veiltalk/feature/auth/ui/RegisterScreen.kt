@@ -17,6 +17,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.example.veiltalk.common.util.CountryCodes
+import com.example.veiltalk.common.util.CountryInfo
 
 @Composable
 fun RegisterScreen(
@@ -31,6 +33,8 @@ fun RegisterScreen(
     var email by remember { mutableStateOf("") }
     var phoneNumber by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var selectedCountry by remember { mutableStateOf(CountryCodes.countries.find { it.code == "+98" } ?: CountryCodes.countries[0]) }
+    var showCountryPicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -107,12 +111,51 @@ fun RegisterScreen(
                 OutlinedTextField(
                     value = phoneNumber,
                     onValueChange = { phoneNumber = it },
-                    label = { Text("شماره موبایل (اختیاری)") },
-                    placeholder = { Text("+989120000000") },
+                    label = { Text("شماره موبایل (بدون صفر)") },
+                    placeholder = { Text("9120000000") },
+                    leadingIcon = {
+                        TextButton(onClick = { showCountryPicker = true }) {
+                            Text("${selectedCountry.flag} ${selectedCountry.code}")
+                        }
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
+
+                if (showCountryPicker) {
+                    AlertDialog(
+                        onDismissRequest = { showCountryPicker = false },
+                        title = { Text("انتخاب کشور") },
+                        text = {
+                            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                                CountryCodes.countries.forEach { country ->
+                                    TextButton(
+                                        onClick = {
+                                            selectedCountry = country
+                                            showCountryPicker = false
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.Start
+                                        ) {
+                                            Text(country.flag, modifier = Modifier.padding(end = 8.dp))
+                                            Text(country.name, modifier = Modifier.weight(1f))
+                                            Text(country.code, color = Color.Gray)
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { showCountryPicker = false }) {
+                                Text("بستن")
+                            }
+                        }
+                    )
+                }
 
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
@@ -146,11 +189,16 @@ fun RegisterScreen(
                 Spacer(Modifier.height(20.dp))
                 Button(
                     onClick = {
+                        val fullPhoneNumber = if (phoneNumber.isNotBlank()) {
+                            val cleanNumber = phoneNumber.trim().removePrefix("0")
+                            "${selectedCountry.code}$cleanNumber"
+                        } else null
+
                         viewModel.register(
                             firstName.trim(),
                             lastName.trim(),
                             email.trim().ifBlank { null },
-                            phoneNumber.trim().ifBlank { null },
+                            fullPhoneNumber,
                             password
                         )
                     },
