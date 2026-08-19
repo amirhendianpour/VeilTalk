@@ -15,4 +15,7 @@ interface UserApi {
 
     @POST("api/users/batch-info")
     suspend fun batchInfo(@Body request: BatchInfoRequestDto): Response<List<UserInfoDto>>
+
+    @POST("api/users/contacts/sync")
+    suspend fun syncContacts(@Body request: com.example.veiltalk.feature.user.data.dto.ContactSyncRequestDto): Response<List<com.example.veiltalk.feature.user.data.dto.ContactSyncResponseDto>>
 }

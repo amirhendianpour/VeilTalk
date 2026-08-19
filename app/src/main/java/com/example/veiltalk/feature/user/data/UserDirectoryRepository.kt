@@ -22,6 +22,22 @@ class UserDirectoryRepository @Inject constructor(
     private val _directory = MutableStateFlow<Map<String, UserInfoDto>>(emptyMap())
     val directory: StateFlow<Map<String, UserInfoDto>> = _directory.asStateFlow()
 
+    private val _onlineStatus = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+    val onlineStatus: StateFlow<Map<String, Boolean>> = _onlineStatus.asStateFlow()
+
+    private val _lastSeen = MutableStateFlow<Map<String, String?>>(emptyMap())
+    val lastSeen: StateFlow<Map<String, String?>> = _lastSeen.asStateFlow()
+
+    fun updateStatus(username: String, online: Boolean, lastSeen: String? = null) {
+        _onlineStatus.value = _onlineStatus.value + (username to online)
+        if (lastSeen != null) {
+            _lastSeen.value = _lastSeen.value + (username to lastSeen)
+        }
+    }
+
+    fun isOnline(username: String): Boolean = _onlineStatus.value[username] ?: false
+    fun getLastSeen(username: String): String? = _lastSeen.value[username]
+
     private val pending = mutableSetOf<String>()
     private val mutex = Mutex()
     private var flushJob: kotlinx.coroutines.Job? = null

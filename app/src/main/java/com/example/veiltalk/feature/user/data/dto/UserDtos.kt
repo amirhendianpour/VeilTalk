@@ -17,3 +17,16 @@ data class UserInfoDto(
 data class BatchInfoRequestDto(
     val usernames: List<String>
 )
+
+@Serializable
+data class ContactSyncRequestDto(
+    val phoneNumbers: List<String>
+)
+
+@Serializable
+data class ContactSyncResponseDto(
+    val username: String,
+    val phoneNumber: String,
+    val firstName: String,
+    val lastName: String
+)

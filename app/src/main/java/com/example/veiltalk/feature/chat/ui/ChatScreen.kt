@@ -138,7 +138,12 @@ fun ChatScreen(
             } else {
                 ChatTopBar(
                     title = uiState.partnerDisplayName,
-                    subtitle = if (uiState.isPartnerTyping) "در حال تایپ..." else null,
+                    subtitle = when {
+                        uiState.isPartnerTyping -> "در حال تایپ..."
+                        uiState.isPartnerOnline -> "آنلاین"
+                        uiState.partnerLastSeen != null -> "آخرین بازدید: ${com.example.veiltalk.common.util.formatMessageTime(uiState.partnerLastSeen)}"
+                        else -> null
+                    },
                     imageUrl = uiState.partnerProfilePicture,
                     colorSeed = viewModel.partner,
                     onBack = onBack,

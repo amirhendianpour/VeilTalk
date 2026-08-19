@@ -7,6 +7,7 @@ import com.example.veiltalk.core.session.SessionManager
 import com.example.veiltalk.feature.chat.data.ChatRepository
 import com.example.veiltalk.feature.group.data.GroupRepository
 import com.example.veiltalk.feature.notification.data.FcmTokenRepository
+import com.example.veiltalk.feature.user.data.ContactSyncRepository
 import com.example.veiltalk.feature.user.data.UserDirectoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -53,7 +54,8 @@ data class HomeUiState(
     val lookupError: String? = null,
     val isLookingUp: Boolean = false,
     val isDarkMode: Boolean? = null,
-    val selectedKeys: Set<String> = emptySet()
+    val selectedKeys: Set<String> = emptySet(),
+    val isSyncingContacts: Boolean = false
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -62,6 +64,7 @@ class HomeViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
     private val groupRepository: GroupRepository,
     private val userDirectory: UserDirectoryRepository,
+    private val contactSyncRepository: ContactSyncRepository,
     private val contactDao: com.example.veiltalk.core.database.dao.ContactDao,
     private val sessionManager: SessionManager,
     private val fcmTokenRepository: FcmTokenRepository
@@ -95,8 +98,8 @@ class HomeViewModel @Inject constructor(
                         username = e.username,
                         displayName = "${e.firstName} ${e.lastName}".trim().ifBlank { e.username },
                         profilePictureUrl = e.profilePictureUrl,
-                        time = "", // Not needed for contact list
-                        lastMessage = "", // Not needed
+                        time = "", 
+                        lastMessage = "", 
                         unreadCount = 0
                     )
                 }
@@ -122,29 +125,6 @@ class HomeViewModel @Inject constructor(
                     myDisplayName = displayName,
                     myProfilePictureUrl = photo
                 )
-            }
-        }
-
-        viewModelScope.launch {
-            sessionManager.darkModeFlow.collect { enabled ->
-                _uiState.value = _uiState.value.copy(isDarkMode = enabled)
-            }
-        }
-
-        viewModelScope.launch {
-            sessionManager.usernameFlow.flatMapLatest { me ->
-                if (me != null) contactDao.getContactsFlow(me) else flowOf(emptyList())
-            }.collect { entities ->
-                _contacts.value = entities.map { e ->
-                    HomeListItem.ChatItem(
-                        username = e.username,
-                        displayName = "${e.firstName} ${e.lastName}".trim().ifBlank { e.username },
-                        profilePictureUrl = e.profilePictureUrl,
-                        time = "", // Not needed for contact list
-                        lastMessage = "", // Not needed
-                        unreadCount = 0
-                    )
-                }
             }
         }
 
@@ -189,6 +169,14 @@ class HomeViewModel @Inject constructor(
                     groups = groups
                 )
             }
+        }
+    }
+
+    fun syncContacts() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSyncingContacts = true)
+            contactSyncRepository.syncContacts()
+            _uiState.value = _uiState.value.copy(isSyncingContacts = false)
         }
     }
 

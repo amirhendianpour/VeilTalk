@@ -19,6 +19,7 @@ import com.example.veiltalk.core.websocket.StompManager
 import com.example.veiltalk.feature.chat.data.dto.ChatMessageDto
 import com.example.veiltalk.feature.chat.data.dto.ReceiptDto
 import com.example.veiltalk.feature.chat.data.dto.TypingEventDto
+import com.example.veiltalk.feature.chat.data.dto.UserStatusDto
 import com.example.veiltalk.feature.user.data.UserDirectoryRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -78,6 +79,10 @@ class ChatRepository @Inject constructor(
 
         stompManager.framesForDestination("/user/queue/typing")
             .onEach { frame -> handleTyping(frame.body) }
+            .launchIn(scope)
+
+        stompManager.framesForDestination("/topic/user-status")
+            .onEach { frame -> handleUserStatus(frame.body) }
             .launchIn(scope)
     }
 
@@ -174,6 +179,11 @@ class ChatRepository @Inject constructor(
         } else {
             _typingUsers.value - sender
         }
+    }
+
+    private fun handleUserStatus(rawBody: String) {
+        val dto = runCatching { json.decodeFromString<UserStatusDto>(rawBody) }.getOrNull() ?: return
+        userDirectory.updateStatus(dto.username, dto.online, dto.lastSeen)
     }
 
     fun conversationFlow(partner: String): Flow<List<ChatMessage>> {

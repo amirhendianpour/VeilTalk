@@ -2,6 +2,12 @@ package com.example.veiltalk.feature.chat.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -42,8 +48,32 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val contacts by viewModel.contacts.collectAsState()
+    val context = LocalContext.current
     var tab by remember { mutableStateOf(HomeTab.ALL) }
     var bottomNavTab by remember { mutableIntStateOf(0) }
+    
+    val contactPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.syncContacts()
+        }
+    }
+
+    LaunchedEffect(bottomNavTab) {
+        if (bottomNavTab == 1) { // تب مخاطبین
+            val hasPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.READ_CONTACTS
+            ) == PackageManager.PERMISSION_GRANTED
+            
+            if (hasPermission) {
+                viewModel.syncContacts()
+            } else {
+                contactPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+            }
+        }
+    }
     var newChatInput by remember { mutableStateOf("") }
     var showNewChatField by remember { mutableStateOf(false) }
     var showCreateGroup by remember { mutableStateOf(false) }
@@ -356,11 +386,21 @@ fun HomeScreen(
                     }
                 }
             } else if (bottomNavTab == 1) {
-                ContactsTab(
-                    allItems = contacts,
-                    onOpenChat = onOpenChat,
-                    onOpenProfile = onOpenProfile
-                )
+                if (uiState.isSyncingContacts && contacts.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator()
+                            Spacer(Modifier.height(16.dp))
+                            Text("در حال جستجوی دوستان شما در VeilTalk...")
+                        }
+                    }
+                } else {
+                    ContactsTab(
+                        allItems = contacts,
+                        onOpenChat = onOpenChat,
+                        onOpenProfile = onOpenProfile
+                    )
+                }
             } else if (bottomNavTab == 2) {
                 SettingsTab(
                     displayName = uiState.myDisplayName,
@@ -710,7 +750,27 @@ private fun ChatRow(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        AvatarView(name = displayName, imageUrl = imageUrl, size = 52.dp, colorSeed = colorSeed)
+        Box {
+            AvatarView(name = displayName, imageUrl = imageUrl, size = 52.dp, colorSeed = colorSeed)
+            
+            // نمایش نقطه آنلاین برای چت‌های خصوصی
+            if (colorSeed != null && !colorSeed.startsWith("group-")) {
+                val userDirectory = hiltViewModel<com.example.veiltalk.feature.user.ui.UserDirectoryEntryPointViewModel>().repository
+                val onlineStatus by userDirectory.onlineStatus.collectAsState()
+                val isOnline = onlineStatus[colorSeed] ?: false
+                
+                if (isOnline) {
+                    Surface(
+                        color = Color(0xFF22C55E),
+                        shape = androidx.compose.foundation.shape.CircleShape,
+                        border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.surface),
+                        modifier = Modifier
+                            .size(14.dp)
+                            .align(Alignment.BottomEnd)
+                    ) {}
+                }
+            }
+        }
         Spacer(Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(

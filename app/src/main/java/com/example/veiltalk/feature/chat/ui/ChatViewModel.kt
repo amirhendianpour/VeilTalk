@@ -23,7 +23,9 @@ data class ChatUiState(
     val messages: List<ChatMessage> = emptyList(),
     val partnerDisplayName: String = "",
     val partnerProfilePicture: String? = null,
-    val isPartnerTyping: Boolean = false
+    val isPartnerTyping: Boolean = false,
+    val isPartnerOnline: Boolean = false,
+    val partnerLastSeen: String? = null
 )
 
 @HiltViewModel
@@ -48,14 +50,18 @@ class ChatViewModel @Inject constructor(
     val uiState: StateFlow<ChatUiState> = combine(
         chatRepository.conversationFlow(partner),
         userDirectory.directory,
-        chatRepository.typingUsers
-    ) { messages, directory, typing ->
+        chatRepository.typingUsers,
+        userDirectory.onlineStatus,
+        userDirectory.lastSeen
+    ) { messages, directory, typing, onlineStatus, lastSeen ->
         val info = directory[partner]
         ChatUiState(
             messages = messages,
             partnerDisplayName = if (info != null) "${info.firstName} ${info.lastName}".trim().ifBlank { partner } else partner,
             partnerProfilePicture = info?.profilePictureUrl,
-            isPartnerTyping = typing.contains(partner)
+            isPartnerTyping = typing.contains(partner),
+            isPartnerOnline = onlineStatus[partner] ?: false,
+            partnerLastSeen = lastSeen[partner]
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ChatUiState())
 

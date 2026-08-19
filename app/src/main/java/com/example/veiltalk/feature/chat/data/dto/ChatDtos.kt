@@ -40,3 +40,10 @@ data class TypingEventDto(
     val recipient: String,
     val typing: Boolean
 )
+
+@Serializable
+data class UserStatusDto(
+    val username: String,
+    val online: Boolean,
+    val lastSeen: String? = null
+)
