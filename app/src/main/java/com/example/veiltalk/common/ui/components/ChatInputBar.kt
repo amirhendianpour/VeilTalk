@@ -10,7 +10,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
@@ -18,6 +20,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -38,24 +42,12 @@ fun ChatInputBar(
 ) {
     var showAttachMenu by remember { mutableStateOf(false) }
     var showEmojiPicker by remember { mutableStateOf(false) }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    
     val primaryColor = MaterialTheme.colorScheme.primary
     val backgroundColor = MaterialTheme.colorScheme.surfaceVariant
     val inputBackgroundColor = MaterialTheme.colorScheme.surface
-
-    if (showEmojiPicker) {
-        EmojiStickerGifPicker(
-            onEmojiSelected = { emoji -> onValueChange(value + emoji) },
-            onStickerSelected = { stickerUrl ->
-                onSendSticker(stickerUrl)
-                showEmojiPicker = false
-            },
-            onGifSelected = { gifUrl ->
-                onSendGif(gifUrl)
-                showEmojiPicker = false
-            },
-            onDismiss = { showEmojiPicker = false }
-        )
-    }
 
     Column(modifier = Modifier.background(backgroundColor)) {
         if (isUploading) {
@@ -87,14 +79,37 @@ fun ChatInputBar(
                     .padding(horizontal = 12.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { showEmojiPicker = true }) {
-                    Text("😊", fontSize = 20.sp)
+                IconButton(onClick = { 
+                    if (showEmojiPicker) {
+                        showEmojiPicker = false
+                        keyboardController?.show()
+                    } else {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        showEmojiPicker = true
+                    }
+                }) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = if (showEmojiPicker) Icons.Default.Keyboard else Icons.Default.Add,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        if (!showEmojiPicker) {
+                            Text("😊", fontSize = 16.sp)
+                        }
+                    }
                 }
 
-                Box(modifier = Modifier.weight(1f)) {
+                Box(modifier = Modifier.weight(1f).padding(horizontal = 4.dp)) {
                     BasicTextField(
                         value = value,
-                        onValueChange = onValueChange,
+                        onValueChange = { 
+                            onValueChange(it)
+                            // اگر کاربر شروع به تایپ کرد، پنل ایموجی را ببند (رفتار واتس‌اپ)
+                            if (showEmojiPicker) showEmojiPicker = false
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                         decorationBox = { innerTextField ->
@@ -151,27 +166,52 @@ fun ChatInputBar(
                 )
             }
         }
+
+        if (showEmojiPicker) {
+            EmojiStickerGifPicker(
+                onEmojiSelected = { emoji -> onValueChange(value + emoji) },
+                onStickerSelected = { stickerUrl ->
+                    onSendSticker(stickerUrl)
+                },
+                onGifSelected = { gifUrl ->
+                    onSendGif(gifUrl)
+                },
+                onBackspace = {
+                    if (value.isNotEmpty()) {
+                        onValueChange(value.dropLast(1))
+                    }
+                }
+            )
+        }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EmojiStickerGifPicker(
     onEmojiSelected: (String) -> Unit,
     onStickerSelected: (String) -> Unit,
     onGifSelected: (String) -> Unit,
-    onDismiss: () -> Unit
+    onBackspace: () -> Unit
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        var selectedTab by remember { mutableIntStateOf(0) }
-        
-        Column(modifier = Modifier.fillMaxWidth().height(400.dp)) {
-            TabRow(selectedTabIndex = selectedTab) {
-                Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("ایموجی") })
-                Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("استیکر") })
-                Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 }, text = { Text("گیف") })
-            }
+    var selectedTab by remember { mutableIntStateOf(0) }
+    
+    Column(modifier = Modifier.fillMaxWidth().height(320.dp).background(MaterialTheme.colorScheme.surface)) {
+        TabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.primary
+        ) {
+            Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("ایموجی") })
+            Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("استیکر") })
+            Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 }, text = { Text("گیف") })
             
+            // دکمه پاک کردن در کنار تب‌ها
+            IconButton(onClick = onBackspace) {
+                Icon(Icons.AutoMirrored.Filled.Backspace, contentDescription = "پاک کردن", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        
+        Box(modifier = Modifier.weight(1f)) {
             when (selectedTab) {
                 0 -> EmojiGrid(onEmojiSelected)
                 1 -> StickerGrid(onStickerSelected)
@@ -183,8 +223,12 @@ fun EmojiStickerGifPicker(
 
 @Composable
 fun EmojiGrid(onEmojiSelected: (String) -> Unit) {
-    val emojis = listOf("😊", "😂", "🥰", "😍", "😒", "😭", "😘", "🙌", "👍", "🔥", "❤️", "✨", "🤔", "😎", "🥺", "🙏")
-    LazyVerticalGrid(columns = GridCells.Adaptive(48.dp), contentPadding = PaddingValues(16.dp)) {
+    val emojis = listOf(
+        "😊", "😂", "🥰", "😍", "😒", "😭", "😘", "🙌", "👍", "🔥", "❤️", "✨", "🤔", "😎", "🥺", "🙏",
+        "👏", "🎉", "🤣", "😂", "😅", "😊", "😋", "😎", "😍", "😘", "🥰", "😗", "😙", "😚", "☺️", "🙂",
+        "🤗", "🤩", "🤔", "🤨", "😐", "😑", "😶", "🙄", "😏", "😣", "😥", "😮", "🤐", "😯", "😪", "😫"
+    )
+    LazyVerticalGrid(columns = GridCells.Adaptive(48.dp), contentPadding = PaddingValues(8.dp)) {
         items(emojis) { emoji ->
             Box(modifier = Modifier.size(48.dp).clickable { onEmojiSelected(emoji) }, contentAlignment = Alignment.Center) {
                 Text(emoji, fontSize = 24.sp)
@@ -195,13 +239,13 @@ fun EmojiGrid(onEmojiSelected: (String) -> Unit) {
 
 @Composable
 fun StickerGrid(onStickerSelected: (String) -> Unit) {
-    // Mock sticker URLs
     val stickers = listOf(
         "https://cdn.pixabay.com/photo/2017/02/10/12/12/volunteer-2055010_1280.png",
         "https://cdn.pixabay.com/photo/2016/03/31/19/58/avatar-1295429_1280.png",
-        "https://cdn.pixabay.com/photo/2016/11/18/23/38/child-1837375_1280.png"
+        "https://cdn.pixabay.com/photo/2016/11/18/23/38/child-1837375_1280.png",
+        "https://cdn.pixabay.com/photo/2017/02/10/12/12/volunteer-2055010_1280.png"
     )
-    LazyVerticalGrid(columns = GridCells.Fixed(3), contentPadding = PaddingValues(16.dp)) {
+    LazyVerticalGrid(columns = GridCells.Fixed(4), contentPadding = PaddingValues(8.dp)) {
         items(stickers) { url ->
             AsyncImage(
                 model = url,
@@ -214,12 +258,11 @@ fun StickerGrid(onStickerSelected: (String) -> Unit) {
 
 @Composable
 fun GifGrid(onGifSelected: (String) -> Unit) {
-    // Mock GIF URLs (using static images for demo if needed, but Coil handles GIFs)
     val gifs = listOf(
-        "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJidmNueGZyc2V6bmN4Z3V4Z3V4Z3V4Z3V4Z3V4Z3V4Z3V4JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/3o7TKSjPqcKGRZaO3u/giphy.gif",
-        "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJidmNueGZyc2V6bmN4Z3V4Z3V4Z3V4Z3V4Z3V4Z3V4Z3V4JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/l0HlHFRbmaZtBRhXG/giphy.gif"
+        "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJidmNueGZyc2V6bmN4Z3V4Z3V4Z3V4Z3V4Z3V4Z3V4JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/3o7TKSjPqcKGRZaO3u/giphy.gif",
+        "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJidmNueGZyc2V6bmN4Z3V4Z3V4Z3V4Z3V4Z3V4Z3V4JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/l0HlHFRbmaZtBRhXG/giphy.gif"
     )
-    LazyVerticalGrid(columns = GridCells.Fixed(2), contentPadding = PaddingValues(16.dp)) {
+    LazyVerticalGrid(columns = GridCells.Fixed(2), contentPadding = PaddingValues(8.dp)) {
         items(gifs) { url ->
             AsyncImage(
                 model = url,
