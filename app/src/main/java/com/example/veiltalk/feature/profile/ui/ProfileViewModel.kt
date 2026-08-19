@@ -20,6 +20,8 @@ data class ProfileUiState(
     val firstNameInput: String = "",
     val lastNameInput: String = "",
     val bioInput: String = "",
+    val emailInput: String = "",
+    val phoneInput: String = "",
     val isLoading: Boolean = true,
     val isSaving: Boolean = false,
     val isUploadingAvatar: Boolean = false,
@@ -48,7 +50,9 @@ class ProfileViewModel @Inject constructor(
                         isLoading = false,
                         firstNameInput = profile.firstName,
                         lastNameInput = profile.lastName,
-                        bioInput = profile.bio ?: ""
+                        bioInput = profile.bio ?: "",
+                        emailInput = profile.email ?: "",
+                        phoneInput = profile.phoneNumber ?: ""
                     )
                 }
                 .onFailure { e ->
@@ -64,6 +68,8 @@ class ProfileViewModel @Inject constructor(
             firstNameInput = profile.firstName,
             lastNameInput = profile.lastName,
             bioInput = profile.bio ?: "",
+            emailInput = profile.email ?: "",
+            phoneInput = profile.phoneNumber ?: "",
             error = null
         )
     }
@@ -75,6 +81,8 @@ class ProfileViewModel @Inject constructor(
             firstNameInput = profile.firstName,
             lastNameInput = profile.lastName,
             bioInput = profile.bio ?: "",
+            emailInput = profile.email ?: "",
+            phoneInput = profile.phoneNumber ?: "",
             error = null
         )
     }
@@ -84,6 +92,8 @@ class ProfileViewModel @Inject constructor(
     fun onBioChange(value: String) {
         if (value.length <= 150) _uiState.value = _uiState.value.copy(bioInput = value)
     }
+    fun onEmailChange(value: String) { _uiState.value = _uiState.value.copy(emailInput = value) }
+    fun onPhoneChange(value: String) { _uiState.value = _uiState.value.copy(phoneInput = value) }
 
     fun save() {
         val state = _uiState.value
@@ -96,7 +106,9 @@ class ProfileViewModel @Inject constructor(
             repository.updateProfile(
                 state.firstNameInput.trim(),
                 state.lastNameInput.trim(),
-                state.bioInput.trim()
+                state.bioInput.trim(),
+                state.emailInput.trim().ifBlank { null },
+                state.phoneInput.trim().ifBlank { null }
             ).onSuccess { updated ->
                 _uiState.value = _uiState.value.copy(
                     profile = updated,

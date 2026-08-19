@@ -17,5 +17,7 @@ data class UserProfileResponseDto(
 data class ProfileUpdateRequestDto(
     val firstName: String,
     val lastName: String,
-    val bio: String
+    val bio: String,
+    val email: String? = null,
+    val phoneNumber: String? = null
 )
