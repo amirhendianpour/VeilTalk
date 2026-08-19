@@ -48,6 +48,11 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val contacts by viewModel.contacts.collectAsState()
+    
+    // دریافت وضعیت آنلاینی از UserDirectoryEntryPointViewModel یک‌بار در سطح بالا
+    val userDirViewModel = hiltViewModel<com.example.veiltalk.feature.user.ui.UserDirectoryEntryPointViewModel>()
+    val onlineStatus by userDirViewModel.repository.onlineStatus.collectAsState()
+
     val context = LocalContext.current
     var tab by remember { mutableStateOf(HomeTab.ALL) }
     var bottomNavTab by remember { mutableIntStateOf(0) }
@@ -318,6 +323,7 @@ fun HomeScreen(
                                     time = item.time,
                                     unreadCount = item.unreadCount,
                                     isSelected = isSelected,
+                                    isOnline = onlineStatus[item.username] ?: false,
                                     onClick = { 
                                         if (isSelectionMode) viewModel.toggleSelection(item.key)
                                         else onOpenChat(item.username) 
@@ -353,6 +359,7 @@ fun HomeScreen(
                                 time = item.time,
                                 unreadCount = item.unreadCount,
                                 isSelected = isSelected,
+                                isOnline = onlineStatus[item.username] ?: false,
                                 onClick = { 
                                     if (isSelectionMode) viewModel.toggleSelection(item.key)
                                     else onOpenChat(item.username) 
@@ -683,6 +690,43 @@ private fun ProfileTab(viewModel: ProfileViewModel) {
                                 modifier = Modifier.fillMaxWidth(),
                                 minLines = 2
                             )
+                            
+                            Spacer(Modifier.height(12.dp))
+                            
+                            // ایمیل - فقط اگر خالی بود اجازه ویرایش بده
+                            OutlinedTextField(
+                                value = uiState.emailInput,
+                                onValueChange = viewModel::onEmailChange,
+                                label = { Text("ایمیل") },
+                                enabled = profile.email.isNullOrBlank(),
+                                placeholder = { Text("مثلاً example@mail.com") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                supportingText = {
+                                    if (!profile.email.isNullOrBlank()) {
+                                        Text("ایمیل قابل تغییر نیست.")
+                                    }
+                                }
+                            )
+                            
+                            Spacer(Modifier.height(12.dp))
+                            
+                            // شماره موبایل - فقط اگر خالی بود اجازه ویرایش بده
+                            OutlinedTextField(
+                                value = uiState.phoneInput,
+                                onValueChange = viewModel::onPhoneChange,
+                                label = { Text("شماره موبایل") },
+                                enabled = profile.phoneNumber.isNullOrBlank(),
+                                placeholder = { Text("مثلاً +989120000000") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                supportingText = {
+                                    if (!profile.phoneNumber.isNullOrBlank()) {
+                                        Text("شماره موبایل قابل تغییر نیست.")
+                                    }
+                                }
+                            )
+
                             Spacer(Modifier.height(16.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 TextButton(onClick = viewModel::cancelEdit, modifier = Modifier.weight(1f)) {
@@ -736,6 +780,7 @@ private fun ChatRow(
     time: String,
     unreadCount: Int = 0,
     isSelected: Boolean = false,
+    isOnline: Boolean = false,
     onClick: () -> Unit,
     onLongClick: () -> Unit = {}
 ) {
@@ -754,21 +799,15 @@ private fun ChatRow(
             AvatarView(name = displayName, imageUrl = imageUrl, size = 52.dp, colorSeed = colorSeed)
             
             // نمایش نقطه آنلاین برای چت‌های خصوصی
-            if (colorSeed != null && !colorSeed.startsWith("group-")) {
-                val userDirectory = hiltViewModel<com.example.veiltalk.feature.user.ui.UserDirectoryEntryPointViewModel>().repository
-                val onlineStatus by userDirectory.onlineStatus.collectAsState()
-                val isOnline = onlineStatus[colorSeed] ?: false
-                
-                if (isOnline) {
-                    Surface(
-                        color = Color(0xFF22C55E),
-                        shape = androidx.compose.foundation.shape.CircleShape,
-                        border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.surface),
-                        modifier = Modifier
-                            .size(14.dp)
-                            .align(Alignment.BottomEnd)
-                    ) {}
-                }
+            if (isOnline) {
+                Surface(
+                    color = Color(0xFF22C55E),
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.surface),
+                    modifier = Modifier
+                        .size(14.dp)
+                        .align(Alignment.BottomEnd)
+                ) {}
             }
         }
         Spacer(Modifier.width(16.dp))

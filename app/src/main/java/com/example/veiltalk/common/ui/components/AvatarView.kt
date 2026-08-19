@@ -42,14 +42,16 @@ fun AvatarView(
     modifier: Modifier = Modifier
 ) {
     if (!imageUrl.isNullOrBlank()) {
-        AsyncImage(
-            model = imageUrl,
-            contentDescription = name,
-            contentScale = ContentScale.Crop,
-            modifier = modifier
-                .size(size)
-                .clip(CircleShape)
-        )
+        androidx.compose.runtime.key(imageUrl) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = name,
+                contentScale = ContentScale.Crop,
+                modifier = modifier
+                    .size(size)
+                    .clip(CircleShape)
+            )
+        }
     } else {
         val (bg, fg) = pickColor(colorSeed ?: name)
         val initial = name.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "؟"
