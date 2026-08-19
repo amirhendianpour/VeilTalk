@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.veiltalk.common.model.GroupMessage
+import com.example.veiltalk.common.model.MessageType
 import com.example.veiltalk.core.session.SessionManager
 import com.example.veiltalk.feature.group.data.GroupRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -59,6 +60,18 @@ class GroupChatViewModel @Inject constructor(
         if (text.isBlank()) return
         viewModelScope.launch { groupRepository.sendGroupMessage(groupId, text) }
         _inputText.value = ""
+    }
+
+    fun sendSticker(url: String) {
+        viewModelScope.launch {
+            groupRepository.sendGroupMessage(groupId, "", MessageType.STICKER, url)
+        }
+    }
+
+    fun sendGif(url: String) {
+        viewModelScope.launch {
+            groupRepository.sendGroupMessage(groupId, "", MessageType.GIF, url)
+        }
     }
 
     fun deleteMessages(messageIds: List<String>) {

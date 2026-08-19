@@ -91,6 +91,18 @@ class ChatViewModel @Inject constructor(
         _inputText.value = ""
     }
 
+    fun sendSticker(url: String) {
+        viewModelScope.launch {
+            chatRepository.sendMessage(partner, "", MessageType.STICKER, url)
+        }
+    }
+
+    fun sendGif(url: String) {
+        viewModelScope.launch {
+            chatRepository.sendMessage(partner, "", MessageType.GIF, url)
+        }
+    }
+
     // ارسال عکس — معادل بخش accept="image/*" در MessageInput.tsx
     fun sendImage(uri: Uri) {
         viewModelScope.launch {

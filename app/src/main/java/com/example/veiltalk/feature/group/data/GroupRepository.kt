@@ -9,6 +9,7 @@ import coil.request.SuccessResult
 import com.example.veiltalk.common.model.GroupInfo
 import com.example.veiltalk.common.model.GroupMemberInfo
 import com.example.veiltalk.common.model.GroupMessage
+import com.example.veiltalk.common.model.MessageType
 import com.example.veiltalk.common.model.GroupUpdateEvent
 import com.example.veiltalk.common.util.generateId
 import com.example.veiltalk.common.util.uriToMultipart
@@ -96,6 +97,8 @@ class GroupRepository @Inject constructor(
                 sender = dto.sender,
                 content = dto.content,
                 timestamp = dto.timestamp,
+                messageType = dto.messageType,
+                fileUrl = dto.fileUrl,
                 status = status,
                 isPinned = false
             )
@@ -222,6 +225,8 @@ class GroupRepository @Inject constructor(
                     sender = entity.sender,
                     content = entity.content,
                     timestamp = entity.timestamp,
+                    messageType = runCatching { MessageType.valueOf(entity.messageType) }.getOrDefault(MessageType.TEXT),
+                    fileUrl = entity.fileUrl,
                     status = runCatching { com.example.veiltalk.common.model.MessageStatus.valueOf(entity.status) }.getOrDefault(com.example.veiltalk.common.model.MessageStatus.SENT),
                     isPinned = entity.isPinned
                 )
@@ -269,7 +274,12 @@ data class GroupSummary(
     val unreadCount: Int
 )
 
-    suspend fun sendGroupMessage(groupId: Long, content: String) {
+    suspend fun sendGroupMessage(
+        groupId: Long, 
+        content: String, 
+        messageType: MessageType = MessageType.TEXT, 
+        fileUrl: String? = null
+    ) {
         val me = currentUsername ?: return
         val id = generateId()
         val nowIso = Instant.now().toString()
@@ -283,11 +293,19 @@ data class GroupSummary(
                 sender = me,
                 content = content,
                 timestamp = nowIso,
+                messageType = messageType.name,
+                fileUrl = fileUrl,
                 status = "SENT"
             )
         )
 
-        val dto = GroupChatMessageDto(id = id, groupId = groupId, content = content)
+        val dto = GroupChatMessageDto(
+            id = id, 
+            groupId = groupId, 
+            content = content,
+            messageType = messageType.name,
+            fileUrl = fileUrl
+        )
         stompManager.publish("/app/group/chat", json.encodeToString(GroupChatMessageDto.serializer(), dto))
     }
 

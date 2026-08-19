@@ -12,6 +12,8 @@ object CountryCodes {
         CountryInfo("ایالات متحده", "+1", "🇺🇸"),
         CountryInfo("انگلستان", "+44", "🇬🇧"),
         CountryInfo("آلمان", "+49", "🇩🇪"),
+        CountryInfo("اسپانیا", "+34", "🇪🇸"),
+        CountryInfo("هلند", "+31", "🇳🇱"),
         CountryInfo("فرانسه", "+33", "🇫🇷"),
         CountryInfo("کانادا", "+1", "🇨🇦"),
         CountryInfo("ترکیه", "+90", "🇹🇷"),

@@ -174,6 +174,8 @@ fun ChatScreen(
                     onSendMessage = viewModel::sendMessage,
                     onAttachImage = { imagePicker.launch("image/*") },
                     onAttachFile = { filePicker.launch("*/*") },
+                    onSendSticker = viewModel::sendSticker,
+                    onSendGif = viewModel::sendGif,
                     isUploading = isUploading,
                     uploadError = uploadError,
                     onClearUploadError = { viewModel.clearUploadError() }
@@ -308,6 +310,19 @@ private fun MessageBubble(
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
+                        Spacer(Modifier.height(4.dp))
+                    }
+                }
+                MessageType.GIF, MessageType.STICKER -> {
+                    if (!message.fileUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = message.fileUrl,
+                            contentDescription = null,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .size(if (message.messageType == MessageType.STICKER) 120.dp else 200.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                        )
                         Spacer(Modifier.height(4.dp))
                     }
                 }

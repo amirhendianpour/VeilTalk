@@ -47,6 +47,8 @@ data class GroupChatMessageDto(
     val groupId: Long,
     val sender: String? = null,
     val content: String,
+    val messageType: String = "TEXT",
+    val fileUrl: String? = null,
     val timestamp: String? = null
 )
 

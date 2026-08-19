@@ -13,6 +13,8 @@ data class GroupMessage(
     val sender: String?,
     val content: String,
     val timestamp: String?,
+    val messageType: MessageType = MessageType.TEXT,
+    val fileUrl: String? = null,
     val status: MessageStatus = MessageStatus.SENT,
     val isPinned: Boolean = false
 )
