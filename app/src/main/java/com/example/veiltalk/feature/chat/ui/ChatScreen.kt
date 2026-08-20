@@ -56,6 +56,7 @@ fun ChatScreen(
     var pendingCallKind by remember { mutableStateOf<CallKind?>(null) }
     var selectedMessages by remember { mutableStateOf(setOf<String>()) }
     var showMessageMenu by remember { mutableStateOf<ChatMessage?>(null) }
+    var showDeleteDialog by remember { mutableStateOf<List<String>?>(null) }
 
     val isSelectionMode = selectedMessages.isNotEmpty()
 
@@ -125,8 +126,7 @@ fun ChatScreen(
                             Icon(Icons.Default.ContentCopy, contentDescription = "کپی")
                         }
                         IconButton(onClick = {
-                            viewModel.deleteMessages(selectedMessages.toList())
-                            selectedMessages = emptySet()
+                            showDeleteDialog = selectedMessages.toList()
                         }) {
                             Icon(Icons.Default.Delete, contentDescription = "حذف")
                         }
@@ -249,7 +249,39 @@ fun ChatScreen(
                 // Forward logic
             },
             onDelete = {
-                viewModel.deleteMessages(listOf(msg.id))
+                showDeleteDialog = listOf(msg.id)
+            }
+        )
+    }
+
+    if (showDeleteDialog != null) {
+        val ids = showDeleteDialog!!
+        // چک کردن اینکه آیا تمام پیام‌های انتخاب شده متعلق به من هستند یا خیر
+        val allMine = uiState.messages.filter { it.id in ids }.all { it.sender != viewModel.partner }
+
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = null },
+            title = { Text("حذف پیام") },
+            text = { Text("آیا مایل به حذف این پیام هستید؟") },
+            confirmButton = {
+                if (allMine) {
+                    TextButton(onClick = {
+                        viewModel.deleteMessagesForEveryone(ids)
+                        selectedMessages = emptySet()
+                        showDeleteDialog = null
+                    }) {
+                        Text("حذف برای همه", color = Color.Red)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.deleteMessages(ids)
+                    selectedMessages = emptySet()
+                    showDeleteDialog = null
+                }) {
+                    Text("حذف برای من")
+                }
             }
         )
     }

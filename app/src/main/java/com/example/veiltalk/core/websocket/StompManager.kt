@@ -40,7 +40,9 @@ class StompManager @Inject constructor(
         "/user/queue/group-updates",
         "/user/queue/group-receipts",
         "/user/queue/call",
-        "/topic/user-status"
+        "/topic/user-status",
+        "/user/queue/messages/delete",
+        "/user/queue/group-messages/delete"
     )
 
     fun connect(token: String) {

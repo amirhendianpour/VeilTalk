@@ -19,6 +19,7 @@ import com.example.veiltalk.core.di.ApplicationScope
 import com.example.veiltalk.core.service.NotificationHelper
 import com.example.veiltalk.core.session.SessionManager
 import com.example.veiltalk.core.websocket.StompManager
+import com.example.veiltalk.feature.chat.data.dto.MessageDeleteDto
 import com.example.veiltalk.feature.chat.data.dto.ReceiptDto
 import com.example.veiltalk.feature.chat.data.dto.GroupReadRequestDto
 import com.example.veiltalk.feature.chat.data.dto.GroupMessageStatusEventDto
@@ -80,6 +81,10 @@ class GroupRepository @Inject constructor(
         stompManager.framesForDestination("/user/queue/group-receipts")
             .onEach { frame -> handleGroupReceipt(frame.body) }
             .launchIn(scope)
+
+        stompManager.framesForDestination("/user/queue/group-messages/delete")
+            .onEach { frame -> handleRemoteGroupDeletion(frame.body) }
+            .launchIn(scope)
     }
 
     private suspend fun handleIncomingGroupMessage(rawBody: String) {
@@ -104,7 +109,6 @@ class GroupRepository @Inject constructor(
             )
         )
 
-        // ارسال رسید به فرستنده (اگر پیام از طرف ما نیست)
         if (dto.sender != null && dto.sender != me) {
             val receipt = ReceiptDto(
                 messageId = dto.id,
@@ -115,15 +119,12 @@ class GroupRepository @Inject constructor(
             stompManager.publish("/app/chat/receipt", json.encodeToString(ReceiptDto.serializer(), receipt))
         }
 
-        // نمایش نوتیفیکیشن اگر کاربر در صفحه این گروه نیست
         if (dto.sender != me && !isGroupOpen) {
             showGroupNotification(dto)
         }
     }
 
     private suspend fun handleGroupReceipt(rawBody: String) {
-        // سرور رسیدهای رله شده را با مدل ReceiptDto یا GroupMessageStatusEventDto می‌فرستد
-        // ابتدا با ReceiptDto امتحان می‌کنیم
         val receiptDto = runCatching { json.decodeFromString<ReceiptDto>(rawBody) }.getOrNull()
         val me = currentUsername ?: return
 
@@ -136,7 +137,6 @@ class GroupRepository @Inject constructor(
             return
         }
 
-        // اگر نشد، با GroupMessageStatusEventDto امتحان می‌کنیم
         val eventDto = runCatching { json.decodeFromString<GroupMessageStatusEventDto>(rawBody) }.getOrNull()
         if (eventDto != null) {
             if (eventDto.messageId != null) {
@@ -147,16 +147,18 @@ class GroupRepository @Inject constructor(
         }
     }
 
+    private suspend fun handleRemoteGroupDeletion(rawBody: String) {
+        val dto = runCatching { json.decodeFromString<MessageDeleteDto>(rawBody) }.getOrNull() ?: return
+        val me = currentUsername ?: return
+        groupMessageDao.deleteMessages(dto.messageIds, me)
+    }
+
     private fun showGroupNotification(dto: GroupChatMessageDto) {
         val sender = dto.sender ?: return
         scope.launch {
             userDirectory.ensureLoaded(listOf(sender))
             val groupInfo = _myGroups.value.find { it.id == dto.groupId }
-            
-            // دریافت آخرین پیام‌های گروه برای نمایش تاریخچه در نوتیفیکیشن
             val lastEntities = groupMessageDao.getLastMessages(currentUsername ?: "", dto.groupId, 5).reversed()
-            
-            // لود کردن نام فرستنده‌های تمام پیام‌های اخیر
             val senderUsernames = lastEntities.mapNotNull { it.sender }.distinct()
             userDirectory.ensureLoaded(senderUsernames)
             
@@ -176,7 +178,7 @@ class GroupRepository @Inject constructor(
             withContext(Dispatchers.Main) {
                 NotificationHelper.showMessageNotification(
                     context = appContext,
-                    partnerUsername = sender, // اینجا در گروه، پارتنر اصلی همون فرستنده پیام آخره
+                    partnerUsername = sender,
                     partnerDisplayName = userDirectory.getDisplayName(sender),
                     messages = notificationMessages,
                     avatarBitmap = bitmap,
@@ -190,11 +192,7 @@ class GroupRepository @Inject constructor(
 
     private suspend fun loadAvatar(url: String): Bitmap? {
         val loader = ImageLoader(appContext)
-        val request = ImageRequest.Builder(appContext)
-            .data(url)
-            .allowHardware(false)
-            .build()
-        
+        val request = ImageRequest.Builder(appContext).data(url).allowHardware(false).build()
         return when (val result = loader.execute(request)) {
             is SuccessResult -> (result.drawable as? BitmapDrawable)?.bitmap
             else -> null
@@ -239,21 +237,25 @@ class GroupRepository @Inject constructor(
         groupMessageDao.deleteMessages(messageIds, me)
     }
 
+    suspend fun deleteMessagesForEveryone(groupId: Long, messageIds: List<String>) {
+        val me = currentUsername ?: return
+        groupMessageDao.deleteMessages(messageIds, me)
+        val dto = MessageDeleteDto(messageIds = messageIds, groupId = groupId)
+        stompManager.publish("/app/group/delete", json.encodeToString(MessageDeleteDto.serializer(), dto))
+    }
+
     suspend fun togglePin(messageId: String, currentPinned: Boolean) {
         val me = currentUsername ?: return
         groupMessageDao.updatePinStatus(messageId, me, !currentPinned)
     }
 
-    // لیست خلاصه‌ی پیام‌های گروه‌ها
     fun groupConversationSummariesFlow(): Flow<Map<Long, GroupSummary>> {
         val me = currentUsername ?: return flowOf(emptyMap())
         return groupMessageDao.getAllForOwnerFlow(me).map { messages ->
             val map = mutableMapOf<Long, GroupSummary>()
             for (m in messages) {
                 val existing = map[m.groupId]
-                
                 val isUnread = m.sender != me && m.status != "READ"
-                
                 if (existing == null || (m.timestamp != null && (existing.timestamp == null || m.timestamp > existing.timestamp))) {
                     map[m.groupId] = GroupSummary(
                         lastMessage = m.content,
@@ -268,29 +270,48 @@ class GroupRepository @Inject constructor(
         }
     }
 
-data class GroupSummary(
-    val lastMessage: String,
-    val timestamp: String?,
-    val unreadCount: Int
-)
+    data class GroupSummary(val lastMessage: String, val timestamp: String?, val unreadCount: Int)
 
-    suspend fun sendGroupMessage(
-        groupId: Long, 
-        content: String, 
-        messageType: MessageType = MessageType.TEXT, 
-        fileUrl: String? = null
-    ) {
-        // ... (کد قبلی)
+    suspend fun sendGroupMessage(groupId: Long, content: String, messageType: MessageType = MessageType.TEXT, fileUrl: String? = null) {
+        val me = currentUsername ?: return
+        val id = generateId()
+        val nowIso = Instant.now().toString()
+        
+        groupMessageDao.upsert(
+            GroupMessageEntity(
+                id = id,
+                ownerUsername = me,
+                groupId = groupId,
+                sender = me,
+                content = content,
+                timestamp = nowIso,
+                messageType = messageType.name,
+                fileUrl = fileUrl,
+                status = "SENT"
+            )
+        )
+
+        val dto = GroupChatMessageDto(
+            id = id, 
+            groupId = groupId, 
+            sender = me, 
+            content = content, 
+            messageType = messageType.name, 
+            fileUrl = fileUrl, 
+            timestamp = null
+        )
+        stompManager.publish("/app/group/chat", json.encodeToString(GroupChatMessageDto.serializer(), dto))
     }
 
     suspend fun editGroupMessage(groupId: Long, messageId: String, newContent: String) {
         val me = currentUsername ?: return
         val dto = GroupChatMessageDto(
-            id = messageId,
-            groupId = groupId,
-            sender = me,
-            content = newContent,
-            messageType = MessageType.TEXT.name,
+            id = messageId, 
+            groupId = groupId, 
+            sender = me, 
+            content = newContent, 
+            messageType = MessageType.TEXT.name, 
+            fileUrl = null, 
             timestamp = Instant.now().toString()
         )
         stompManager.publish("/app/group/edit", json.encodeToString(GroupChatMessageDto.serializer(), dto))
@@ -299,29 +320,17 @@ data class GroupSummary(
 
     suspend fun markGroupAsRead(groupId: Long) {
         val me = currentUsername ?: return
-        
-        // آپدیت دیتابیس محلی
         groupMessageDao.markGroupAsRead(me, groupId)
-        
-        // اطلاع به سرور برای آپدیت وضعیت برای بقیه
-        val request = GroupReadRequestDto(groupId = groupId)
+        val request = GroupReadRequestDto(groupId)
         stompManager.publish("/app/group/read", json.encodeToString(GroupReadRequestDto.serializer(), request))
     }
 
     suspend fun refreshMyGroups() {
         val membershipsResp = runCatching { api.getMyGroups() }.getOrNull()
         if (membershipsResp == null || !membershipsResp.isSuccessful) return
-        val memberships = membershipsResp.body().orEmpty()
-
-        val groups = memberships.map { member ->
-            val detailResp = runCatching { api.getGroupById(member.groupId) }.getOrNull()
-            val detail = detailResp?.takeIf { it.isSuccessful }?.body()
-            GroupInfo(
-                id = member.groupId,
-                name = detail?.name ?: "گروه #${member.groupId}",
-                role = member.role,
-                imageUrl = detail?.imageUrl
-            )
+        val groups = membershipsResp.body().orEmpty().map { member ->
+            val detail = runCatching { api.getGroupById(member.groupId) }.getOrNull()?.body()
+            GroupInfo(member.groupId, detail?.name ?: "گروه #${member.groupId}", member.role, detail?.imageUrl)
         }
         _myGroups.value = groups
     }
@@ -331,15 +340,11 @@ data class GroupSummary(
             val response = api.createGroup(CreateGroupRequestDto(name))
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
-                val info = GroupInfo(id = body.id, name = body.name, role = "ADMIN", imageUrl = body.imageUrl)
+                val info = GroupInfo(body.id, body.name, "ADMIN", body.imageUrl)
                 _myGroups.value = listOf(info) + _myGroups.value
                 Result.success(info)
-            } else {
-                Result.failure(Exception("خطا در ساخت گروه"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+            } else Result.failure(Exception("Error"))
+        } catch (e: Exception) { Result.failure(e) }
     }
 
     suspend fun getGroupMembersInfo(groupId: Long): Result<List<GroupMemberInfo>> {
@@ -440,9 +445,7 @@ data class GroupSummary(
     }
 
     private fun updateLocalGroup(updated: GroupInfo) {
-        _myGroups.value = _myGroups.value.map {
-            if (it.id == updated.id) it.copy(name = updated.name, imageUrl = updated.imageUrl) else it
-        }
+        _myGroups.value = _myGroups.value.map { if (it.id == updated.id) it.copy(name = updated.name, imageUrl = updated.imageUrl) else it }
     }
 
     suspend fun ensureUsernameLoaded() {

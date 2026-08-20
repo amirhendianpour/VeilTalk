@@ -47,3 +47,10 @@ data class UserStatusDto(
     val online: Boolean,
     val lastSeen: String? = null
 )
+
+@Serializable
+data class MessageDeleteDto(
+    val messageIds: List<String>,
+    val recipient: String? = null,
+    val groupId: Long? = null
+)

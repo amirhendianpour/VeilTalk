@@ -45,6 +45,7 @@ fun GroupChatScreen(
 
     var selectedMessages by remember { mutableStateOf(setOf<String>()) }
     var showMessageMenu by remember { mutableStateOf<GroupMessage?>(null) }
+    var showDeleteDialog by remember { mutableStateOf<List<String>?>(null) }
 
     val isSelectionMode = selectedMessages.isNotEmpty()
 
@@ -82,8 +83,7 @@ fun GroupChatScreen(
                             Icon(Icons.Default.ContentCopy, contentDescription = "کپی")
                         }
                         IconButton(onClick = {
-                            viewModel.deleteMessages(selectedMessages.toList())
-                            selectedMessages = emptySet()
+                            showDeleteDialog = selectedMessages.toList()
                         }) {
                             Icon(Icons.Default.Delete, contentDescription = "حذف")
                         }
@@ -182,7 +182,38 @@ fun GroupChatScreen(
                 // Forward logic
             },
             onDelete = {
-                viewModel.deleteMessages(listOf(msg.id))
+                showDeleteDialog = listOf(msg.id)
+            }
+        )
+    }
+
+    if (showDeleteDialog != null) {
+        val ids = showDeleteDialog!!
+        val allMine = uiState.messages.filter { it.id in ids }.all { it.sender == uiState.myUsername }
+
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = null },
+            title = { Text("حذف پیام") },
+            text = { Text("آیا مایل به حذف این پیام هستید؟") },
+            confirmButton = {
+                if (allMine) {
+                    TextButton(onClick = {
+                        viewModel.deleteMessagesForEveryone(ids)
+                        selectedMessages = emptySet()
+                        showDeleteDialog = null
+                    }) {
+                        Text("حذف برای همه", color = Color.Red)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.deleteMessages(ids)
+                    selectedMessages = emptySet()
+                    showDeleteDialog = null
+                }) {
+                    Text("حذف برای من")
+                }
             }
         )
     }

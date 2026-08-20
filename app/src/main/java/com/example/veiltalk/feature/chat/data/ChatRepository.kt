@@ -17,6 +17,7 @@ import com.example.veiltalk.core.service.NotificationHelper
 import com.example.veiltalk.core.session.SessionManager
 import com.example.veiltalk.core.websocket.StompManager
 import com.example.veiltalk.feature.chat.data.dto.ChatMessageDto
+import com.example.veiltalk.feature.chat.data.dto.MessageDeleteDto
 import com.example.veiltalk.feature.chat.data.dto.ReceiptDto
 import com.example.veiltalk.feature.chat.data.dto.TypingEventDto
 import com.example.veiltalk.feature.chat.data.dto.UserStatusDto
@@ -83,6 +84,10 @@ class ChatRepository @Inject constructor(
 
         stompManager.framesForDestination("/topic/user-status")
             .onEach { frame -> handleUserStatus(frame.body) }
+            .launchIn(scope)
+
+        stompManager.framesForDestination("/user/queue/messages/delete")
+            .onEach { frame -> handleRemoteDeletion(frame.body) }
             .launchIn(scope)
     }
 
@@ -186,6 +191,12 @@ class ChatRepository @Inject constructor(
         userDirectory.updateStatus(dto.username, dto.online, dto.lastSeen)
     }
 
+    private suspend fun handleRemoteDeletion(rawBody: String) {
+        val dto = runCatching { json.decodeFromString<MessageDeleteDto>(rawBody) }.getOrNull() ?: return
+        val me = currentUsername ?: return
+        messageDao.deleteMessages(dto.messageIds, me)
+    }
+
     fun conversationFlow(partner: String): Flow<List<ChatMessage>> {
         val me = currentUsername ?: return kotlinx.coroutines.flow.flowOf(emptyList())
         return messageDao.getConversationFlow(me, partner).map { list -> list.map { it.toDomain() } }
@@ -225,7 +236,38 @@ data class ConversationSummary(
 )
 
     suspend fun sendMessage(recipient: String, content: String, messageType: MessageType, fileUrl: String? = null) {
-        // ... (کد قبلی دست نخورده)
+        val me = currentUsername ?: return
+        val id = generateId()
+        val nowIso = Instant.now().toString()
+
+        // ذخیره به عنوان مخاطب
+        saveAsContact(recipient, me)
+
+        // ذخیره محلی همچنان با timestamp خودمان — فقط برای نمایش فوری در UI
+        val entity = PrivateMessageEntity(
+            id = id,
+            ownerUsername = me,
+            sender = me,
+            recipient = recipient,
+            content = content,
+            messageType = messageType.name,
+            fileUrl = fileUrl,
+            timestamp = nowIso,
+            status = "SENT"
+        )
+        messageDao.upsert(entity)
+
+        // timestamp را در پیام ارسالی به سرور نمی‌فرستیم — بک‌اند خودش با Instant.now() تنظیمش می‌کند
+        val dto = ChatMessageDto(
+            id = id,
+            sender = me,
+            recipient = recipient,
+            content = content,
+            messageType = messageType.name,
+            fileUrl = fileUrl,
+            timestamp = null
+        )
+        stompManager.publish("/app/chat", json.encodeToString(ChatMessageDto.serializer(), dto))
     }
 
     suspend fun editMessage(messageId: String, recipient: String, newContent: String) {
@@ -270,6 +312,17 @@ data class ConversationSummary(
     suspend fun deleteMessages(messageIds: List<String>) {
         val me = currentUsername ?: return
         messageDao.deleteMessages(messageIds, me)
+    }
+
+    suspend fun deleteMessagesForEveryone(partner: String, messageIds: List<String>) {
+        val me = currentUsername ?: return
+        
+        // ۱. حذف محلی
+        messageDao.deleteMessages(messageIds, me)
+        
+        // ۲. اطلاع به سرور برای حذف دوطرفه
+        val dto = MessageDeleteDto(messageIds = messageIds, recipient = partner)
+        stompManager.publish("/app/chat/delete", json.encodeToString(MessageDeleteDto.serializer(), dto))
     }
 
     suspend fun deleteConversation(partner: String) {

@@ -175,6 +175,12 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun deleteMessagesForEveryone(messageIds: List<String>) {
+        viewModelScope.launch {
+            chatRepository.deleteMessagesForEveryone(partner, messageIds)
+        }
+    }
+
     fun togglePin(messageId: String, currentPinned: Boolean) {
         viewModelScope.launch {
             chatRepository.togglePin(messageId, currentPinned)
