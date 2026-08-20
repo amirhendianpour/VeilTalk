@@ -57,6 +57,7 @@ fun ChatScreen(
     var selectedMessages by remember { mutableStateOf(setOf<String>()) }
     var showMessageMenu by remember { mutableStateOf<ChatMessage?>(null) }
     var showDeleteDialog by remember { mutableStateOf<List<String>?>(null) }
+    var isSearchMode by remember { mutableStateOf(false) }
 
     val isSelectionMode = selectedMessages.isNotEmpty()
 
@@ -137,35 +138,61 @@ fun ChatScreen(
                 )
             } else {
                 ChatTopBar(
-                    title = uiState.partnerDisplayName,
-                    subtitle = when {
+                    title = if (isSearchMode) "" else uiState.partnerDisplayName,
+                    subtitle = if (isSearchMode) null else when {
                         uiState.isPartnerTyping -> "در حال تایپ..."
                         uiState.isPartnerOnline -> "آنلاین"
                         uiState.partnerLastSeen != null -> "آخرین بازدید: ${com.example.veiltalk.common.util.formatMessageTime(uiState.partnerLastSeen)}"
                         else -> null
                     },
-                    imageUrl = uiState.partnerProfilePicture,
+                    imageUrl = if (isSearchMode) null else uiState.partnerProfilePicture,
                     colorSeed = viewModel.partner,
-                    onBack = onBack,
+                    onBack = {
+                        if (isSearchMode) {
+                            isSearchMode = false
+                            viewModel.onSearchQueryChange("")
+                        } else {
+                            onBack()
+                        }
+                    },
                     onTitleClick = { onOpenProfile(viewModel.partner) },
                     actions = {
-                        IconButton(onClick = { requestCallStart(CallKind.VIDEO) }) {
-                            Icon(
-                                imageVector = Icons.Default.Videocam,
-                                contentDescription = "Video Call"
+                        if (isSearchMode) {
+                            TextField(
+                                value = uiState.searchQuery,
+                                onValueChange = viewModel::onSearchQueryChange,
+                                placeholder = { Text("جستجو در پیام‌ها...") },
+                                modifier = Modifier.weight(1f),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent
+                                ),
+                                singleLine = true
                             )
-                        }
-                        IconButton(onClick = { requestCallStart(CallKind.AUDIO) }) {
-                            Icon(
-                                imageVector = Icons.Default.Call,
-                                contentDescription = "Audio Call"
-                            )
-                        }
-                        IconButton(onClick = { /* Menu */ }) {
-                            Icon(
-                                imageVector = Icons.Default.MoreVert,
-                                contentDescription = "More"
-                            )
+                        } else {
+                            IconButton(onClick = { isSearchMode = true }) {
+                                Icon(Icons.Default.Search, contentDescription = "جستجو")
+                            }
+                            IconButton(onClick = { requestCallStart(CallKind.VIDEO) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Videocam,
+                                    contentDescription = "Video Call"
+                                )
+                            }
+                            IconButton(onClick = { requestCallStart(CallKind.AUDIO) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Call,
+                                    contentDescription = "Audio Call"
+                                )
+                            }
+                            IconButton(onClick = { /* Menu */ }) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "More"
+                                )
+                            }
                         }
                     }
                 )

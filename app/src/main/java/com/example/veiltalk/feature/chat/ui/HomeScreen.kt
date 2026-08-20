@@ -83,6 +83,7 @@ fun HomeScreen(
     var showNewChatField by remember { mutableStateOf(false) }
     var showCreateGroup by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var isSearchMode by remember { mutableStateOf(false) }
 
     val isSelectionMode = uiState.selectedKeys.isNotEmpty()
 
@@ -117,16 +118,47 @@ fun HomeScreen(
                         actionIconContentColor = MaterialTheme.colorScheme.primary
                     ),
                     title = {
-                        AsyncImage(
-                            model = "file:///android_asset/logo-text-veil-talk.png",
-                            contentDescription = "VeilTalk",
-                            modifier = Modifier.height(32.dp),
-                            contentScale = ContentScale.Fit
-                        )
+                        if (isSearchMode) {
+                            TextField(
+                                value = uiState.searchQuery,
+                                onValueChange = viewModel::onSearchQueryChange,
+                                placeholder = { Text("جستجو...") },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent
+                                ),
+                                singleLine = true
+                            )
+                        } else {
+                            AsyncImage(
+                                model = "file:///android_asset/logo-text-veil-talk.png",
+                                contentDescription = "VeilTalk",
+                                modifier = Modifier.height(32.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+                    },
+                    navigationIcon = {
+                        if (isSearchMode) {
+                            IconButton(onClick = { 
+                                isSearchMode = false 
+                                viewModel.onSearchQueryChange("")
+                            }) {
+                                Icon(Icons.Default.Close, contentDescription = "بستن")
+                            }
+                        } else null
                     },
                     actions = {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "بیشتر")
+                        if (!isSearchMode) {
+                            IconButton(onClick = { isSearchMode = true }) {
+                                Icon(Icons.Default.Search, contentDescription = "جستجو")
+                            }
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "بیشتر")
+                            }
                         }
                         DropdownMenu(
                             expanded = showMenu,

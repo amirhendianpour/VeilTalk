@@ -46,6 +46,7 @@ fun GroupChatScreen(
     var selectedMessages by remember { mutableStateOf(setOf<String>()) }
     var showMessageMenu by remember { mutableStateOf<GroupMessage?>(null) }
     var showDeleteDialog by remember { mutableStateOf<List<String>?>(null) }
+    var isSearchMode by remember { mutableStateOf(false) }
 
     val isSelectionMode = selectedMessages.isNotEmpty()
 
@@ -94,14 +95,40 @@ fun GroupChatScreen(
                 )
             } else {
                 ChatTopBar(
-                    title = uiState.groupName,
-                    imageUrl = uiState.groupImageUrl,
+                    title = if (isSearchMode) "" else uiState.groupName,
+                    imageUrl = if (isSearchMode) null else uiState.groupImageUrl,
                     colorSeed = "group-${viewModel.groupId}",
-                    onBack = onBack,
+                    onBack = {
+                        if (isSearchMode) {
+                            isSearchMode = false
+                            viewModel.onSearchQueryChange("")
+                        } else {
+                            onBack()
+                        }
+                    },
                     onTitleClick = onOpenInfo,
                     actions = {
-                        IconButton(onClick = onOpenInfo) {
-                            Icon(Icons.Default.Info, contentDescription = "اطلاعات گروه")
+                        if (isSearchMode) {
+                            TextField(
+                                value = uiState.searchQuery,
+                                onValueChange = viewModel::onSearchQueryChange,
+                                placeholder = { Text("جستجو در پیام‌ها...") },
+                                modifier = Modifier.weight(1f),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent
+                                ),
+                                singleLine = true
+                            )
+                        } else {
+                            IconButton(onClick = { isSearchMode = true }) {
+                                Icon(Icons.Default.Search, contentDescription = "جستجو")
+                            }
+                            IconButton(onClick = onOpenInfo) {
+                                Icon(Icons.Default.Info, contentDescription = "اطلاعات گروه")
+                            }
                         }
                     }
                 )

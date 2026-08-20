@@ -27,7 +27,8 @@ data class ChatUiState(
     val isPartnerTyping: Boolean = false,
     val isPartnerOnline: Boolean = false,
     val partnerLastSeen: String? = null,
-    val editingMessage: ChatMessage? = null
+    val editingMessage: ChatMessage? = null,
+    val searchQuery: String = ""
 )
 
 @HiltViewModel
@@ -50,6 +51,7 @@ class ChatViewModel @Inject constructor(
     val uploadError: StateFlow<String?> = _uploadError.asStateFlow()
 
     private val _editingMessage = MutableStateFlow<ChatMessage?>(null)
+    private val _searchQuery = MutableStateFlow("")
 
     val uiState: StateFlow<ChatUiState> = combine(
         chatRepository.conversationFlow(partner),
@@ -57,7 +59,8 @@ class ChatViewModel @Inject constructor(
         chatRepository.typingUsers,
         userDirectory.onlineStatus,
         userDirectory.lastSeen,
-        _editingMessage
+        _editingMessage,
+        _searchQuery
     ) { args ->
         val messages = args[0] as List<ChatMessage>
         val directory = args[1] as Map<String, com.example.veiltalk.feature.user.data.dto.UserInfoDto>
@@ -65,16 +68,22 @@ class ChatViewModel @Inject constructor(
         val onlineStatus = args[3] as Map<String, Boolean>
         val lastSeen = args[4] as Map<String, String?>
         val editingMessage = args[5] as ChatMessage?
+        val query = args[6] as String
+
+        val filteredMessages = if (query.isBlank()) messages else {
+            messages.filter { it.content.contains(query, ignoreCase = true) }
+        }
 
         val info = directory[partner]
         ChatUiState(
-            messages = messages,
+            messages = filteredMessages,
             partnerDisplayName = if (info != null) "${info.firstName} ${info.lastName}".trim().ifBlank { partner } else partner,
             partnerProfilePicture = info?.profilePictureUrl,
             isPartnerTyping = typing.contains(partner),
             isPartnerOnline = onlineStatus[partner] ?: false,
             partnerLastSeen = lastSeen[partner],
-            editingMessage = editingMessage
+            editingMessage = editingMessage,
+            searchQuery = query
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ChatUiState())
 
@@ -167,6 +176,10 @@ class ChatViewModel @Inject constructor(
 
     fun clearUploadError() {
         _uploadError.value = null
+    }
+
+    fun onSearchQueryChange(query: String) {
+        _searchQuery.value = query
     }
 
     fun deleteMessages(messageIds: List<String>) {

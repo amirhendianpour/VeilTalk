@@ -17,7 +17,8 @@ data class GroupChatUiState(
     val groupName: String = "",
     val groupImageUrl: String? = null,
     val myUsername: String = "",
-    val editingMessage: GroupMessage? = null
+    val editingMessage: GroupMessage? = null,
+    val searchQuery: String = ""
 )
 
 @HiltViewModel
@@ -33,20 +34,26 @@ class GroupChatViewModel @Inject constructor(
     val inputText: StateFlow<String> = _inputText.asStateFlow()
 
     private val _editingMessage = MutableStateFlow<GroupMessage?>(null)
+    private val _searchQuery = MutableStateFlow("")
 
     val uiState: StateFlow<GroupChatUiState> = combine(
         groupRepository.groupMessagesFlow(groupId),
         groupRepository.myGroups,
         sessionManager.usernameFlow,
-        _editingMessage
-    ) { messages, groups, username, editingMessage ->
+        _editingMessage,
+        _searchQuery
+    ) { messages, groups, username, editingMessage, query ->
         val info = groups.find { it.id == groupId }
+        val filteredMessages = if (query.isBlank()) messages else {
+            messages.filter { it.content.contains(query, ignoreCase = true) }
+        }
         GroupChatUiState(
-            messages = messages,
+            messages = filteredMessages,
             groupName = info?.name ?: "گروه",
             groupImageUrl = info?.imageUrl,
             myUsername = username ?: "",
-            editingMessage = editingMessage
+            editingMessage = editingMessage,
+            searchQuery = query
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), GroupChatUiState())
 
@@ -101,6 +108,10 @@ class GroupChatViewModel @Inject constructor(
         viewModelScope.launch {
             groupRepository.deleteMessages(messageIds)
         }
+    }
+
+    fun onSearchQueryChange(query: String) {
+        _searchQuery.value = query
     }
 
     fun deleteMessagesForEveryone(messageIds: List<String>) {

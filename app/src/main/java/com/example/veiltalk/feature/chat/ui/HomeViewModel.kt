@@ -55,7 +55,8 @@ data class HomeUiState(
     val isLookingUp: Boolean = false,
     val isDarkMode: Boolean? = null,
     val selectedKeys: Set<String> = emptySet(),
-    val isSyncingContacts: Boolean = false
+    val isSyncingContacts: Boolean = false,
+    val searchQuery: String = ""
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -76,17 +77,13 @@ class HomeViewModel @Inject constructor(
     private val _contacts = MutableStateFlow<List<HomeListItem.ChatItem>>(emptyList())
     val contacts: StateFlow<List<HomeListItem.ChatItem>> = _contacts.asStateFlow()
 
+    private val _searchQuery = MutableStateFlow("")
+
     init {
         viewModelScope.launch {
             chatRepository.ensureUsernameLoaded()
             groupRepository.ensureUsernameLoaded()
             groupRepository.refreshMyGroups()
-        }
-
-        viewModelScope.launch {
-            sessionManager.darkModeFlow.collect { enabled ->
-                _uiState.value = _uiState.value.copy(isDarkMode = enabled)
-            }
         }
 
         viewModelScope.launch {
@@ -133,8 +130,17 @@ class HomeViewModel @Inject constructor(
                 chatRepository.conversationSummariesFlow(),
                 groupRepository.myGroups,
                 groupRepository.groupConversationSummariesFlow(),
-                userDirectory.directory
-            ) { summaries, groups, groupSummaries, directory ->
+                userDirectory.directory,
+                _searchQuery,
+                sessionManager.darkModeFlow
+            ) { args ->
+                val summaries = args[0] as List<com.example.veiltalk.feature.chat.data.ChatRepository.ConversationSummary>
+                val groupsData = args[1] as List<GroupInfo>
+                val groupSummaries = args[2] as Map<Long, com.example.veiltalk.feature.group.data.GroupRepository.GroupSummary>
+                val directory = args[3] as Map<String, com.example.veiltalk.feature.user.data.dto.UserInfoDto>
+                val query = args[4] as String
+                val isDark = args[5] as Boolean?
+
                 userDirectory.ensureLoaded(summaries.map { it.partner })
 
                 val chatItems = summaries.map { summary ->
@@ -149,7 +155,7 @@ class HomeViewModel @Inject constructor(
                     )
                 }
 
-                val groupItems = groups.map { group ->
+                val groupItems = groupsData.map { group ->
                     val summary = groupSummaries[group.id]
                     HomeListItem.GroupItem(
                         group = group,
@@ -159,17 +165,39 @@ class HomeViewModel @Inject constructor(
                     )
                 }
 
-                val combined = (chatItems + groupItems).sortedByDescending { it.time }
+                val filteredChatItems = if (query.isBlank()) chatItems else {
+                    chatItems.filter { it.displayName.contains(query, ignoreCase = true) || it.lastMessage.contains(query, ignoreCase = true) }
+                }
+                val filteredGroups = if (query.isBlank()) groupsData else {
+                    groupsData.filter { it.name.contains(query, ignoreCase = true) }
+                }
+                val filteredGroupItems = if (query.isBlank()) groupItems else {
+                    groupItems.filter { it.group.name.contains(query, ignoreCase = true) || it.lastMessage.contains(query, ignoreCase = true) }
+                }
 
-                Triple(combined, chatItems, groups)
-            }.collect { (combined, chatItems, groups) ->
-                _uiState.value = _uiState.value.copy(
+                val combined = (filteredChatItems + filteredGroupItems).sortedByDescending { it.time }
+
+                HomeUiState(
                     allItems = combined,
-                    chatItems = chatItems,
-                    groups = groups
+                    chatItems = filteredChatItems,
+                    groups = filteredGroups,
+                    searchQuery = query,
+                    isDarkMode = isDark
+                )
+            }.collect { state ->
+                _uiState.value = _uiState.value.copy(
+                    allItems = state.allItems,
+                    chatItems = state.chatItems,
+                    groups = state.groups,
+                    searchQuery = state.searchQuery,
+                    isDarkMode = state.isDarkMode
                 )
             }
         }
+    }
+
+    fun onSearchQueryChange(query: String) {
+        _searchQuery.value = query
     }
 
     fun syncContacts() {
