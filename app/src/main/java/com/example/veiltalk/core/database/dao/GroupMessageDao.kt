@@ -36,6 +36,9 @@ interface GroupMessageDao {
     @Query("UPDATE group_messages SET isPinned = :pinned WHERE id = :messageId AND ownerUsername = :owner")
     suspend fun updatePinStatus(messageId: String, owner: String, pinned: Boolean)
 
+    @Query("UPDATE group_messages SET content = :newContent WHERE id = :messageId AND ownerUsername = :owner")
+    suspend fun updateMessageContent(messageId: String, owner: String, newContent: String)
+
     @Query("""
         UPDATE group_messages
         SET status = :newStatus

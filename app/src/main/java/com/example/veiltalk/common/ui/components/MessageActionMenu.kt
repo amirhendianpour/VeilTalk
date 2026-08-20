@@ -6,6 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Forward
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -21,6 +22,7 @@ fun MessageActionMenu(
     isPinned: Boolean,
     onDismiss: () -> Unit,
     onCopy: () -> Unit,
+    onEdit: (() -> Unit)? = null,
     onTogglePin: () -> Unit,
     onForward: () -> Unit,
     onDelete: () -> Unit
@@ -44,6 +46,16 @@ fun MessageActionMenu(
                     onDismiss()
                 }
             )
+            if (onEdit != null) {
+                ActionMenuItem(
+                    text = "ویرایش پیام",
+                    icon = Icons.Default.Edit,
+                    onClick = {
+                        onEdit()
+                        onDismiss()
+                    }
+                )
+            }
             ActionMenuItem(
                 text = if (isPinned) "برداشتن سنجاق" else "سنجاق کردن پیام",
                 icon = Icons.Default.PushPin,

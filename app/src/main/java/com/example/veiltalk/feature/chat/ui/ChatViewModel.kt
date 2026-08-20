@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Instant
 import javax.inject.Inject
 
 data class ChatUiState(
@@ -25,7 +26,8 @@ data class ChatUiState(
     val partnerProfilePicture: String? = null,
     val isPartnerTyping: Boolean = false,
     val isPartnerOnline: Boolean = false,
-    val partnerLastSeen: String? = null
+    val partnerLastSeen: String? = null,
+    val editingMessage: ChatMessage? = null
 )
 
 @HiltViewModel
@@ -33,7 +35,7 @@ class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val chatRepository: ChatRepository,
     private val userDirectory: UserDirectoryRepository,
-    private val mediaRepository: MediaRepository // جدید
+    private val mediaRepository: MediaRepository
 ) : ViewModel() {
 
     val partner: String = checkNotNull(savedStateHandle["username"])
@@ -47,13 +49,23 @@ class ChatViewModel @Inject constructor(
     private val _uploadError = MutableStateFlow<String?>(null)
     val uploadError: StateFlow<String?> = _uploadError.asStateFlow()
 
+    private val _editingMessage = MutableStateFlow<ChatMessage?>(null)
+
     val uiState: StateFlow<ChatUiState> = combine(
         chatRepository.conversationFlow(partner),
         userDirectory.directory,
         chatRepository.typingUsers,
         userDirectory.onlineStatus,
-        userDirectory.lastSeen
-    ) { messages, directory, typing, onlineStatus, lastSeen ->
+        userDirectory.lastSeen,
+        _editingMessage
+    ) { args ->
+        val messages = args[0] as List<ChatMessage>
+        val directory = args[1] as Map<String, com.example.veiltalk.feature.user.data.dto.UserInfoDto>
+        val typing = args[2] as Set<String>
+        val onlineStatus = args[3] as Map<String, Boolean>
+        val lastSeen = args[4] as Map<String, String?>
+        val editingMessage = args[5] as ChatMessage?
+
         val info = directory[partner]
         ChatUiState(
             messages = messages,
@@ -61,7 +73,8 @@ class ChatViewModel @Inject constructor(
             partnerProfilePicture = info?.profilePictureUrl,
             isPartnerTyping = typing.contains(partner),
             isPartnerOnline = onlineStatus[partner] ?: false,
-            partnerLastSeen = lastSeen[partner]
+            partnerLastSeen = lastSeen[partner],
+            editingMessage = editingMessage
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ChatUiState())
 
@@ -91,9 +104,26 @@ class ChatViewModel @Inject constructor(
         if (text.isBlank()) return
         typingResetJob?.cancel()
         chatRepository.sendTyping(partner, false)
+        
         viewModelScope.launch {
-            chatRepository.sendMessage(partner, text, MessageType.TEXT)
+            val editingMsg = _editingMessage.value
+            if (editingMsg != null) {
+                chatRepository.editMessage(editingMsg.id, partner, text)
+                _editingMessage.value = null
+            } else {
+                chatRepository.sendMessage(partner, text, MessageType.TEXT)
+            }
         }
+        _inputText.value = ""
+    }
+
+    fun startEditing(message: ChatMessage) {
+        _editingMessage.value = message
+        _inputText.value = message.content
+    }
+
+    fun cancelEditing() {
+        _editingMessage.value = null
         _inputText.value = ""
     }
 
@@ -109,7 +139,6 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    // ارسال عکس — معادل بخش accept="image/*" در MessageInput.tsx
     fun sendImage(uri: Uri) {
         viewModelScope.launch {
             _isUploading.value = true
@@ -123,14 +152,12 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    // ارسال فایل عمومی — قابلیت جدید که در نسخه وب هنوز پیاده نشده
     fun sendFile(uri: Uri) {
         viewModelScope.launch {
             _isUploading.value = true
             _uploadError.value = null
             mediaRepository.uploadFile(uri)
                 .onSuccess { uploaded ->
-                    // نام فایل در content ذخیره می‌شود تا در صورت باز شدن پیام در وب هم حداقل نام فایل خوانا باشد
                     chatRepository.sendMessage(partner, uploaded.displayName, MessageType.FILE, uploaded.fileUrl)
                 }
                 .onFailure { e -> _uploadError.value = e.message ?: "خطا در آپلود فایل" }

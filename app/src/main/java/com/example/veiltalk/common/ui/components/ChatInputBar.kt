@@ -12,6 +12,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Send
@@ -35,6 +37,8 @@ fun ChatInputBar(
     onAttachFile: () -> Unit = {},
     onSendSticker: (String) -> Unit = {},
     onSendGif: (String) -> Unit = {},
+    isEditing: Boolean = false,
+    onCancelEdit: () -> Unit = {},
     isUploading: Boolean = false,
     uploadError: String? = null,
     onClearUploadError: () -> Unit = {},
@@ -50,6 +54,22 @@ fun ChatInputBar(
     val inputBackgroundColor = MaterialTheme.colorScheme.surface
 
     Column(modifier = Modifier.background(backgroundColor)) {
+        if (isEditing) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(primaryColor.copy(alpha = 0.1f))
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Edit, contentDescription = null, tint = primaryColor, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("ویرایش پیام", color = primaryColor, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                IconButton(onClick = onCancelEdit, modifier = Modifier.size(20.dp)) {
+                    Icon(Icons.Default.Close, contentDescription = "انصراف", tint = Color.Gray)
+                }
+            }
+        }
         if (isUploading) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = primaryColor)
         }

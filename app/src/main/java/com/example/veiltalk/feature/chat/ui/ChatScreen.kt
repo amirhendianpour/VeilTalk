@@ -181,6 +181,8 @@ fun ChatScreen(
                     onAttachFile = { filePicker.launch("*/*") },
                     onSendSticker = viewModel::sendSticker,
                     onSendGif = viewModel::sendGif,
+                    isEditing = uiState.editingMessage != null,
+                    onCancelEdit = viewModel::cancelEditing,
                     isUploading = isUploading,
                     uploadError = uploadError,
                     onClearUploadError = { viewModel.clearUploadError() }
@@ -234,6 +236,12 @@ fun ChatScreen(
             onCopy = {
                 clipboardManager.setText(AnnotatedString(msg.content))
             },
+            onEdit = if (msg.sender != viewModel.partner) {
+                {
+                    viewModel.startEditing(msg)
+                    showMessageMenu = null
+                }
+            } else null,
             onTogglePin = {
                 viewModel.togglePin(msg.id, msg.isPinned)
             },

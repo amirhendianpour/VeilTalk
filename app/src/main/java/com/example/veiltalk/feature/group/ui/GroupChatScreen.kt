@@ -115,6 +115,8 @@ fun GroupChatScreen(
                     onSendMessage = viewModel::sendMessage,
                     onSendSticker = viewModel::sendSticker,
                     onSendGif = viewModel::sendGif,
+                    isEditing = uiState.editingMessage != null,
+                    onCancelEdit = viewModel::cancelEditing,
                     placeholder = "پیام خود را بنویسید..."
                 )
             }
@@ -167,6 +169,12 @@ fun GroupChatScreen(
             onCopy = {
                 clipboardManager.setText(AnnotatedString(msg.content))
             },
+            onEdit = if (msg.sender == uiState.myUsername) {
+                {
+                    viewModel.startEditing(msg)
+                    showMessageMenu = null
+                }
+            } else null,
             onTogglePin = {
                 viewModel.togglePin(msg.id, msg.isPinned)
             },

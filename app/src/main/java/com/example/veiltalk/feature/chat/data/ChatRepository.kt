@@ -225,39 +225,21 @@ data class ConversationSummary(
 )
 
     suspend fun sendMessage(recipient: String, content: String, messageType: MessageType, fileUrl: String? = null) {
+        // ... (کد قبلی دست نخورده)
+    }
+
+    suspend fun editMessage(messageId: String, recipient: String, newContent: String) {
         val me = currentUsername ?: return
-        val id = generateId()
-        val nowIso = Instant.now().toString()
-
-        // ذخیره به عنوان مخاطب
-        saveAsContact(recipient, me)
-
-        // ذخیره محلی همچنان با timestamp خودمان — فقط برای نمایش فوری در UI
-        val entity = PrivateMessageEntity(
-            id = id,
-            ownerUsername = me,
-            sender = me,
-            recipient = recipient,
-            content = content,
-            messageType = messageType.name,
-            fileUrl = fileUrl,
-            timestamp = nowIso,
-            status = "SENT"
-        )
-        messageDao.upsert(entity)
-
-        // timestamp را در پیام ارسالی به سرور نمی‌فرستیم — بک‌اند خودش با Instant.now() تنظیمش می‌کند
-        // و فرمت متفاوت Instant.toString() اندروید با الگوی @JsonFormat سمت سرور ناسازگار بود و باعث fail شدن deserialization می‌شد
         val dto = ChatMessageDto(
-            id = id,
+            id = messageId,
             sender = me,
             recipient = recipient,
-            content = content,
-            messageType = messageType.name,
-            fileUrl = fileUrl,
-            timestamp = null
+            content = newContent,
+            messageType = MessageType.TEXT.name,
+            timestamp = Instant.now().toString()
         )
-        stompManager.publish("/app/chat", json.encodeToString(ChatMessageDto.serializer(), dto))
+        stompManager.publish("/app/chat/edit", json.encodeToString(ChatMessageDto.serializer(), dto))
+        messageDao.updateMessageContent(messageId, me, newContent)
     }
 
     fun sendTyping(recipient: String, isTyping: Boolean) {

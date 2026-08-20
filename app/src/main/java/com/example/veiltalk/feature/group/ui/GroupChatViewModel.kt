@@ -16,14 +16,15 @@ data class GroupChatUiState(
     val messages: List<GroupMessage> = emptyList(),
     val groupName: String = "",
     val groupImageUrl: String? = null,
-    val myUsername: String = "" // جدید — برای تشخیص پیام‌های خودم
+    val myUsername: String = "",
+    val editingMessage: GroupMessage? = null
 )
 
 @HiltViewModel
 class GroupChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val groupRepository: GroupRepository,
-    private val sessionManager: SessionManager // جدید
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     val groupId: Long = checkNotNull(savedStateHandle["groupId"])
@@ -31,17 +32,21 @@ class GroupChatViewModel @Inject constructor(
     private val _inputText = MutableStateFlow("")
     val inputText: StateFlow<String> = _inputText.asStateFlow()
 
+    private val _editingMessage = MutableStateFlow<GroupMessage?>(null)
+
     val uiState: StateFlow<GroupChatUiState> = combine(
         groupRepository.groupMessagesFlow(groupId),
         groupRepository.myGroups,
-        sessionManager.usernameFlow
-    ) { messages, groups, username ->
+        sessionManager.usernameFlow,
+        _editingMessage
+    ) { messages, groups, username, editingMessage ->
         val info = groups.find { it.id == groupId }
         GroupChatUiState(
             messages = messages,
             groupName = info?.name ?: "گروه",
             groupImageUrl = info?.imageUrl,
-            myUsername = username ?: ""
+            myUsername = username ?: "",
+            editingMessage = editingMessage
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), GroupChatUiState())
 
@@ -58,7 +63,25 @@ class GroupChatViewModel @Inject constructor(
     fun sendMessage() {
         val text = _inputText.value.trim()
         if (text.isBlank()) return
-        viewModelScope.launch { groupRepository.sendGroupMessage(groupId, text) }
+        viewModelScope.launch {
+            val editingMsg = _editingMessage.value
+            if (editingMsg != null) {
+                groupRepository.editGroupMessage(groupId, editingMsg.id, text)
+                _editingMessage.value = null
+            } else {
+                groupRepository.sendGroupMessage(groupId, text)
+            }
+        }
+        _inputText.value = ""
+    }
+
+    fun startEditing(message: GroupMessage) {
+        _editingMessage.value = message
+        _inputText.value = message.content
+    }
+
+    fun cancelEditing() {
+        _editingMessage.value = null
         _inputText.value = ""
     }
 

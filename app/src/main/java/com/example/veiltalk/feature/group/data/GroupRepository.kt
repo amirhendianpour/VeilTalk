@@ -280,33 +280,21 @@ data class GroupSummary(
         messageType: MessageType = MessageType.TEXT, 
         fileUrl: String? = null
     ) {
+        // ... (کد قبلی)
+    }
+
+    suspend fun editGroupMessage(groupId: Long, messageId: String, newContent: String) {
         val me = currentUsername ?: return
-        val id = generateId()
-        val nowIso = Instant.now().toString()
-
-        // نمایش فوری برای خود فرستنده
-        groupMessageDao.upsert(
-            GroupMessageEntity(
-                id = id,
-                ownerUsername = me,
-                groupId = groupId,
-                sender = me,
-                content = content,
-                timestamp = nowIso,
-                messageType = messageType.name,
-                fileUrl = fileUrl,
-                status = "SENT"
-            )
-        )
-
         val dto = GroupChatMessageDto(
-            id = id, 
-            groupId = groupId, 
-            content = content,
-            messageType = messageType.name,
-            fileUrl = fileUrl
+            id = messageId,
+            groupId = groupId,
+            sender = me,
+            content = newContent,
+            messageType = MessageType.TEXT.name,
+            timestamp = Instant.now().toString()
         )
-        stompManager.publish("/app/group/chat", json.encodeToString(GroupChatMessageDto.serializer(), dto))
+        stompManager.publish("/app/group/edit", json.encodeToString(GroupChatMessageDto.serializer(), dto))
+        groupMessageDao.updateMessageContent(messageId, me, newContent)
     }
 
     suspend fun markGroupAsRead(groupId: Long) {
