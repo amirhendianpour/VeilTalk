@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.Forward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +54,7 @@ fun ChatScreen(
     val context = LocalContext.current
     @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
 
     var pendingCallKind by remember { mutableStateOf<CallKind?>(null) }
     var selectedMessages by remember { mutableStateOf(setOf<String>()) }
@@ -213,7 +215,10 @@ fun ChatScreen(
                     onSendSticker = viewModel::sendSticker,
                     onSendGif = viewModel::sendGif,
                     isEditing = uiState.editingMessage != null,
+                    replyingMessageContent = uiState.replyingMessage?.content,
+                    replyingMessageSender = uiState.replyingMessage?.let { if (it.sender == viewModel.partner) uiState.partnerDisplayName else "شما" },
                     onCancelEdit = viewModel::cancelEditing,
+                    onCancelReply = viewModel::cancelReplying,
                     isUploading = isUploading,
                     uploadError = uploadError,
                     onClearUploadError = { viewModel.clearUploadError() }
@@ -232,10 +237,19 @@ fun ChatScreen(
                 contentPadding = PaddingValues(bottom = 8.dp)
             ) {
                 items(uiState.messages, key = { it.id }) { message ->
+                    val repliedTo = message.replyToId?.let { rid -> uiState.messages.find { it.id == rid } }
                     MessageBubble(
                         message = message,
                         partner = viewModel.partner,
                         isSelected = message.id in selectedMessages,
+                        replyToName = repliedTo?.let { if (it.sender == viewModel.partner) uiState.partnerDisplayName else "شما" },
+                        replyToContent = repliedTo?.content,
+                        onReplyClick = {
+                            val index = uiState.messages.indexOfFirst { it.id == message.replyToId }
+                            if (index != -1) {
+                                scope.launch { listState.animateScrollToItem(index) }
+                            }
+                        },
                         onClick = {
                             if (isSelectionMode) {
                                 selectedMessages = if (message.id in selectedMessages) {
@@ -266,6 +280,10 @@ fun ChatScreen(
             onDismiss = { showMessageMenu = null },
             onCopy = {
                 clipboardManager.setText(AnnotatedString(msg.content))
+            },
+            onReply = {
+                viewModel.startReplying(msg)
+                showMessageMenu = null
             },
             onEdit = if (msg.sender != viewModel.partner) {
                 {
@@ -326,11 +344,14 @@ fun ChatScreen(
                 viewModel.forwardMessages(target, ids)
                 showForwardDialog = null
                 selectedMessages = emptySet()
+                onOpenProfile(target)
             },
             onForwardToGroup = { targetId ->
                 viewModel.forwardMessagesToGroup(targetId, ids)
                 showForwardDialog = null
                 selectedMessages = emptySet()
+                // اگر خواستیم به گروه منتقل شویم:
+                // onOpenGroup(targetId) -- باید به ChatScreen پاس داده شود
             }
         )
     }
@@ -341,6 +362,9 @@ private fun MessageBubble(
     message: ChatMessage,
     partner: String,
     isSelected: Boolean,
+    replyToName: String? = null,
+    replyToContent: String? = null,
+    onReplyClick: () -> Unit = {},
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onSenderClick: () -> Unit
@@ -354,6 +378,9 @@ private fun MessageBubble(
         isMine = mine,
         isPinned = message.isPinned,
         isSelected = isSelected,
+        replyToName = replyToName,
+        replyToContent = replyToContent,
+        onReplyClick = onReplyClick,
         onClick = onClick,
         onLongClick = onLongClick,
         onSenderClick = onSenderClick,
@@ -370,8 +397,9 @@ private fun MessageBubble(
             when (message.messageType) {
                 MessageType.IMAGE -> {
                     if (!message.fileUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = message.fileUrl,
+                        EncryptedImage(
+                            url = message.fileUrl,
+                            mediaKey = message.mediaKey,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier

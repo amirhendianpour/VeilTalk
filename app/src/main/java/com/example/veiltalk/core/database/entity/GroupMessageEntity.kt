@@ -13,5 +13,8 @@ data class GroupMessageEntity(
     val messageType: String = "TEXT",
     val fileUrl: String? = null,
     val status: String = "SENT",
-    val isPinned: Boolean = false
+    val isPinned: Boolean = false,
+    val replyToId: String? = null,
+    val mediaKey: String? = null
 )
+

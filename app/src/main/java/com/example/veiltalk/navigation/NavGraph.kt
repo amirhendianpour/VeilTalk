@@ -119,7 +119,13 @@ fun VeilTalkNavGraph(
                 userDirectory = userDirectoryRepository,
                 onBack = { navController.popBackStack() },
                 onOpenInfo = { navController.navigate(Routes.groupInfoRoute(groupId)) },
-                onOpenProfile = { username -> navController.navigate(Routes.userProfileRoute(username)) }
+                onOpenProfile = { username -> navController.navigate(Routes.userProfileRoute(username)) },
+                onOpenGroup = { targetId -> 
+                    navController.navigate(Routes.groupChatRoute(targetId)) {
+                        popUpTo(Routes.HOME) { saveState = true }
+                        launchSingleTop = true
+                    }
+                }
             )
         }
 

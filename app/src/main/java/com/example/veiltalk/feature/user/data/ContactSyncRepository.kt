@@ -18,6 +18,7 @@ class ContactSyncRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val userApi: UserApi,
     private val contactDao: ContactDao,
+    private val userDirectory: UserDirectoryRepository, // اضافه شد
     private val sessionManager: SessionManager
 ) {
     suspend fun syncContacts(): Result<Int> = withContext(Dispatchers.IO) {
@@ -38,13 +39,22 @@ class ContactSyncRepository @Inject constructor(
 
             // ۳. ذخیره در دیتابیس محلی
             matchedContacts.forEach { dto ->
-                contactDao.upsert(
-                    ContactEntity(
+                val entity = ContactEntity(
+                    username = dto.username,
+                    ownerUsername = me,
+                    firstName = dto.firstName,
+                    lastName = dto.lastName,
+                    profilePictureUrl = null,
+                    phoneNumber = dto.phoneNumber
+                )
+                contactDao.upsert(entity)
+                
+                // همچنین بلافاصله دایرکتوری در حافظه موقت را هم آپدیت کن
+                userDirectory.setUserInfo(
+                    com.example.veiltalk.feature.user.data.dto.UserInfoDto(
                         username = dto.username,
-                        ownerUsername = me,
                         firstName = dto.firstName,
                         lastName = dto.lastName,
-                        profilePictureUrl = null,
                         phoneNumber = dto.phoneNumber
                     )
                 )

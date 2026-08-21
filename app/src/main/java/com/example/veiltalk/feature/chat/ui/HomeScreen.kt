@@ -109,7 +109,7 @@ fun HomeScreen(
                         actionIconContentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 )
-            } else if (bottomNavTab == 0) {
+            } else if (bottomNavTab == 0 || bottomNavTab == 1) {
                 TopAppBar(
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surface,
@@ -118,7 +118,9 @@ fun HomeScreen(
                         actionIconContentColor = MaterialTheme.colorScheme.primary
                     ),
                     title = {
-                        if (isSearchMode) {
+                        if (bottomNavTab == 1) {
+                            Text("مخاطبین", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        } else if (isSearchMode) {
                             TextField(
                                 value = uiState.searchQuery,
                                 onValueChange = viewModel::onSearchQueryChange,
@@ -142,7 +144,7 @@ fun HomeScreen(
                         }
                     },
                     navigationIcon = {
-                        if (isSearchMode) {
+                        if (isSearchMode && bottomNavTab == 0) {
                             IconButton(onClick = { 
                                 isSearchMode = false 
                                 viewModel.onSearchQueryChange("")
@@ -152,7 +154,12 @@ fun HomeScreen(
                         } else null
                     },
                     actions = {
-                        if (!isSearchMode) {
+                        if (bottomNavTab == 1) {
+                            IconButton(onClick = viewModel::syncContacts, enabled = !uiState.isSyncingContacts) {
+                                if (uiState.isSyncingContacts) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                else Icon(Icons.Default.Refresh, contentDescription = "همگام‌سازی")
+                            }
+                        } else if (!isSearchMode) {
                             IconButton(onClick = { isSearchMode = true }) {
                                 Icon(Icons.Default.Search, contentDescription = "جستجو")
                             }
@@ -160,6 +167,7 @@ fun HomeScreen(
                                 Icon(Icons.Default.MoreVert, contentDescription = "بیشتر")
                             }
                         }
+                        
                         DropdownMenu(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false }
@@ -183,6 +191,14 @@ fun HomeScreen(
                                 }
                             )
                             HorizontalDivider()
+                            DropdownMenuItem(
+                                leadingIcon = { Icon(Icons.Default.Sync, null) },
+                                text = { Text("بروزرسانی مخاطبین") },
+                                onClick = { 
+                                    showMenu = false
+                                    viewModel.syncContacts() 
+                                }
+                            )
                             DropdownMenuItem(
                                 leadingIcon = { 
                                     Icon(
@@ -436,6 +452,8 @@ fun HomeScreen(
                 } else {
                     ContactsTab(
                         allItems = contacts,
+                        isSyncing = uiState.isSyncingContacts,
+                        onSync = viewModel::syncContacts,
                         onOpenChat = onOpenChat,
                         onOpenProfile = onOpenProfile
                     )
@@ -469,11 +487,23 @@ fun HomeScreen(
 @Composable
 private fun ContactsTab(
     allItems: List<HomeListItem.ChatItem>,
+    isSyncing: Boolean,
+    onSync: () -> Unit,
     onOpenChat: (String) -> Unit,
     onOpenProfile: (String) -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item {
+            ListItem(
+                headlineContent = { Text("بروزرسانی از مخاطبین گوشی", color = primaryColor) },
+                leadingContent = { 
+                    if (isSyncing) CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    else Icon(Icons.Default.Sync, null, tint = primaryColor) 
+                },
+                modifier = Modifier.clickable(enabled = !isSyncing) { onSync() }
+            )
+        }
         item {
             ListItem(
                 headlineContent = { Text("مخاطب جدید", color = primaryColor) },

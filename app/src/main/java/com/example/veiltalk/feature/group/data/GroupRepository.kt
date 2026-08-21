@@ -238,7 +238,9 @@ class GroupRepository @Inject constructor(
                         messageType = runCatching { MessageType.valueOf(entity.messageType) }.getOrDefault(MessageType.TEXT),
                         fileUrl = entity.fileUrl,
                         status = runCatching { com.example.veiltalk.common.model.MessageStatus.valueOf(entity.status) }.getOrDefault(com.example.veiltalk.common.model.MessageStatus.SENT),
-                        isPinned = entity.isPinned
+                        isPinned = entity.isPinned,
+                        replyToId = entity.replyToId,
+                        mediaKey = entity.mediaKey
                     )
                 }
             }
@@ -299,7 +301,7 @@ class GroupRepository @Inject constructor(
 
     data class GroupSummary(val lastMessage: String, val timestamp: String?, val unreadCount: Int)
 
-    suspend fun sendGroupMessage(groupId: Long, content: String, messageType: MessageType = MessageType.TEXT, fileUrl: String? = null) {
+    suspend fun sendGroupMessage(groupId: Long, content: String, messageType: MessageType = MessageType.TEXT, fileUrl: String? = null, replyToId: String? = null, mediaKey: String? = null) {
         val me = currentUsername ?: return
         val id = generateId()
         val nowIso = Instant.now().toString()
@@ -314,7 +316,9 @@ class GroupRepository @Inject constructor(
                 timestamp = nowIso,
                 messageType = messageType.name,
                 fileUrl = fileUrl,
-                status = "SENT"
+                status = "SENT",
+                replyToId = replyToId,
+                mediaKey = mediaKey
             )
         )
 
@@ -325,7 +329,9 @@ class GroupRepository @Inject constructor(
             content = content, 
             messageType = messageType.name, 
             fileUrl = fileUrl, 
-            timestamp = null
+            timestamp = null,
+            replyToId = replyToId,
+            mediaKey = mediaKey
         )
         stompManager.publish("/app/group/chat", json.encodeToString(GroupChatMessageDto.serializer(), dto))
     }

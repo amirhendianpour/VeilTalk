@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Forward
+import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -22,6 +23,7 @@ fun MessageActionMenu(
     isPinned: Boolean,
     onDismiss: () -> Unit,
     onCopy: () -> Unit,
+    onReply: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
     onTogglePin: () -> Unit,
     onForward: () -> Unit,
@@ -46,6 +48,16 @@ fun MessageActionMenu(
                     onDismiss()
                 }
             )
+            if (onReply != null) {
+                ActionMenuItem(
+                    text = "پاسخ دادن (Reply)",
+                    icon = Icons.AutoMirrored.Filled.Reply,
+                    onClick = {
+                        onReply()
+                        onDismiss()
+                    }
+                )
+            }
             if (onEdit != null) {
                 ActionMenuItem(
                     text = "ویرایش پیام",

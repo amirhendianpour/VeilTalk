@@ -12,16 +12,19 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.SentimentSatisfiedAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
@@ -38,7 +41,10 @@ fun ChatInputBar(
     onSendSticker: (String) -> Unit = {},
     onSendGif: (String) -> Unit = {},
     isEditing: Boolean = false,
+    replyingMessageContent: String? = null,
+    replyingMessageSender: String? = null,
     onCancelEdit: () -> Unit = {},
+    onCancelReply: () -> Unit = {},
     isUploading: Boolean = false,
     uploadError: String? = null,
     onClearUploadError: () -> Unit = {},
@@ -70,6 +76,43 @@ fun ChatInputBar(
                 }
             }
         }
+        
+        if (replyingMessageContent != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(primaryColor.copy(alpha = 0.05f))
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(4.dp)
+                        .height(32.dp)
+                        .background(primaryColor, RoundedCornerShape(2.dp))
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = replyingMessageSender ?: "پیام",
+                        color = primaryColor,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = replyingMessageContent,
+                        color = Color.Gray,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
+                IconButton(onClick = onCancelReply, modifier = Modifier.size(20.dp)) {
+                    Icon(Icons.Default.Close, contentDescription = "لغو ریپلای", tint = Color.Gray)
+                }
+            }
+        }
+
         if (isUploading) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = primaryColor)
         }
@@ -109,17 +152,12 @@ fun ChatInputBar(
                         showEmojiPicker = true
                     }
                 }) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = if (showEmojiPicker) Icons.Default.Keyboard else Icons.Default.Add,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                            modifier = Modifier.size(24.dp)
-                        )
-                        if (!showEmojiPicker) {
-                            Text("😊", fontSize = 16.sp)
-                        }
-                    }
+                    Icon(
+                        imageVector = if (showEmojiPicker) Icons.Default.Keyboard else Icons.Default.SentimentSatisfiedAlt,
+                        contentDescription = "ایموجی",
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        modifier = Modifier.size(26.dp)
+                    )
                 }
 
                 Box(modifier = Modifier.weight(1f).padding(horizontal = 4.dp)) {
@@ -142,7 +180,7 @@ fun ChatInputBar(
                 }
 
                 IconButton(onClick = { showAttachMenu = true }, enabled = !isUploading) {
-                    Icon(Icons.Default.Add, contentDescription = "پیوست", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    Icon(Icons.Default.AttachFile, contentDescription = "پیوست", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 }
 
                 DropdownMenu(

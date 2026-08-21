@@ -54,7 +54,19 @@ class UserDirectoryRepository @Inject constructor(
     fun getProfilePicture(username: String): String? = _directory.value[username]?.profilePictureUrl
 
     fun setUserInfo(info: UserInfoDto) {
-        _directory.value = _directory.value + (info.username to info)
+        val current = _directory.value[info.username]
+        val merged = if (current != null) {
+            // ترکیب اطلاعات: اگر فیلد جدید خالی یا نال بود، از مقدار قبلی استفاده کن
+            info.copy(
+                phoneNumber = info.phoneNumber?.takeIf { it.isNotBlank() } ?: current.phoneNumber,
+                email = info.email?.takeIf { it.isNotBlank() } ?: current.email,
+                bio = info.bio?.takeIf { it.isNotBlank() } ?: current.bio,
+                profilePictureUrl = info.profilePictureUrl?.takeIf { it.isNotBlank() } ?: current.profilePictureUrl
+            )
+        } else {
+            info
+        }
+        _directory.value = _directory.value + (info.username to merged)
     }
 
     fun ensureLoaded(usernames: List<String>) {

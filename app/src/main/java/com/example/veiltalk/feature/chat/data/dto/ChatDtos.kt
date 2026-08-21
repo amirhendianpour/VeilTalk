@@ -10,7 +10,9 @@ data class ChatMessageDto(
     val content: String,
     val messageType: String = "TEXT",
     val fileUrl: String? = null,
-    val timestamp: String? = null
+    val timestamp: String? = null,
+    val replyToId: String? = null,
+    val mediaKey: String? = null
 )
 
 @Serializable

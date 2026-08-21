@@ -242,7 +242,7 @@ data class ConversationSummary(
     val unreadCount: Int
 )
 
-    suspend fun sendMessage(recipient: String, content: String, messageType: MessageType, fileUrl: String? = null) {
+    suspend fun sendMessage(recipient: String, content: String, messageType: MessageType, fileUrl: String? = null, replyToId: String? = null, mediaKey: String? = null) {
         val me = currentUsername ?: return
         val id = generateId()
         val nowIso = Instant.now().toString()
@@ -260,11 +260,12 @@ data class ConversationSummary(
             messageType = messageType.name,
             fileUrl = fileUrl,
             timestamp = nowIso,
-            status = "SENT"
+            status = "SENT",
+            replyToId = replyToId,
+            mediaKey = mediaKey
         )
         messageDao.upsert(entity)
 
-        // timestamp را در پیام ارسالی به سرور نمی‌فرستیم — بک‌اند خودش با Instant.now() تنظیمش می‌کند
         val dto = ChatMessageDto(
             id = id,
             sender = me,
@@ -272,7 +273,9 @@ data class ConversationSummary(
             content = content,
             messageType = messageType.name,
             fileUrl = fileUrl,
-            timestamp = null
+            timestamp = null,
+            replyToId = replyToId,
+            mediaKey = mediaKey
         )
         stompManager.publish("/app/chat", json.encodeToString(ChatMessageDto.serializer(), dto))
     }
@@ -383,7 +386,9 @@ private fun ChatMessageDto.toEntity(ownerUsername: String, status: String): Priv
         fileUrl = fileUrl,
         timestamp = timestamp,
         status = status,
-        isPinned = false
+        isPinned = false,
+        replyToId = replyToId,
+        mediaKey = mediaKey
     )
 }
 
@@ -397,6 +402,8 @@ private fun PrivateMessageEntity.toDomain(): ChatMessage {
         fileUrl = fileUrl,
         timestamp = timestamp,
         status = runCatching { MessageStatus.valueOf(status) }.getOrDefault(MessageStatus.SENT),
-        isPinned = isPinned
+        isPinned = isPinned,
+        replyToId = replyToId,
+        mediaKey = mediaKey
     )
 }

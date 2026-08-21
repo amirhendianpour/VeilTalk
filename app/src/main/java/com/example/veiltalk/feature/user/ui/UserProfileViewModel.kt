@@ -7,8 +7,10 @@ import com.example.veiltalk.feature.user.data.UserDirectoryRepository
 import com.example.veiltalk.feature.user.data.dto.UserInfoDto
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -26,8 +28,20 @@ class UserProfileViewModel @Inject constructor(
 
     private val username: String = checkNotNull(savedStateHandle["username"])
 
-    private val _uiState = MutableStateFlow(UserProfileUiState())
-    val uiState: StateFlow<UserProfileUiState> = _uiState.asStateFlow()
+    private val _isLoading = MutableStateFlow(true)
+    private val _error = MutableStateFlow<String?>(null)
+
+    val uiState: StateFlow<UserProfileUiState> = combine(
+        repository.directory,
+        _isLoading,
+        _error
+    ) { directory, isLoading, error ->
+        UserProfileUiState(
+            userInfo = directory[username],
+            isLoading = isLoading,
+            error = error
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserProfileUiState())
 
     init {
         loadUserProfile()
@@ -35,26 +49,22 @@ class UserProfileViewModel @Inject constructor(
 
     private fun loadUserProfile() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _isLoading.value = true
+            _error.value = null
             
-            // ابتدا از دیتای کش شده در ریپازیتوری نشان می‌دهیم
-            val cachedInfo = repository.directory.value[username]
-            if (cachedInfo != null) {
-                _uiState.value = _uiState.value.copy(userInfo = cachedInfo, isLoading = false)
-            }
+            // ۱. تلاش برای لود از دیتابیس محلی (از طریق ensureLoaded)
+            repository.ensureLoaded(listOf(username))
 
-            // همیشه درخواست لود مجدد از سرور می‌دهیم تا اطلاعات کامل (ایمیل/شماره) اگر مجاز بودیم دریافت شود
+            // ۲. درخواست آپدیت از سرور
             repository.lookupUser(username)
-                .onSuccess { info ->
-                    _uiState.value = _uiState.value.copy(userInfo = info, isLoading = false)
-                }
                 .onFailure { e ->
-                    if (_uiState.value.userInfo == null) {
-                        _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
-                    } else {
-                        _uiState.value = _uiState.value.copy(isLoading = false)
+                    // فقط اگر کلا دیتایی نداشتیم خطا نشان بده
+                    if (uiState.value.userInfo == null) {
+                        _error.value = e.message
                     }
                 }
+            
+            _isLoading.value = false
         }
     }
 }

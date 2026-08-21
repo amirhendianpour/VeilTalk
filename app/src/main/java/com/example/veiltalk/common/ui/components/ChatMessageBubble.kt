@@ -33,6 +33,9 @@ fun ChatMessageBubble(
     onLongClick: () -> Unit = {},
     onClick: () -> Unit = {},
     onSenderClick: () -> Unit = {},
+    replyToName: String? = null,
+    replyToContent: String? = null,
+    onReplyClick: () -> Unit = {},
     status: @Composable (() -> Unit)? = null,
     mediaContent: @Composable (() -> Unit)? = null
 ) {
@@ -101,6 +104,42 @@ fun ChatMessageBubble(
                         modifier = Modifier.clickable { onSenderClick() }
                     )
                     Spacer(Modifier.height(2.dp))
+                }
+
+                if (replyToContent != null) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 6.dp)
+                            .clickable { onReplyClick() },
+                        color = contentColor.copy(alpha = 0.05f),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Row(modifier = Modifier.padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .width(2.dp)
+                                    .height(32.dp)
+                                    .background(primaryColor)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = replyToName ?: "پیام",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = primaryColor
+                                )
+                                Text(
+                                    text = replyToContent,
+                                    fontSize = 11.sp,
+                                    color = contentColor.copy(alpha = 0.7f),
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
                 }
                 
                 mediaContent?.invoke()

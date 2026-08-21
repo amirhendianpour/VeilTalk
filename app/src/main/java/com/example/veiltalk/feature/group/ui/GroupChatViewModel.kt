@@ -18,6 +18,7 @@ data class GroupChatUiState(
     val groupImageUrl: String? = null,
     val myUsername: String = "",
     val editingMessage: GroupMessage? = null,
+    val replyingMessage: GroupMessage? = null,
     val searchQuery: String = "",
     val allDestinations: List<com.example.veiltalk.feature.chat.ui.HomeListItem> = emptyList()
 )
@@ -38,6 +39,7 @@ class GroupChatViewModel @Inject constructor(
     val inputText: StateFlow<String> = _inputText.asStateFlow()
 
     private val _editingMessage = MutableStateFlow<GroupMessage?>(null)
+    private val _replyingMessage = MutableStateFlow<GroupMessage?>(null)
     private val _searchQuery = MutableStateFlow("")
 
     @Suppress("UNCHECKED_CAST")
@@ -48,7 +50,8 @@ class GroupChatViewModel @Inject constructor(
         _editingMessage,
         _searchQuery,
         chatRepository.conversationSummariesFlow(), // جدید
-        userDirectory.directory // جدید
+        userDirectory.directory, // جدید
+        _replyingMessage
     ) { args ->
         val messages = args[0] as List<GroupMessage>
         val groups = args[1] as List<com.example.veiltalk.common.model.GroupInfo>
@@ -57,6 +60,7 @@ class GroupChatViewModel @Inject constructor(
         val query = args[4] as String
         val summaries = args[5] as List<com.example.veiltalk.feature.chat.data.ChatRepository.ConversationSummary>
         val directory = args[6] as Map<String, com.example.veiltalk.feature.user.data.dto.UserInfoDto>
+        val replyingMessage = args[7] as GroupMessage?
 
         val filteredMessages = if (query.isBlank()) messages else {
             messages.filter { it.content.contains(query, ignoreCase = true) }
@@ -83,6 +87,7 @@ class GroupChatViewModel @Inject constructor(
             groupImageUrl = info?.imageUrl,
             myUsername = username ?: "",
             editingMessage = editingMessage,
+            replyingMessage = replyingMessage,
             searchQuery = query,
             allDestinations = destinations
         )
@@ -103,14 +108,26 @@ class GroupChatViewModel @Inject constructor(
         if (text.isBlank()) return
         viewModelScope.launch {
             val editingMsg = _editingMessage.value
+            val replyingMsg = _replyingMessage.value
+            
             if (editingMsg != null) {
                 groupRepository.editGroupMessage(groupId, editingMsg.id, text)
                 _editingMessage.value = null
             } else {
-                groupRepository.sendGroupMessage(groupId, text)
+                groupRepository.sendGroupMessage(groupId, text, replyToId = replyingMsg?.id)
+                _replyingMessage.value = null
             }
         }
         _inputText.value = ""
+    }
+
+    fun startReplying(message: GroupMessage) {
+        _replyingMessage.value = message
+        _editingMessage.value = null
+    }
+
+    fun cancelReplying() {
+        _replyingMessage.value = null
     }
 
     fun startEditing(message: GroupMessage) {

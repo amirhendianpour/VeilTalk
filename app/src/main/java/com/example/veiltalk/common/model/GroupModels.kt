@@ -16,7 +16,9 @@ data class GroupMessage(
     val messageType: MessageType = MessageType.TEXT,
     val fileUrl: String? = null,
     val status: MessageStatus = MessageStatus.SENT,
-    val isPinned: Boolean = false
+    val isPinned: Boolean = false,
+    val replyToId: String? = null,
+    val mediaKey: String? = null
 )
 
 data class GroupMemberInfo(

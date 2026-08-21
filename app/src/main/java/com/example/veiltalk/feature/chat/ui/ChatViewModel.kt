@@ -29,6 +29,7 @@ data class ChatUiState(
     val isPartnerOnline: Boolean = false,
     val partnerLastSeen: String? = null,
     val editingMessage: ChatMessage? = null,
+    val replyingMessage: ChatMessage? = null,
     val searchQuery: String = "",
     val allDestinations: List<com.example.veiltalk.feature.chat.ui.HomeListItem> = emptyList()
 )
@@ -55,6 +56,7 @@ class ChatViewModel @Inject constructor(
     val uploadError: StateFlow<String?> = _uploadError.asStateFlow()
 
     private val _editingMessage = MutableStateFlow<ChatMessage?>(null)
+    private val _replyingMessage = MutableStateFlow<ChatMessage?>(null)
     private val _searchQuery = MutableStateFlow("")
 
     @Suppress("UNCHECKED_CAST")
@@ -67,7 +69,8 @@ class ChatViewModel @Inject constructor(
         _editingMessage,
         _searchQuery,
         chatRepository.conversationSummariesFlow(), // جدید
-        groupRepository.myGroups // جدید
+        groupRepository.myGroups, // جدید
+        _replyingMessage
     ) { args ->
         val messages = args[0] as List<ChatMessage>
         val directory = args[1] as Map<String, com.example.veiltalk.feature.user.data.dto.UserInfoDto>
@@ -78,6 +81,7 @@ class ChatViewModel @Inject constructor(
         val query = args[6] as String
         val summaries = args[7] as List<com.example.veiltalk.feature.chat.data.ChatRepository.ConversationSummary>
         val groups = args[8] as List<com.example.veiltalk.common.model.GroupInfo>
+        val replyingMessage = args[9] as ChatMessage?
 
         val filteredMessages = if (query.isBlank()) messages else {
             messages.filter { it.content.contains(query, ignoreCase = true) }
@@ -107,6 +111,7 @@ class ChatViewModel @Inject constructor(
             isPartnerOnline = onlineStatus[partner] ?: false,
             partnerLastSeen = lastSeen[partner],
             editingMessage = editingMessage,
+            replyingMessage = replyingMessage,
             searchQuery = query,
             allDestinations = destinations
         )
@@ -141,14 +146,26 @@ class ChatViewModel @Inject constructor(
         
         viewModelScope.launch {
             val editingMsg = _editingMessage.value
+            val replyingMsg = _replyingMessage.value
+            
             if (editingMsg != null) {
                 chatRepository.editMessage(editingMsg.id, partner, text)
                 _editingMessage.value = null
             } else {
-                chatRepository.sendMessage(partner, text, MessageType.TEXT)
+                chatRepository.sendMessage(partner, text, MessageType.TEXT, replyToId = replyingMsg?.id)
+                _replyingMessage.value = null
             }
         }
         _inputText.value = ""
+    }
+
+    fun startReplying(message: ChatMessage) {
+        _replyingMessage.value = message
+        _editingMessage.value = null
+    }
+
+    fun cancelReplying() {
+        _replyingMessage.value = null
     }
 
     fun startEditing(message: ChatMessage) {
