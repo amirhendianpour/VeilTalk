@@ -18,13 +18,16 @@ data class GroupChatUiState(
     val groupImageUrl: String? = null,
     val myUsername: String = "",
     val editingMessage: GroupMessage? = null,
-    val searchQuery: String = ""
+    val searchQuery: String = "",
+    val allDestinations: List<com.example.veiltalk.feature.chat.ui.HomeListItem> = emptyList()
 )
 
 @HiltViewModel
 class GroupChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val groupRepository: GroupRepository,
+    private val chatRepository: com.example.veiltalk.feature.chat.data.ChatRepository, // اضافه شد
+    private val userDirectory: com.example.veiltalk.feature.user.data.UserDirectoryRepository, // اضافه شد
     private val sessionManager: SessionManager
 ) : ViewModel() {
 
@@ -41,19 +44,45 @@ class GroupChatViewModel @Inject constructor(
         groupRepository.myGroups,
         sessionManager.usernameFlow,
         _editingMessage,
-        _searchQuery
-    ) { messages, groups, username, editingMessage, query ->
-        val info = groups.find { it.id == groupId }
+        _searchQuery,
+        chatRepository.conversationSummariesFlow(), // جدید
+        userDirectory.directory // جدید
+    ) { args ->
+        val messages = args[0] as List<GroupMessage>
+        val groups = args[1] as List<com.example.veiltalk.common.model.GroupInfo>
+        val username = args[2] as String?
+        val editingMessage = args[3] as GroupMessage?
+        val query = args[4] as String
+        val summaries = args[5] as List<com.example.veiltalk.feature.chat.data.ChatRepository.ConversationSummary>
+        val directory = args[6] as Map<String, com.example.veiltalk.feature.user.data.dto.UserInfoDto>
+
         val filteredMessages = if (query.isBlank()) messages else {
             messages.filter { it.content.contains(query, ignoreCase = true) }
         }
+
+        val destinations = summaries.map { s ->
+            val info = directory[s.partner]
+            com.example.veiltalk.feature.chat.ui.HomeListItem.ChatItem(
+                username = s.partner,
+                displayName = if (info != null) "${info.firstName} ${info.lastName}".trim().ifBlank { s.partner } else s.partner,
+                profilePictureUrl = info?.profilePictureUrl,
+                time = s.timestamp ?: "",
+                lastMessage = s.lastMessage,
+                unreadCount = s.unreadCount
+            )
+        } + groups.map { g ->
+            com.example.veiltalk.feature.chat.ui.HomeListItem.GroupItem(group = g, time = "", lastMessage = "", unreadCount = 0)
+        }
+
+        val info = groups.find { it.id == groupId }
         GroupChatUiState(
             messages = filteredMessages,
             groupName = info?.name ?: "گروه",
             groupImageUrl = info?.imageUrl,
             myUsername = username ?: "",
             editingMessage = editingMessage,
-            searchQuery = query
+            searchQuery = query,
+            allDestinations = destinations
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), GroupChatUiState())
 
@@ -114,9 +143,22 @@ class GroupChatViewModel @Inject constructor(
         _searchQuery.value = query
     }
 
-    fun deleteMessagesForEveryone(messageIds: List<String>) {
+    fun forwardMessages(targetUsername: String, messageIds: List<String>) {
         viewModelScope.launch {
-            groupRepository.deleteMessagesForEveryone(groupId, messageIds)
+            val msgs = uiState.value.messages.filter { it.id in messageIds }
+            chatRepository.forwardMessages(targetUsername, msgs.map { 
+                com.example.veiltalk.common.model.ChatMessage(
+                    id = it.id, sender = it.sender ?: "", recipient = targetUsername, content = it.content,
+                    messageType = it.messageType, fileUrl = it.fileUrl, timestamp = it.timestamp, status = com.example.veiltalk.common.model.MessageStatus.SENT
+                )
+            })
+        }
+    }
+
+    fun forwardMessagesToGroup(targetGroupId: Long, messageIds: List<String>) {
+        viewModelScope.launch {
+            val msgs = uiState.value.messages.filter { it.id in messageIds }
+            groupRepository.forwardGroupMessagesToGroup(targetGroupId, msgs)
         }
     }
 

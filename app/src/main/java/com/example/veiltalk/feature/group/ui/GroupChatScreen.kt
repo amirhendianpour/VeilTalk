@@ -46,6 +46,7 @@ fun GroupChatScreen(
     var selectedMessages by remember { mutableStateOf(setOf<String>()) }
     var showMessageMenu by remember { mutableStateOf<GroupMessage?>(null) }
     var showDeleteDialog by remember { mutableStateOf<List<String>?>(null) }
+    var showForwardDialog by remember { mutableStateOf<List<String>?>(null) }
     var isSearchMode by remember { mutableStateOf(false) }
 
     val isSelectionMode = selectedMessages.isNotEmpty()
@@ -88,7 +89,9 @@ fun GroupChatScreen(
                         }) {
                             Icon(Icons.Default.Delete, contentDescription = "حذف")
                         }
-                        IconButton(onClick = { /* Forward logic */ }) {
+                        IconButton(onClick = {
+                            showForwardDialog = selectedMessages.toList()
+                        }) {
                             Icon(Icons.AutoMirrored.Filled.Forward, contentDescription = "فوروارد")
                         }
                     }
@@ -206,7 +209,7 @@ fun GroupChatScreen(
                 viewModel.togglePin(msg.id, msg.isPinned)
             },
             onForward = {
-                // Forward logic
+                showForwardDialog = listOf(msg.id)
             },
             onDelete = {
                 showDeleteDialog = listOf(msg.id)
@@ -241,6 +244,24 @@ fun GroupChatScreen(
                 }) {
                     Text("حذف برای من")
                 }
+            }
+        )
+    }
+
+    if (showForwardDialog != null) {
+        val ids = showForwardDialog!!
+        ForwardDestinationDialog(
+            destinations = uiState.allDestinations,
+            onDismiss = { showForwardDialog = null },
+            onForwardToChat = { target ->
+                viewModel.forwardMessages(target, ids)
+                showForwardDialog = null
+                selectedMessages = emptySet()
+            },
+            onForwardToGroup = { targetId ->
+                viewModel.forwardMessagesToGroup(targetId, ids)
+                showForwardDialog = null
+                selectedMessages = emptySet()
             }
         )
     }

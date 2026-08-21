@@ -8,6 +8,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -17,6 +18,8 @@ import javax.inject.Singleton
 @Singleton
 class UserDirectoryRepository @Inject constructor(
     private val api: UserApi,
+    private val contactDao: com.example.veiltalk.core.database.dao.ContactDao,
+    private val sessionManager: com.example.veiltalk.core.session.SessionManager,
     @ApplicationScope private val scope: CoroutineScope
 ) {
     private val _directory = MutableStateFlow<Map<String, UserInfoDto>>(emptyMap())
@@ -56,10 +59,29 @@ class UserDirectoryRepository @Inject constructor(
 
     fun ensureLoaded(usernames: List<String>) {
         scope.launch {
+            val me = sessionManager.usernameFlow.first()
             var added = false
             mutex.withLock {
                 usernames.forEach { u ->
                     if (u.isNotBlank() && !_directory.value.containsKey(u) && !pending.contains(u)) {
+                        // قبل از درخواست از سرور، چک کن آیا در مخاطبین محلی دیتایی داریم؟
+                        if (me != null) {
+                            val local = contactDao.getContact(me, u)
+                            if (local != null) {
+                                setUserInfo(
+                                    UserInfoDto(
+                                        username = local.username,
+                                        firstName = local.firstName,
+                                        lastName = local.lastName,
+                                        profilePictureUrl = local.profilePictureUrl,
+                                        phoneNumber = local.phoneNumber,
+                                        email = local.email,
+                                        bio = local.bio
+                                    )
+                                )
+                            }
+                        }
+                        
                         pending.add(u)
                         added = true
                     }

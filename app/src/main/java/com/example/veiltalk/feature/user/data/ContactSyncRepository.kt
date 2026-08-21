@@ -44,7 +44,8 @@ class ContactSyncRepository @Inject constructor(
                         ownerUsername = me,
                         firstName = dto.firstName,
                         lastName = dto.lastName,
-                        profilePictureUrl = null // بک‌اندر در این متد آواتار نمی‌دهد، در لودهای بعدی آپدیت می‌شود
+                        profilePictureUrl = null,
+                        phoneNumber = dto.phoneNumber
                     )
                 )
             }

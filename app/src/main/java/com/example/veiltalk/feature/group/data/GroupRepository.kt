@@ -28,7 +28,17 @@ import com.example.veiltalk.feature.user.data.UserDirectoryRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -214,21 +224,35 @@ class GroupRepository @Inject constructor(
     }
 
     fun groupMessagesFlow(groupId: Long): Flow<List<GroupMessage>> {
-        val me = currentUsername ?: return flowOf(emptyList())
-        return groupMessageDao.getGroupMessagesFlow(me, groupId).map { list ->
-            list.map { entity ->
-                GroupMessage(
-                    id = entity.id,
-                    groupId = entity.groupId,
-                    sender = entity.sender,
-                    content = entity.content,
-                    timestamp = entity.timestamp,
-                    messageType = runCatching { MessageType.valueOf(entity.messageType) }.getOrDefault(MessageType.TEXT),
-                    fileUrl = entity.fileUrl,
-                    status = runCatching { com.example.veiltalk.common.model.MessageStatus.valueOf(entity.status) }.getOrDefault(com.example.veiltalk.common.model.MessageStatus.SENT),
-                    isPinned = entity.isPinned
-                )
+        return sessionManager.usernameFlow.flatMapLatest { me ->
+            if (me == null) flowOf(emptyList())
+            else groupMessageDao.getGroupMessagesFlow(me, groupId).map { list ->
+                list.map { entity ->
+                    GroupMessage(
+                        id = entity.id,
+                        groupId = entity.groupId,
+                        sender = entity.sender,
+                        content = entity.content,
+                        timestamp = entity.timestamp,
+                        messageType = runCatching { MessageType.valueOf(entity.messageType) }.getOrDefault(MessageType.TEXT),
+                        fileUrl = entity.fileUrl,
+                        status = runCatching { com.example.veiltalk.common.model.MessageStatus.valueOf(entity.status) }.getOrDefault(com.example.veiltalk.common.model.MessageStatus.SENT),
+                        isPinned = entity.isPinned
+                    )
+                }
             }
+        }
+    }
+
+    suspend fun forwardMessagesToGroup(targetGroupId: Long, messages: List<com.example.veiltalk.common.model.ChatMessage>) {
+        messages.forEach { msg ->
+            sendGroupMessage(targetGroupId, msg.content, msg.messageType, msg.fileUrl)
+        }
+    }
+
+    suspend fun forwardGroupMessagesToGroup(targetGroupId: Long, messages: List<GroupMessage>) {
+        messages.forEach { msg ->
+            sendGroupMessage(targetGroupId, msg.content, msg.messageType, msg.fileUrl)
         }
     }
 
@@ -250,23 +274,25 @@ class GroupRepository @Inject constructor(
     }
 
     fun groupConversationSummariesFlow(): Flow<Map<Long, GroupSummary>> {
-        val me = currentUsername ?: return flowOf(emptyMap())
-        return groupMessageDao.getAllForOwnerFlow(me).map { messages ->
-            val map = mutableMapOf<Long, GroupSummary>()
-            for (m in messages) {
-                val existing = map[m.groupId]
-                val isUnread = m.sender != me && m.status != "READ"
-                if (existing == null || (m.timestamp != null && (existing.timestamp == null || m.timestamp > existing.timestamp))) {
-                    map[m.groupId] = GroupSummary(
-                        lastMessage = m.content,
-                        timestamp = m.timestamp,
-                        unreadCount = (existing?.unreadCount ?: 0) + (if (isUnread) 1 else 0)
-                    )
-                } else if (isUnread) {
-                    map[m.groupId] = existing.copy(unreadCount = existing.unreadCount + 1)
+        return sessionManager.usernameFlow.flatMapLatest { me ->
+            if (me == null) flowOf(emptyMap())
+            else groupMessageDao.getAllForOwnerFlow(me).map { messages ->
+                val map = mutableMapOf<Long, GroupSummary>()
+                for (m in messages) {
+                    val existing = map[m.groupId]
+                    val isUnread = m.sender != me && m.status != "READ"
+                    if (existing == null || (m.timestamp != null && (existing.timestamp == null || m.timestamp > existing.timestamp))) {
+                        map[m.groupId] = GroupSummary(
+                            lastMessage = m.content,
+                            timestamp = m.timestamp,
+                            unreadCount = (existing?.unreadCount ?: 0) + (if (isUnread) 1 else 0)
+                        )
+                    } else if (isUnread) {
+                        map[m.groupId] = existing.copy(unreadCount = existing.unreadCount + 1)
+                    }
                 }
+                map
             }
-            map
         }
     }
 

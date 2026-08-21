@@ -11,7 +11,7 @@ import com.example.veiltalk.core.database.entity.PrivateMessageEntity
 
 @Database(
     entities = [PrivateMessageEntity::class, GroupMessageEntity::class, ContactEntity::class],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

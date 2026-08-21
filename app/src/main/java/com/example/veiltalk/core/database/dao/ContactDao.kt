@@ -12,6 +12,9 @@ interface ContactDao {
     @Query("SELECT * FROM contacts WHERE ownerUsername = :owner ORDER BY firstName ASC, lastName ASC")
     fun getContactsFlow(owner: String): Flow<List<ContactEntity>>
 
+    @Query("SELECT * FROM contacts WHERE ownerUsername = :owner AND username = :username LIMIT 1")
+    suspend fun getContact(owner: String, username: String): ContactEntity?
+
     @Query("DELETE FROM contacts WHERE username = :username AND ownerUsername = :owner")
     suspend fun deleteContact(username: String, owner: String)
 }

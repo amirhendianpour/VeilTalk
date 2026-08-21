@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.veiltalk.common.model.ChatMessage
 import com.example.veiltalk.common.model.MessageType
 import com.example.veiltalk.feature.chat.data.ChatRepository
+import com.example.veiltalk.feature.group.data.GroupRepository
 import com.example.veiltalk.feature.chat.data.MediaRepository
 import com.example.veiltalk.feature.user.data.UserDirectoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,13 +29,15 @@ data class ChatUiState(
     val isPartnerOnline: Boolean = false,
     val partnerLastSeen: String? = null,
     val editingMessage: ChatMessage? = null,
-    val searchQuery: String = ""
+    val searchQuery: String = "",
+    val allDestinations: List<com.example.veiltalk.feature.chat.ui.HomeListItem> = emptyList()
 )
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val chatRepository: ChatRepository,
+    private val groupRepository: GroupRepository, // اضافه شد
     private val userDirectory: UserDirectoryRepository,
     private val mediaRepository: MediaRepository
 ) : ViewModel() {
@@ -60,7 +63,9 @@ class ChatViewModel @Inject constructor(
         userDirectory.onlineStatus,
         userDirectory.lastSeen,
         _editingMessage,
-        _searchQuery
+        _searchQuery,
+        chatRepository.conversationSummariesFlow(), // جدید
+        groupRepository.myGroups // جدید
     ) { args ->
         val messages = args[0] as List<ChatMessage>
         val directory = args[1] as Map<String, com.example.veiltalk.feature.user.data.dto.UserInfoDto>
@@ -69,9 +74,26 @@ class ChatViewModel @Inject constructor(
         val lastSeen = args[4] as Map<String, String?>
         val editingMessage = args[5] as ChatMessage?
         val query = args[6] as String
+        val summaries = args[7] as List<com.example.veiltalk.feature.chat.data.ChatRepository.ConversationSummary>
+        val groups = args[8] as List<com.example.veiltalk.common.model.GroupInfo>
 
         val filteredMessages = if (query.isBlank()) messages else {
             messages.filter { it.content.contains(query, ignoreCase = true) }
+        }
+
+        // ساخت لیست مقصدهای فوروارد
+        val destinations = summaries.map { s ->
+            val info = directory[s.partner]
+            com.example.veiltalk.feature.chat.ui.HomeListItem.ChatItem(
+                username = s.partner,
+                displayName = if (info != null) "${info.firstName} ${info.lastName}".trim().ifBlank { s.partner } else s.partner,
+                profilePictureUrl = info?.profilePictureUrl,
+                time = s.timestamp ?: "",
+                lastMessage = s.lastMessage,
+                unreadCount = s.unreadCount
+            )
+        } + groups.map { g ->
+            com.example.veiltalk.feature.chat.ui.HomeListItem.GroupItem(group = g, time = "", lastMessage = "", unreadCount = 0)
         }
 
         val info = directory[partner]
@@ -83,7 +105,8 @@ class ChatViewModel @Inject constructor(
             isPartnerOnline = onlineStatus[partner] ?: false,
             partnerLastSeen = lastSeen[partner],
             editingMessage = editingMessage,
-            searchQuery = query
+            searchQuery = query,
+            allDestinations = destinations
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ChatUiState())
 
@@ -191,6 +214,20 @@ class ChatViewModel @Inject constructor(
     fun deleteMessagesForEveryone(messageIds: List<String>) {
         viewModelScope.launch {
             chatRepository.deleteMessagesForEveryone(partner, messageIds)
+        }
+    }
+
+    fun forwardMessages(targetUsername: String, messageIds: List<String>) {
+        viewModelScope.launch {
+            val msgs = uiState.value.messages.filter { it.id in messageIds }
+            chatRepository.forwardMessages(targetUsername, msgs)
+        }
+    }
+
+    fun forwardMessagesToGroup(targetGroupId: Long, messageIds: List<String>) {
+        viewModelScope.launch {
+            val msgs = uiState.value.messages.filter { it.id in messageIds }
+            groupRepository.forwardMessagesToGroup(targetGroupId, msgs)
         }
     }
 

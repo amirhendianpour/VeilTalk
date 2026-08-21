@@ -9,5 +9,8 @@ data class ContactEntity(
     val firstName: String,
     val lastName: String,
     val profilePictureUrl: String? = null,
+    val phoneNumber: String? = null,
+    val email: String? = null,
+    val bio: String? = null,
     val addedAt: Long = System.currentTimeMillis()
 )

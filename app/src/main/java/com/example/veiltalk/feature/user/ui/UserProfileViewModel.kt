@@ -37,23 +37,24 @@ class UserProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             
-            // ابتدا از دیتای کش شده در ریپازیتوری چک می‌کنیم
+            // ابتدا از دیتای کش شده در ریپازیتوری نشان می‌دهیم
             val cachedInfo = repository.directory.value[username]
             if (cachedInfo != null) {
                 _uiState.value = _uiState.value.copy(userInfo = cachedInfo, isLoading = false)
-            } else {
-                // اگر کش نبود، درخواست لود مجدد می‌دهیم
-                repository.ensureLoaded(listOf(username))
-                // اینجا به صورت ساده منتظر می‌مانیم تا دیتا در دایرکتوری ظاهر شود یا خطا دهد
-                // در یک پیاده‌سازی واقعی‌تر، lookupUser می‌تواند مستقیم صدا زده شود
-                repository.lookupUser(username)
-                    .onSuccess { info ->
-                        _uiState.value = _uiState.value.copy(userInfo = info, isLoading = false)
-                    }
-                    .onFailure { e ->
-                        _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
-                    }
             }
+
+            // همیشه درخواست لود مجدد از سرور می‌دهیم تا اطلاعات کامل (ایمیل/شماره) اگر مجاز بودیم دریافت شود
+            repository.lookupUser(username)
+                .onSuccess { info ->
+                    _uiState.value = _uiState.value.copy(userInfo = info, isLoading = false)
+                }
+                .onFailure { e ->
+                    if (_uiState.value.userInfo == null) {
+                        _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
+                    } else {
+                        _uiState.value = _uiState.value.copy(isLoading = false)
+                    }
+                }
         }
     }
 }

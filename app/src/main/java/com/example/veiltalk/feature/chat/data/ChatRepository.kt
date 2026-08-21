@@ -31,6 +31,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -198,33 +200,37 @@ class ChatRepository @Inject constructor(
     }
 
     fun conversationFlow(partner: String): Flow<List<ChatMessage>> {
-        val me = currentUsername ?: return kotlinx.coroutines.flow.flowOf(emptyList())
-        return messageDao.getConversationFlow(me, partner).map { list -> list.map { it.toDomain() } }
+        return sessionManager.usernameFlow.flatMapLatest { me ->
+            if (me == null) flowOf(emptyList())
+            else messageDao.getConversationFlow(me, partner).map { list -> list.map { it.toDomain() } }
+        }
     }
 
     // لیست مخاطبین چت + جزئیات آخرین پیام و تعداد پیام‌های نخوانده
     fun conversationSummariesFlow(): Flow<List<ConversationSummary>> {
-        val me = currentUsername ?: return kotlinx.coroutines.flow.flowOf(emptyList())
-        return messageDao.getAllForOwnerFlow(me).map { messages ->
-            val summaries = mutableMapOf<String, ConversationSummary>()
-            for (m in messages) {
-                val partner = if (m.sender == me) m.recipient else m.sender
-                val existing = summaries[partner]
-                
-                val isUnread = m.recipient == me && m.status != "READ"
-                
-                if (existing == null || (m.timestamp != null && (existing.timestamp == null || m.timestamp > existing.timestamp))) {
-                    summaries[partner] = ConversationSummary(
-                        partner = partner,
-                        lastMessage = m.content,
-                        timestamp = m.timestamp,
-                        unreadCount = (existing?.unreadCount ?: 0) + (if (isUnread) 1 else 0)
-                    )
-                } else if (isUnread) {
-                    summaries[partner] = existing.copy(unreadCount = existing.unreadCount + 1)
+        return sessionManager.usernameFlow.flatMapLatest { me ->
+            if (me == null) flowOf(emptyList())
+            else messageDao.getAllForOwnerFlow(me).map { messages ->
+                val summaries = mutableMapOf<String, ConversationSummary>()
+                for (m in messages) {
+                    val partner = if (m.sender == me) m.recipient else m.sender
+                    val existing = summaries[partner]
+                    
+                    val isUnread = m.recipient == me && m.status != "READ"
+                    
+                    if (existing == null || (m.timestamp != null && (existing.timestamp == null || m.timestamp > existing.timestamp))) {
+                        summaries[partner] = ConversationSummary(
+                            partner = partner,
+                            lastMessage = m.content,
+                            timestamp = m.timestamp,
+                            unreadCount = (existing?.unreadCount ?: 0) + (if (isUnread) 1 else 0)
+                        )
+                    } else if (isUnread) {
+                        summaries[partner] = existing.copy(unreadCount = existing.unreadCount + 1)
+                    }
                 }
+                summaries.values.sortedByDescending { it.timestamp ?: "" }
             }
-            summaries.values.sortedByDescending { it.timestamp ?: "" }
         }
     }
 
@@ -306,6 +312,12 @@ data class ConversationSummary(
                 status = "READ"
             )
             stompManager.publish("/app/chat/receipt", json.encodeToString(ReceiptDto.serializer(), receipt))
+        }
+    }
+
+    suspend fun forwardMessages(targetRecipient: String, messages: List<ChatMessage>) {
+        messages.forEach { msg ->
+            sendMessage(targetRecipient, msg.content, msg.messageType, msg.fileUrl)
         }
     }
 
