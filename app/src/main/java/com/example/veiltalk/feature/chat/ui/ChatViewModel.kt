@@ -33,6 +33,7 @@ data class ChatUiState(
     val allDestinations: List<com.example.veiltalk.feature.chat.ui.HomeListItem> = emptyList()
 )
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -56,6 +57,7 @@ class ChatViewModel @Inject constructor(
     private val _editingMessage = MutableStateFlow<ChatMessage?>(null)
     private val _searchQuery = MutableStateFlow("")
 
+    @Suppress("UNCHECKED_CAST")
     val uiState: StateFlow<ChatUiState> = combine(
         chatRepository.conversationFlow(partner),
         userDirectory.directory,

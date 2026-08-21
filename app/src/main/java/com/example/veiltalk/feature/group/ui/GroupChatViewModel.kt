@@ -22,6 +22,7 @@ data class GroupChatUiState(
     val allDestinations: List<com.example.veiltalk.feature.chat.ui.HomeListItem> = emptyList()
 )
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class GroupChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -39,6 +40,7 @@ class GroupChatViewModel @Inject constructor(
     private val _editingMessage = MutableStateFlow<GroupMessage?>(null)
     private val _searchQuery = MutableStateFlow("")
 
+    @Suppress("UNCHECKED_CAST")
     val uiState: StateFlow<GroupChatUiState> = combine(
         groupRepository.groupMessagesFlow(groupId),
         groupRepository.myGroups,
@@ -136,6 +138,12 @@ class GroupChatViewModel @Inject constructor(
     fun deleteMessages(messageIds: List<String>) {
         viewModelScope.launch {
             groupRepository.deleteMessages(messageIds)
+        }
+    }
+
+    fun deleteMessagesForEveryone(messageIds: List<String>) {
+        viewModelScope.launch {
+            groupRepository.deleteMessagesForEveryone(groupId, messageIds)
         }
     }
 

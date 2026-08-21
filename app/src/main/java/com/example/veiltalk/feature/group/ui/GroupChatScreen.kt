@@ -41,6 +41,7 @@ fun GroupChatScreen(
     val uiState by viewModel.uiState.collectAsState()
     val inputText by viewModel.inputText.collectAsState()
     val listState = rememberLazyListState()
+    @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
 
     var selectedMessages by remember { mutableStateOf(setOf<String>()) }

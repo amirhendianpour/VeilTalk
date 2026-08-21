@@ -51,6 +51,7 @@ fun ChatScreen(
     val uploadError by viewModel.uploadError.collectAsState()
     val listState = rememberLazyListState()
     val context = LocalContext.current
+    @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
 
     var pendingCallKind by remember { mutableStateOf<CallKind?>(null) }

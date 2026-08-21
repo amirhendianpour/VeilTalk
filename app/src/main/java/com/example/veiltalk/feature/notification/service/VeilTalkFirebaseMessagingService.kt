@@ -28,6 +28,7 @@ class VeilTalkFirebaseMessagingService : FirebaseMessagingService() {
 
     private val scope = CoroutineScope(Dispatchers.IO)
 
+    @Suppress("DEPRECATION")
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         scope.launch { fcmTokenRepository.onTokenRefreshed(token) }

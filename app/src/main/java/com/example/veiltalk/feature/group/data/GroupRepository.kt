@@ -46,6 +46,7 @@ import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Singleton
 class GroupRepository @Inject constructor(
     private val api: GroupApi,

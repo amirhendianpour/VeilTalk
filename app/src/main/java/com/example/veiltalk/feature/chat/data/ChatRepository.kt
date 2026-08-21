@@ -43,6 +43,7 @@ import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Singleton
 class ChatRepository @Inject constructor(
     private val stompManager: StompManager,

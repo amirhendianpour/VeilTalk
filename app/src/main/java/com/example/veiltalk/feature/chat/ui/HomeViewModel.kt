@@ -104,6 +104,7 @@ class HomeViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            @Suppress("UNCHECKED_CAST")
             combine(
                 sessionManager.usernameFlow,
                 sessionManager.displayNameFlow,
@@ -126,6 +127,7 @@ class HomeViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            @Suppress("UNCHECKED_CAST")
             combine(
                 chatRepository.conversationSummariesFlow(),
                 groupRepository.myGroups,
