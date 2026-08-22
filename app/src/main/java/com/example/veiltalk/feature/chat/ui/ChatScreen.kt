@@ -38,6 +38,8 @@ import com.example.veiltalk.common.model.MessageStatus
 import com.example.veiltalk.common.model.MessageType
 import com.example.veiltalk.common.ui.components.*
 
+import com.example.veiltalk.common.util.VoiceRecorder
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
@@ -50,8 +52,19 @@ fun ChatScreen(
     val inputText by viewModel.inputText.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
     val uploadError by viewModel.uploadError.collectAsState()
+    val isRecording by viewModel.isRecording.collectAsState()
     val listState = rememberLazyListState()
     val context = LocalContext.current
+    val voiceRecorder = remember { VoiceRecorder(context) }
+    
+    val recordPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            voiceRecorder.start()
+            viewModel.startRecording()
+        }
+    }
     @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
@@ -62,6 +75,7 @@ fun ChatScreen(
     var showDeleteDialog by remember { mutableStateOf<List<String>?>(null) }
     var showForwardDialog by remember { mutableStateOf<List<String>?>(null) }
     var isSearchMode by remember { mutableStateOf(false) }
+    var viewingImage by remember { mutableStateOf<ChatMessage?>(null) }
 
     val isSelectionMode = selectedMessages.isNotEmpty()
 
@@ -221,7 +235,20 @@ fun ChatScreen(
                     onCancelReply = viewModel::cancelReplying,
                     isUploading = isUploading,
                     uploadError = uploadError,
-                    onClearUploadError = { viewModel.clearUploadError() }
+                    onClearUploadError = { viewModel.clearUploadError() },
+                    isRecording = isRecording,
+                    onStartRecording = {
+                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                            voiceRecorder.start()
+                            viewModel.startRecording()
+                        } else {
+                            recordPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    },
+                    onStopRecording = {
+                        val file = voiceRecorder.stop()
+                        viewModel.stopRecording(file)
+                    }
                 )
             }
         }
@@ -250,6 +277,7 @@ fun ChatScreen(
                                 scope.launch { listState.animateScrollToItem(index) }
                             }
                         },
+                        onViewImage = { viewingImage = it },
                         onClick = {
                             if (isSelectionMode) {
                                 selectedMessages = if (message.id in selectedMessages) {
@@ -355,6 +383,17 @@ fun ChatScreen(
             }
         )
     }
+
+    viewingImage?.let { msg ->
+        msg.fileUrl?.let { url ->
+            FullScreenImageViewer(
+                url = url,
+                mediaKey = msg.mediaKey,
+                thumbnailBase64 = msg.content,
+                onDismiss = { viewingImage = null }
+            )
+        }
+    }
 }
 
 @Composable
@@ -365,6 +404,7 @@ private fun MessageBubble(
     replyToName: String? = null,
     replyToContent: String? = null,
     onReplyClick: () -> Unit = {},
+    onViewImage: (ChatMessage) -> Unit,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onSenderClick: () -> Unit
@@ -373,7 +413,7 @@ private fun MessageBubble(
     val context = LocalContext.current
 
     ChatMessageBubble(
-        content = message.content,
+        content = if (message.messageType == MessageType.TEXT) message.content else "",
         timestamp = message.timestamp,
         isMine = mine,
         isPinned = message.isPinned,
@@ -400,6 +440,7 @@ private fun MessageBubble(
                         EncryptedImage(
                             url = message.fileUrl,
                             mediaKey = message.mediaKey,
+                            thumbnailBase64 = message.content,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
@@ -407,8 +448,7 @@ private fun MessageBubble(
                                 .heightIn(max = 240.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(message.fileUrl))
-                                    context.startActivity(intent)
+                                    onViewImage(message)
                                 }
                         )
                         Spacer(Modifier.height(4.dp))
@@ -432,6 +472,16 @@ private fun MessageBubble(
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
+                        Spacer(Modifier.height(4.dp))
+                    }
+                }
+                MessageType.VOICE -> {
+                    if (!message.fileUrl.isNullOrBlank()) {
+                        VoiceMessagePlayer(
+                            url = message.fileUrl,
+                            mediaKey = message.mediaKey,
+                            isMine = mine
+                        )
                         Spacer(Modifier.height(4.dp))
                     }
                 }

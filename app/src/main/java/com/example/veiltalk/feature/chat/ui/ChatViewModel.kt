@@ -31,7 +31,8 @@ data class ChatUiState(
     val editingMessage: ChatMessage? = null,
     val replyingMessage: ChatMessage? = null,
     val searchQuery: String = "",
-    val allDestinations: List<com.example.veiltalk.feature.chat.ui.HomeListItem> = emptyList()
+    val allDestinations: List<com.example.veiltalk.feature.chat.ui.HomeListItem> = emptyList(),
+    val isRecording: Boolean = false
 )
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -51,6 +52,9 @@ class ChatViewModel @Inject constructor(
 
     private val _isUploading = MutableStateFlow(false)
     val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
+
+    private val _isRecording = MutableStateFlow(false)
+    val isRecording: StateFlow<Boolean> = _isRecording.asStateFlow()
 
     private val _uploadError = MutableStateFlow<String?>(null)
     val uploadError: StateFlow<String?> = _uploadError.asStateFlow()
@@ -113,7 +117,8 @@ class ChatViewModel @Inject constructor(
             editingMessage = editingMessage,
             replyingMessage = replyingMessage,
             searchQuery = query,
-            allDestinations = destinations
+            allDestinations = destinations,
+            isRecording = _isRecording.value
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ChatUiState())
 
@@ -190,6 +195,34 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun startRecording() {
+        _isRecording.value = true
+    }
+
+    fun stopRecording(file: java.io.File?) {
+        _isRecording.value = false
+        if (file != null && file.exists()) {
+            viewModelScope.launch {
+                _isUploading.value = true
+                mediaRepository.uploadBytes(file.readBytes(), "audio/m4a")
+                    .onSuccess { uploaded ->
+                        chatRepository.sendMessage(
+                            recipient = partner,
+                            content = "",
+                            messageType = MessageType.VOICE,
+                            fileUrl = uploaded.fileUrl,
+                            mediaKey = uploaded.mediaKey
+                        )
+                        file.delete()
+                    }
+                    .onFailure { e ->
+                        _uploadError.value = "خطا در ارسال ویس: ${e.message}"
+                    }
+                _isUploading.value = false
+            }
+        }
+    }
+
     fun sendImage(uri: Uri) {
         viewModelScope.launch {
             _isUploading.value = true
@@ -198,7 +231,7 @@ class ChatViewModel @Inject constructor(
                 .onSuccess { uploaded ->
                     chatRepository.sendMessage(
                         recipient = partner,
-                        content = "",
+                        content = uploaded.thumbnail ?: "",
                         messageType = MessageType.IMAGE,
                         fileUrl = uploaded.fileUrl,
                         mediaKey = uploaded.mediaKey

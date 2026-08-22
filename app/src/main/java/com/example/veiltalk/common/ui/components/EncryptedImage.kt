@@ -34,7 +34,8 @@ fun EncryptedImage(
     mediaKey: String?,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    contentScale: ContentScale = ContentScale.Fit
+    contentScale: ContentScale = ContentScale.Fit,
+    thumbnailBase64: String? = null
 ) {
     val context = LocalContext.current
 
@@ -56,6 +57,18 @@ fun EncryptedImage(
     var bitmap by remember(absoluteUrl) { mutableStateOf<Bitmap?>(memoryCache.get(absoluteUrl)) }
     var isLoading by remember(absoluteUrl) { mutableStateOf(bitmap == null) }
     var hasError by remember(absoluteUrl) { mutableStateOf(false) }
+
+    // بارگذاری Thumbnail در صورت وجود
+    val thumbnailBitmap = remember(thumbnailBase64) {
+        if (thumbnailBase64 != null) {
+            try {
+                val bytes = android.util.Base64.decode(thumbnailBase64, android.util.Base64.NO_WRAP)
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            } catch (e: Exception) {
+                null
+            }
+        } else null
+    }
 
     LaunchedEffect(absoluteUrl, mediaKey) {
         if (bitmap != null) return@LaunchedEffect
@@ -136,10 +149,18 @@ fun EncryptedImage(
             Image(
                 bitmap = bitmap!!.asImageBitmap(),
                 contentDescription = contentDescription,
-                modifier = Modifier,
+                modifier = Modifier.fillMaxSize(),
                 contentScale = contentScale
             )
         } else if (isLoading) {
+            if (thumbnailBitmap != null) {
+                Image(
+                    bitmap = thumbnailBitmap.asImageBitmap(),
+                    contentDescription = contentDescription,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = contentScale
+                )
+            }
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         } else if (hasError) {
             androidx.compose.material3.Text("!", color = androidx.compose.ui.graphics.Color.Gray)

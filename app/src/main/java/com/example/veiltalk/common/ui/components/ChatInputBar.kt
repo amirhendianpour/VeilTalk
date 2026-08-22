@@ -1,5 +1,8 @@
 package com.example.veiltalk.common.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -31,6 +34,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.pointerInput
+
 @Composable
 fun ChatInputBar(
     value: String,
@@ -48,12 +56,26 @@ fun ChatInputBar(
     isUploading: Boolean = false,
     uploadError: String? = null,
     onClearUploadError: () -> Unit = {},
+    isRecording: Boolean = false,
+    onStartRecording: () -> Unit = {},
+    onStopRecording: () -> Unit = {},
     placeholder: String = "پیام..."
 ) {
     var showAttachMenu by remember { mutableStateOf(false) }
     var showEmojiPicker by remember { mutableStateOf(false) }
+    var recordSeconds by remember { mutableIntStateOf(0) }
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
+
+    LaunchedEffect(isRecording) {
+        if (isRecording) {
+            recordSeconds = 0
+            while (true) {
+                kotlinx.coroutines.delay(1000)
+                recordSeconds++
+            }
+        }
+    }
     
     val primaryColor = MaterialTheme.colorScheme.primary
     val backgroundColor = MaterialTheme.colorScheme.surfaceVariant
@@ -135,72 +157,103 @@ fun ChatInputBar(
                 .padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .background(inputBackgroundColor, RoundedCornerShape(24.dp))
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { 
-                    if (showEmojiPicker) {
-                        showEmojiPicker = false
-                        keyboardController?.show()
-                    } else {
-                        keyboardController?.hide()
-                        focusManager.clearFocus()
-                        showEmojiPicker = true
-                    }
-                }) {
-                    Icon(
-                        imageVector = if (showEmojiPicker) Icons.Default.Keyboard else Icons.Default.SentimentSatisfiedAlt,
-                        contentDescription = "ایموجی",
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
-
-                Box(modifier = Modifier.weight(1f).padding(horizontal = 4.dp)) {
-                    BasicTextField(
-                        value = value,
-                        onValueChange = { 
-                            onValueChange(it)
-                            // اگر کاربر شروع به تایپ کرد، پنل ایموجی را ببند (رفتار واتس‌اپ)
-                            if (showEmojiPicker) showEmojiPicker = false
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-                        decorationBox = { innerTextField ->
-                            if (value.isEmpty()) {
-                                Text(placeholder, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 16.sp)
-                            }
-                            innerTextField()
-                        }
-                    )
-                }
-
-                IconButton(onClick = { showAttachMenu = true }, enabled = !isUploading) {
-                    Icon(Icons.Default.AttachFile, contentDescription = "پیوست", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                }
-
-                DropdownMenu(
-                    expanded = showAttachMenu,
-                    onDismissRequest = { showAttachMenu = false }
+            if (isRecording) {
+                // نمایش وضعیت ضبط حرفه‌ای
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    DropdownMenuItem(
-                        text = { Text("گالری") },
-                        onClick = {
-                            showAttachMenu = false
-                            onAttachImage()
-                        }
+                    Icon(
+                        Icons.Default.Mic,
+                        contentDescription = null,
+                        tint = Color.Red,
+                        modifier = Modifier.size(20.dp)
                     )
-                    DropdownMenuItem(
-                        text = { Text("فایل") },
-                        onClick = {
-                            showAttachMenu = false
-                            onAttachFile()
-                        }
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = String.format("%02d:%02d", recordSeconds / 60, recordSeconds % 60),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
                     )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        "در حال ضبط...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(inputBackgroundColor, RoundedCornerShape(24.dp))
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { 
+                        if (showEmojiPicker) {
+                            showEmojiPicker = false
+                            keyboardController?.show()
+                        } else {
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
+                            showEmojiPicker = true
+                        }
+                    }) {
+                        Icon(
+                            imageVector = if (showEmojiPicker) Icons.Default.Keyboard else Icons.Default.SentimentSatisfiedAlt,
+                            contentDescription = "ایموجی",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+
+                    Box(modifier = Modifier.weight(1f).padding(horizontal = 4.dp)) {
+                        BasicTextField(
+                            value = value,
+                            onValueChange = { 
+                                onValueChange(it)
+                                // اگر کاربر شروع به تایپ کرد، پنل ایموجی را ببند (رفتار واتس‌اپ)
+                                if (showEmojiPicker) showEmojiPicker = false
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                            decorationBox = { innerTextField ->
+                                if (value.isEmpty()) {
+                                    Text(placeholder, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 16.sp)
+                                }
+                                innerTextField()
+                            }
+                        )
+                    }
+
+                    IconButton(onClick = { showAttachMenu = true }, enabled = !isUploading) {
+                        Icon(Icons.Default.AttachFile, contentDescription = "پیوست", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    }
+
+                    DropdownMenu(
+                        expanded = showAttachMenu,
+                        onDismissRequest = { showAttachMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("گالری") },
+                            onClick = {
+                                showAttachMenu = false
+                                onAttachImage()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("فایل") },
+                            onClick = {
+                                showAttachMenu = false
+                                onAttachFile()
+                            }
+                        )
+                    }
                 }
             }
 
@@ -209,12 +262,30 @@ fun ChatInputBar(
             FloatingActionButton(
                 onClick = {
                     if (value.isNotBlank()) onSendMessage()
-                    else { /* Voice record placeholder */ }
                 },
-                containerColor = primaryColor,
+                containerColor = if (isRecording) Color.Red else primaryColor,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape,
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier
+                    .size(48.dp)
+                    .pointerInput(value) {
+                        if (value.isBlank()) {
+                            detectTapGestures(
+                                onLongPress = {
+                                    // این بخش برای شروع ضبط با لانگ پرس است
+                                    // اما برای رفتار واتس‌اپی (نگه داشتن عادی) onPress بهتر است
+                                },
+                                onPress = {
+                                    try {
+                                        onStartRecording()
+                                        awaitRelease()
+                                    } finally {
+                                        onStopRecording()
+                                    }
+                                }
+                            )
+                        }
+                    },
                 elevation = FloatingActionButtonDefaults.elevation(2.dp)
             ) {
                 Icon(
