@@ -72,6 +72,12 @@ fun ChatInputBar(
     val backgroundColor = MaterialTheme.colorScheme.surfaceVariant
     val inputBackgroundColor = MaterialTheme.colorScheme.surface
 
+    // برای جلوگیری از Capture شدن مقادیر قدیمی در pointerInput
+    val currentOnSendMessage by rememberUpdatedState(onSendMessage)
+    val currentOnStartRecording by rememberUpdatedState(onStartRecording)
+    val currentOnStopRecording by rememberUpdatedState(onStopRecording)
+    val currentIsTextEmpty by rememberUpdatedState(value.isEmpty())
+
     Column(modifier = Modifier.background(backgroundColor)) {
         if (isEditing) EditHeader(primaryColor, onCancelEdit)
         if (replyingMessageContent != null) ReplyHeader(primaryColor, replyingMessageSender, replyingMessageContent, onCancelReply)
@@ -135,7 +141,7 @@ fun ChatInputBar(
 
             Spacer(Modifier.width(8.dp))
 
-            // دکمه ارسال/ضبط
+            // دکمه ارسال/ضبط (ثابت در جای خود برای جلوگیری از قطع لمس)
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -143,14 +149,18 @@ fun ChatInputBar(
                     .background(if (isRecording) Color.Red else primaryColor)
                     .pointerInput(Unit) {
                         detectTapGestures(
-                            onTap = { if (value.isNotEmpty()) onSendMessage() },
+                            onTap = { 
+                                if (!currentIsTextEmpty) {
+                                    currentOnSendMessage()
+                                }
+                            },
                             onPress = {
-                                if (value.isEmpty()) {
+                                if (currentIsTextEmpty) {
                                     try {
-                                        onStartRecording()
+                                        currentOnStartRecording()
                                         awaitRelease()
                                     } finally {
-                                        onStopRecording()
+                                        currentOnStopRecording()
                                     }
                                 }
                             }

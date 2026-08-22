@@ -51,6 +51,7 @@ class ChatRepository @Inject constructor(
     private val contactDao: com.example.veiltalk.core.database.dao.ContactDao,
     private val sessionManager: SessionManager,
     private val userDirectory: UserDirectoryRepository,
+    private val mediaRepository: MediaRepository, // اضافه شد
     private val json: Json,
     @ApplicationContext private val context: Context,
     @ApplicationScope private val scope: CoroutineScope
@@ -316,6 +317,44 @@ data class ConversationSummary(
                 status = "READ"
             )
             stompManager.publish("/app/chat/receipt", json.encodeToString(ReceiptDto.serializer(), receipt))
+        }
+    }
+
+    suspend fun sendImageMessage(recipient: String, uri: android.net.Uri): Result<Unit> {
+        return mediaRepository.uploadFile(uri).map { uploaded ->
+            sendMessage(
+                recipient = recipient,
+                content = uploaded.thumbnail ?: "",
+                messageType = MessageType.IMAGE,
+                fileUrl = uploaded.fileUrl,
+                mediaKey = uploaded.mediaKey
+            )
+        }
+    }
+
+    suspend fun sendVoiceMessage(recipient: String, file: java.io.File): Result<Unit> {
+        val bytes = withContext(Dispatchers.IO) { file.readBytes() }
+        return mediaRepository.uploadBytes(bytes, "audio/m4a").map { uploaded ->
+            sendMessage(
+                recipient = recipient,
+                content = "",
+                messageType = MessageType.VOICE,
+                fileUrl = uploaded.fileUrl,
+                mediaKey = uploaded.mediaKey
+            )
+            file.delete()
+        }
+    }
+
+    suspend fun sendFileMessage(recipient: String, uri: android.net.Uri): Result<Unit> {
+        return mediaRepository.uploadFile(uri).map { uploaded ->
+            sendMessage(
+                recipient = recipient,
+                content = uploaded.displayName,
+                messageType = MessageType.FILE,
+                fileUrl = uploaded.fileUrl,
+                mediaKey = uploaded.mediaKey
+            )
         }
     }
 

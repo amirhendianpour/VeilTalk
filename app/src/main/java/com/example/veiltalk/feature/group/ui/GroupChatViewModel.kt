@@ -20,7 +20,8 @@ data class GroupChatUiState(
     val editingMessage: GroupMessage? = null,
     val replyingMessage: GroupMessage? = null,
     val searchQuery: String = "",
-    val allDestinations: List<com.example.veiltalk.feature.chat.ui.HomeListItem> = emptyList()
+    val allDestinations: List<com.example.veiltalk.feature.chat.ui.HomeListItem> = emptyList(),
+    val isRecording: Boolean = false
 )
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -41,6 +42,9 @@ class GroupChatViewModel @Inject constructor(
 
     private val _isUploading = MutableStateFlow(false)
     val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
+
+    private val _isRecording = MutableStateFlow(false)
+    val isRecording: StateFlow<Boolean> = _isRecording.asStateFlow()
 
     private val _uploadError = MutableStateFlow<String?>(null)
     val uploadError: StateFlow<String?> = _uploadError.asStateFlow()
@@ -100,7 +104,8 @@ class GroupChatViewModel @Inject constructor(
             editingMessage = editingMessage,
             replyingMessage = replyingMessage,
             searchQuery = query,
-            allDestinations = destinations
+            allDestinations = destinations,
+            isRecording = _isRecording.value
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), GroupChatUiState())
 
@@ -136,18 +141,27 @@ class GroupChatViewModel @Inject constructor(
         viewModelScope.launch {
             _isUploading.value = true
             _uploadError.value = null
-            mediaRepository.uploadFile(uri)
-                .onSuccess { uploaded ->
-                    groupRepository.sendGroupMessage(
-                        groupId = groupId,
-                        content = "",
-                        messageType = MessageType.IMAGE,
-                        fileUrl = uploaded.fileUrl,
-                        mediaKey = uploaded.mediaKey
-                    )
-                }
+            groupRepository.sendImageMessage(groupId, uri)
                 .onFailure { e -> _uploadError.value = e.message ?: "خطا در آپلود عکس" }
             _isUploading.value = false
+        }
+    }
+
+    fun startRecording() {
+        _isRecording.value = true
+    }
+
+    fun stopRecording(file: java.io.File?) {
+        _isRecording.value = false
+        if (file != null && file.exists() && file.length() > 100) {
+            viewModelScope.launch {
+                _isUploading.value = true
+                groupRepository.sendVoiceMessage(groupId, file)
+                    .onFailure { e -> _uploadError.value = "خطا در ارسال ویس: ${e.message}" }
+                _isUploading.value = false
+            }
+        } else {
+            file?.delete()
         }
     }
 
@@ -155,16 +169,7 @@ class GroupChatViewModel @Inject constructor(
         viewModelScope.launch {
             _isUploading.value = true
             _uploadError.value = null
-            mediaRepository.uploadFile(uri)
-                .onSuccess { uploaded ->
-                    groupRepository.sendGroupMessage(
-                        groupId = groupId,
-                        content = uploaded.displayName,
-                        messageType = MessageType.FILE,
-                        fileUrl = uploaded.fileUrl,
-                        mediaKey = uploaded.mediaKey
-                    )
-                }
+            groupRepository.sendFileMessage(groupId, uri)
                 .onFailure { e -> _uploadError.value = e.message ?: "خطا در آپلود فایل" }
             _isUploading.value = false
         }

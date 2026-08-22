@@ -53,6 +53,7 @@ class GroupRepository @Inject constructor(
     private val stompManager: StompManager,
     private val groupMessageDao: GroupMessageDao,
     private val sessionManager: SessionManager,
+    private val mediaRepository: com.example.veiltalk.feature.chat.data.MediaRepository, // اضافه شد
     private val userDirectory: UserDirectoryRepository,
     private val json: Json,
     @ApplicationContext private val appContext: Context,
@@ -346,6 +347,44 @@ class GroupRepository @Inject constructor(
             mediaKey = mediaKey
         )
         stompManager.publish("/app/group/chat", json.encodeToString(GroupChatMessageDto.serializer(), dto))
+    }
+
+    suspend fun sendImageMessage(groupId: Long, uri: android.net.Uri): Result<Unit> {
+        return mediaRepository.uploadFile(uri).map { uploaded ->
+            sendGroupMessage(
+                groupId = groupId,
+                content = uploaded.thumbnail ?: "",
+                messageType = MessageType.IMAGE,
+                fileUrl = uploaded.fileUrl,
+                mediaKey = uploaded.mediaKey
+            )
+        }
+    }
+
+    suspend fun sendVoiceMessage(groupId: Long, file: java.io.File): Result<Unit> {
+        val bytes = withContext(Dispatchers.IO) { file.readBytes() }
+        return mediaRepository.uploadBytes(bytes, "audio/m4a").map { uploaded ->
+            sendGroupMessage(
+                groupId = groupId,
+                content = "",
+                messageType = MessageType.VOICE,
+                fileUrl = uploaded.fileUrl,
+                mediaKey = uploaded.mediaKey
+            )
+            file.delete()
+        }
+    }
+
+    suspend fun sendFileMessage(groupId: Long, uri: android.net.Uri): Result<Unit> {
+        return mediaRepository.uploadFile(uri).map { uploaded ->
+            sendGroupMessage(
+                groupId = groupId,
+                content = uploaded.displayName,
+                messageType = MessageType.FILE,
+                fileUrl = uploaded.fileUrl,
+                mediaKey = uploaded.mediaKey
+            )
+        }
     }
 
     suspend fun editGroupMessage(groupId: Long, messageId: String, newContent: String) {

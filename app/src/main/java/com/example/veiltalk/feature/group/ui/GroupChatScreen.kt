@@ -27,6 +27,7 @@ import coil.compose.AsyncImage
 import com.example.veiltalk.common.model.GroupMessage
 import com.example.veiltalk.common.model.MessageType
 import com.example.veiltalk.common.ui.components.*
+import com.example.veiltalk.common.util.VoiceRecorder
 import com.example.veiltalk.feature.user.data.UserDirectoryRepository
 import kotlinx.coroutines.launch
 
@@ -38,17 +39,28 @@ fun GroupChatScreen(
     onBack: () -> Unit,
     onOpenInfo: () -> Unit,
     onOpenProfile: (String) -> Unit,
-    onOpenGroup: (Long) -> Unit // جدید: برای انتقال بعد از فوروارد
+    onOpenGroup: (Long) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val inputText by viewModel.inputText.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
     val uploadError by viewModel.uploadError.collectAsState()
+    val isRecording by viewModel.isRecording.collectAsState()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
     val context = androidx.compose.ui.platform.LocalContext.current
+    val voiceRecorder = remember { VoiceRecorder(context) }
+
+    val recordPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            voiceRecorder.start()
+            viewModel.startRecording()
+        }
+    }
 
     val imagePicker = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.GetContent()
@@ -63,6 +75,7 @@ fun GroupChatScreen(
     var showDeleteDialog by remember { mutableStateOf<List<String>?>(null) }
     var showForwardDialog by remember { mutableStateOf<List<String>?>(null) }
     var isSearchMode by remember { mutableStateOf(false) }
+    var viewingImage by remember { mutableStateOf<GroupMessage?>(null) }
 
     val isSelectionMode = selectedMessages.isNotEmpty()
 
@@ -148,7 +161,7 @@ fun GroupChatScreen(
         },
         bottomBar = {
             if (!isSelectionMode) {
-                ChatInputBar(
+                    ChatInputBar(
                     value = inputText,
                     onValueChange = viewModel::onInputChange,
                     onSendMessage = viewModel::sendMessage,
@@ -164,6 +177,19 @@ fun GroupChatScreen(
                     isUploading = isUploading,
                     uploadError = uploadError,
                     onClearUploadError = viewModel::clearUploadError,
+                    isRecording = isRecording,
+                    onStartRecording = {
+                        if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                            voiceRecorder.start()
+                            viewModel.startRecording()
+                        } else {
+                            recordPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                        }
+                    },
+                    onStopRecording = {
+                        val file = voiceRecorder.stop()
+                        viewModel.stopRecording(file)
+                    },
                     placeholder = "پیام خود را بنویسید..."
                 )
             }
@@ -192,6 +218,7 @@ fun GroupChatScreen(
                                 scope.launch { listState.animateScrollToItem(index) }
                             }
                         },
+                        onViewImage = { viewingImage = it },
                         onClick = {
                             if (isSelectionMode) {
                                 selectedMessages = if (message.id in selectedMessages) selectedMessages - message.id else selectedMessages + message.id
@@ -287,6 +314,17 @@ fun GroupChatScreen(
             }
         )
     }
+
+    viewingImage?.let { msg ->
+        msg.fileUrl?.let { url ->
+            FullScreenImageViewer(
+                url = url,
+                mediaKey = msg.mediaKey,
+                thumbnailBase64 = msg.content,
+                onDismiss = { viewingImage = null }
+            )
+        }
+    }
 }
 
 @Composable
@@ -298,6 +336,7 @@ private fun GroupMessageBubble(
     replyToName: String? = null,
     replyToContent: String? = null,
     onReplyClick: () -> Unit = {},
+    onViewImage: (GroupMessage) -> Unit,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onSenderClick: () -> Unit
@@ -305,7 +344,7 @@ private fun GroupMessageBubble(
     val context = androidx.compose.ui.platform.LocalContext.current
 
     ChatMessageBubble(
-        content = message.content,
+        content = if (message.messageType == MessageType.TEXT) message.content else "",
         timestamp = message.timestamp,
         isMine = mine,
         senderName = if (!mine) senderDisplayName else null,
@@ -327,21 +366,68 @@ private fun GroupMessageBubble(
             }
         },
         mediaContent = {
-            if (message.messageType != MessageType.TEXT && !message.fileUrl.isNullOrBlank()) {
-                EncryptedImage(
-                    url = message.fileUrl,
-                    mediaKey = message.mediaKey,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .sizeIn(maxWidth = 200.dp, maxHeight = 200.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(message.fileUrl))
-                            context.startActivity(intent)
-                        },
-                    contentScale = ContentScale.Fit
-                )
-                Spacer(Modifier.height(4.dp))
+            when (message.messageType) {
+                MessageType.IMAGE -> {
+                    if (!message.fileUrl.isNullOrBlank()) {
+                        EncryptedImage(
+                            url = message.fileUrl,
+                            mediaKey = message.mediaKey,
+                            thumbnailBase64 = message.content,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .sizeIn(maxWidth = 200.dp, maxHeight = 200.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onViewImage(message) },
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(Modifier.height(4.dp))
+                    }
+                }
+                MessageType.VOICE -> {
+                    if (!message.fileUrl.isNullOrBlank()) {
+                        VoiceMessagePlayer(
+                            url = message.fileUrl,
+                            mediaKey = message.mediaKey,
+                            isMine = mine
+                        )
+                        Spacer(Modifier.height(4.dp))
+                    }
+                }
+                MessageType.FILE -> {
+                    if (!message.fileUrl.isNullOrBlank()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clickable {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(message.fileUrl))
+                                    context.startActivity(intent)
+                                }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Text("📄", fontSize = 20.sp)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                message.content.ifBlank { "فایل پیوست" },
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        Spacer(Modifier.height(4.dp))
+                    }
+                }
+                MessageType.GIF, MessageType.STICKER -> {
+                    if (!message.fileUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = message.fileUrl,
+                            contentDescription = null,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .size(if (message.messageType == MessageType.STICKER) 120.dp else 200.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                        )
+                        Spacer(Modifier.height(4.dp))
+                    }
+                }
+                else -> {}
             }
         }
     )

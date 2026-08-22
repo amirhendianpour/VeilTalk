@@ -204,20 +204,8 @@ class ChatViewModel @Inject constructor(
         if (file != null && file.exists() && file.length() > 100) {
             viewModelScope.launch {
                 _isUploading.value = true
-                mediaRepository.uploadBytes(file.readBytes(), "audio/m4a")
-                    .onSuccess { uploaded ->
-                        chatRepository.sendMessage(
-                            recipient = partner,
-                            content = "",
-                            messageType = MessageType.VOICE,
-                            fileUrl = uploaded.fileUrl,
-                            mediaKey = uploaded.mediaKey
-                        )
-                        file.delete()
-                    }
-                    .onFailure { e ->
-                        _uploadError.value = "خطا در ارسال ویس: ${e.message}"
-                    }
+                chatRepository.sendVoiceMessage(partner, file)
+                    .onFailure { e -> _uploadError.value = "خطا در ارسال ویس: ${e.message}" }
                 _isUploading.value = false
             }
         } else {
@@ -229,16 +217,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             _isUploading.value = true
             _uploadError.value = null
-            mediaRepository.uploadFile(uri)
-                .onSuccess { uploaded ->
-                    chatRepository.sendMessage(
-                        recipient = partner,
-                        content = uploaded.thumbnail ?: "",
-                        messageType = MessageType.IMAGE,
-                        fileUrl = uploaded.fileUrl,
-                        mediaKey = uploaded.mediaKey
-                    )
-                }
+            chatRepository.sendImageMessage(partner, uri)
                 .onFailure { e -> _uploadError.value = e.message ?: "خطا در آپلود عکس" }
             _isUploading.value = false
         }
@@ -248,16 +227,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             _isUploading.value = true
             _uploadError.value = null
-            mediaRepository.uploadFile(uri)
-                .onSuccess { uploaded ->
-                    chatRepository.sendMessage(
-                        recipient = partner,
-                        content = uploaded.displayName,
-                        messageType = MessageType.FILE,
-                        fileUrl = uploaded.fileUrl,
-                        mediaKey = uploaded.mediaKey
-                    )
-                }
+            chatRepository.sendFileMessage(partner, uri)
                 .onFailure { e -> _uploadError.value = e.message ?: "خطا در آپلود فایل" }
             _isUploading.value = false
         }
