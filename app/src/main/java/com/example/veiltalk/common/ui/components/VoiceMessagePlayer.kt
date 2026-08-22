@@ -28,6 +28,11 @@ import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
 
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+
 @Composable
 fun VoiceMessagePlayer(
     url: String,
@@ -39,6 +44,19 @@ fun VoiceMessagePlayer(
     var isPlaying by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    // تشخیص تم تیره
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    
+    // تعیین رنگ محتوا مشابه ChatMessageBubble برای کنتراست صحیح
+    val accentColor = if (isDark) {
+        Color.White // در تم تیره همه حباب‌ها تیره هستند، پس متن سفید باشد
+    } else {
+        // در تم روشن، حباب‌های ما بسیار روشن هستند، پس متن باید تیره باشد
+        if (isMine) MaterialTheme.colorScheme.primary else Color.Black
+    }
+    
+    val secondaryTextColor = accentColor.copy(alpha = 0.6f)
 
     val absoluteUrl = remember(url) {
         if (url.startsWith("http")) url 
@@ -101,13 +119,13 @@ fun VoiceMessagePlayer(
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(vertical = 4.dp).width(200.dp)
+        modifier = Modifier.padding(vertical = 4.dp).width(220.dp)
     ) {
         if (isLoading) {
             CircularProgressIndicator(
-                modifier = Modifier.size(36.dp).padding(8.dp),
+                modifier = Modifier.size(32.dp).padding(6.dp),
                 strokeWidth = 2.dp,
-                color = if (isMine) Color.White else MaterialTheme.colorScheme.primary
+                color = accentColor
             )
         } else {
             IconButton(
@@ -123,30 +141,36 @@ fun VoiceMessagePlayer(
             ) {
                 Icon(
                     imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (isPlaying) "توقف" else "پخش",
-                    tint = if (isMine) Color.White else MaterialTheme.colorScheme.primary
+                    contentDescription = null,
+                    tint = accentColor
                 )
             }
         }
         
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(4.dp))
         
+        // نوار پیشرفت با استایل مدرن‌تر
         LinearProgressIndicator(
             progress = { if (isPlaying) 0.5f else 0f },
-            modifier = Modifier.weight(1f).height(4.dp),
-            color = if (isMine) Color.White else MaterialTheme.colorScheme.primary,
-            trackColor = (if (isMine) Color.White else MaterialTheme.colorScheme.primary).copy(alpha = 0.2f)
+            modifier = Modifier
+                .weight(1f)
+                .height(6.dp)
+                .clip(CircleShape),
+            color = accentColor,
+            trackColor = accentColor.copy(alpha = 0.2f)
         )
         
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(10.dp))
         
         Text(
             "Voice",
-            fontSize = 12.sp,
-            color = if (isMine) Color.White.copy(alpha = 0.7f) else Color.Gray
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            color = secondaryTextColor
         )
     }
 }
+
 
 private fun hashString(input: String): String {
     return MessageDigest.getInstance("MD5")
