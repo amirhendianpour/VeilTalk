@@ -42,11 +42,21 @@ fun GroupChatScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val inputText by viewModel.inputText.collectAsState()
+    val isUploading by viewModel.isUploading.collectAsState()
+    val uploadError by viewModel.uploadError.collectAsState()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
     val context = androidx.compose.ui.platform.LocalContext.current
+
+    val imagePicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri -> uri?.let { viewModel.sendImage(it) } }
+
+    val filePicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri -> uri?.let { viewModel.sendFile(it) } }
 
     var selectedMessages by remember { mutableStateOf(setOf<String>()) }
     var showMessageMenu by remember { mutableStateOf<GroupMessage?>(null) }
@@ -142,6 +152,8 @@ fun GroupChatScreen(
                     value = inputText,
                     onValueChange = viewModel::onInputChange,
                     onSendMessage = viewModel::sendMessage,
+                    onAttachImage = { imagePicker.launch("image/*") },
+                    onAttachFile = { filePicker.launch("*/*") },
                     onSendSticker = viewModel::sendSticker,
                     onSendGif = viewModel::sendGif,
                     isEditing = uiState.editingMessage != null,
@@ -149,6 +161,9 @@ fun GroupChatScreen(
                     replyingMessageSender = uiState.replyingMessage?.let { if (it.sender == uiState.myUsername) "شما" else userDirectory.getDisplayName(it.sender ?: "") },
                     onCancelEdit = viewModel::cancelEditing,
                     onCancelReply = viewModel::cancelReplying,
+                    isUploading = isUploading,
+                    uploadError = uploadError,
+                    onClearUploadError = viewModel::clearUploadError,
                     placeholder = "پیام خود را بنویسید..."
                 )
             }

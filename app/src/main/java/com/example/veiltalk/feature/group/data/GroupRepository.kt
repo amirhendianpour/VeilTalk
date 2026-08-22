@@ -249,13 +249,25 @@ class GroupRepository @Inject constructor(
 
     suspend fun forwardMessagesToGroup(targetGroupId: Long, messages: List<com.example.veiltalk.common.model.ChatMessage>) {
         messages.forEach { msg ->
-            sendGroupMessage(targetGroupId, msg.content, msg.messageType, msg.fileUrl)
+            sendGroupMessage(
+                groupId = targetGroupId,
+                content = msg.content,
+                messageType = msg.messageType,
+                fileUrl = msg.fileUrl,
+                mediaKey = msg.mediaKey
+            )
         }
     }
 
     suspend fun forwardGroupMessagesToGroup(targetGroupId: Long, messages: List<GroupMessage>) {
         messages.forEach { msg ->
-            sendGroupMessage(targetGroupId, msg.content, msg.messageType, msg.fileUrl)
+            sendGroupMessage(
+                groupId = targetGroupId,
+                content = msg.content,
+                messageType = msg.messageType,
+                fileUrl = msg.fileUrl,
+                mediaKey = msg.mediaKey
+            )
         }
     }
 

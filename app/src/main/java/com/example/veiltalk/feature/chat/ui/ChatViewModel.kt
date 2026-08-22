@@ -196,7 +196,13 @@ class ChatViewModel @Inject constructor(
             _uploadError.value = null
             mediaRepository.uploadFile(uri)
                 .onSuccess { uploaded ->
-                    chatRepository.sendMessage(partner, "", MessageType.IMAGE, uploaded.fileUrl)
+                    chatRepository.sendMessage(
+                        recipient = partner,
+                        content = "",
+                        messageType = MessageType.IMAGE,
+                        fileUrl = uploaded.fileUrl,
+                        mediaKey = uploaded.mediaKey
+                    )
                 }
                 .onFailure { e -> _uploadError.value = e.message ?: "خطا در آپلود عکس" }
             _isUploading.value = false
@@ -209,7 +215,13 @@ class ChatViewModel @Inject constructor(
             _uploadError.value = null
             mediaRepository.uploadFile(uri)
                 .onSuccess { uploaded ->
-                    chatRepository.sendMessage(partner, uploaded.displayName, MessageType.FILE, uploaded.fileUrl)
+                    chatRepository.sendMessage(
+                        recipient = partner,
+                        content = uploaded.displayName,
+                        messageType = MessageType.FILE,
+                        fileUrl = uploaded.fileUrl,
+                        mediaKey = uploaded.mediaKey
+                    )
                 }
                 .onFailure { e -> _uploadError.value = e.message ?: "خطا در آپلود فایل" }
             _isUploading.value = false

@@ -29,7 +29,8 @@ class GroupChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val groupRepository: GroupRepository,
     private val chatRepository: com.example.veiltalk.feature.chat.data.ChatRepository, // اضافه شد
-    private val userDirectory: com.example.veiltalk.feature.user.data.UserDirectoryRepository, // اضافه شد
+    private val userDirectory: com.example.veiltalk.feature.user.data.UserDirectoryRepository,
+    private val mediaRepository: com.example.veiltalk.feature.chat.data.MediaRepository,
     private val sessionManager: SessionManager
 ) : ViewModel() {
 
@@ -37,6 +38,12 @@ class GroupChatViewModel @Inject constructor(
 
     private val _inputText = MutableStateFlow("")
     val inputText: StateFlow<String> = _inputText.asStateFlow()
+
+    private val _isUploading = MutableStateFlow(false)
+    val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
+
+    private val _uploadError = MutableStateFlow<String?>(null)
+    val uploadError: StateFlow<String?> = _uploadError.asStateFlow()
 
     private val _editingMessage = MutableStateFlow<GroupMessage?>(null)
     private val _replyingMessage = MutableStateFlow<GroupMessage?>(null)
@@ -49,9 +56,11 @@ class GroupChatViewModel @Inject constructor(
         sessionManager.usernameFlow,
         _editingMessage,
         _searchQuery,
-        chatRepository.conversationSummariesFlow(), // جدید
-        userDirectory.directory, // جدید
-        _replyingMessage
+        chatRepository.conversationSummariesFlow(),
+        userDirectory.directory,
+        _replyingMessage,
+        _isUploading,
+        _uploadError
     ) { args ->
         val messages = args[0] as List<GroupMessage>
         val groups = args[1] as List<com.example.veiltalk.common.model.GroupInfo>
@@ -61,6 +70,8 @@ class GroupChatViewModel @Inject constructor(
         val summaries = args[5] as List<com.example.veiltalk.feature.chat.data.ChatRepository.ConversationSummary>
         val directory = args[6] as Map<String, com.example.veiltalk.feature.user.data.dto.UserInfoDto>
         val replyingMessage = args[7] as GroupMessage?
+        val isUploading = args[8] as Boolean
+        val uploadError = args[9] as String?
 
         val filteredMessages = if (query.isBlank()) messages else {
             messages.filter { it.content.contains(query, ignoreCase = true) }
@@ -120,6 +131,46 @@ class GroupChatViewModel @Inject constructor(
         }
         _inputText.value = ""
     }
+
+    fun sendImage(uri: android.net.Uri) {
+        viewModelScope.launch {
+            _isUploading.value = true
+            _uploadError.value = null
+            mediaRepository.uploadFile(uri)
+                .onSuccess { uploaded ->
+                    groupRepository.sendGroupMessage(
+                        groupId = groupId,
+                        content = "",
+                        messageType = MessageType.IMAGE,
+                        fileUrl = uploaded.fileUrl,
+                        mediaKey = uploaded.mediaKey
+                    )
+                }
+                .onFailure { e -> _uploadError.value = e.message ?: "خطا در آپلود عکس" }
+            _isUploading.value = false
+        }
+    }
+
+    fun sendFile(uri: android.net.Uri) {
+        viewModelScope.launch {
+            _isUploading.value = true
+            _uploadError.value = null
+            mediaRepository.uploadFile(uri)
+                .onSuccess { uploaded ->
+                    groupRepository.sendGroupMessage(
+                        groupId = groupId,
+                        content = uploaded.displayName,
+                        messageType = MessageType.FILE,
+                        fileUrl = uploaded.fileUrl,
+                        mediaKey = uploaded.mediaKey
+                    )
+                }
+                .onFailure { e -> _uploadError.value = e.message ?: "خطا در آپلود فایل" }
+            _isUploading.value = false
+        }
+    }
+
+    fun clearUploadError() { _uploadError.value = null }
 
     fun startReplying(message: GroupMessage) {
         _replyingMessage.value = message

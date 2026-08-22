@@ -321,7 +321,13 @@ data class ConversationSummary(
 
     suspend fun forwardMessages(targetRecipient: String, messages: List<ChatMessage>) {
         messages.forEach { msg ->
-            sendMessage(targetRecipient, msg.content, msg.messageType, msg.fileUrl)
+            sendMessage(
+                recipient = targetRecipient,
+                content = msg.content,
+                messageType = msg.messageType,
+                fileUrl = msg.fileUrl,
+                mediaKey = msg.mediaKey
+            )
         }
     }
 

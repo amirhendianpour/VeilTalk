@@ -32,7 +32,8 @@ class MediaRepository @Inject constructor(
             }
 
             val requestBody = bytesToUpload.toRequestBody("application/octet-stream".toMediaTypeOrNull())
-            val part = MultipartBody.Part.createFormData("file", "encrypted_blob", requestBody)
+            // استفاده از پسوند .enc برای فایل‌های رمزنگاری شده
+            val part = MultipartBody.Part.createFormData("file", "encrypted_file.enc", requestBody)
 
             val response = api.uploadFile(part)
             if (response.isSuccessful && response.body() != null) {
