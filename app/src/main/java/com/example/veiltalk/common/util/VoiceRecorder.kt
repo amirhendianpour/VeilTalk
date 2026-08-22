@@ -29,12 +29,20 @@ class VoiceRecorder(private val context: Context) {
     }
 
     fun stop(): File? {
-        recorder?.apply {
-            stop()
-            release()
+        return try {
+            recorder?.apply {
+                stop()
+                release()
+            }
+            recorder = null
+            currentFile
+        } catch (e: Exception) {
+            // اگر ضبط خیلی کوتاه باشد، stop خطا می‌دهد
+            recorder?.release()
+            recorder = null
+            currentFile?.delete()
+            null
         }
-        recorder = null
-        return currentFile
     }
 
     fun cancel() {

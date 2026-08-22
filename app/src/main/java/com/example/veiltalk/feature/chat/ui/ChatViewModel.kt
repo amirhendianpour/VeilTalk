@@ -201,7 +201,7 @@ class ChatViewModel @Inject constructor(
 
     fun stopRecording(file: java.io.File?) {
         _isRecording.value = false
-        if (file != null && file.exists()) {
+        if (file != null && file.exists() && file.length() > 100) {
             viewModelScope.launch {
                 _isUploading.value = true
                 mediaRepository.uploadBytes(file.readBytes(), "audio/m4a")
@@ -220,6 +220,8 @@ class ChatViewModel @Inject constructor(
                     }
                 _isUploading.value = false
             }
+        } else {
+            file?.delete()
         }
     }
 
