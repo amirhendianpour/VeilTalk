@@ -52,6 +52,25 @@ fun GroupChatScreen(
     val clipboardManager = LocalClipboardManager.current
     val context = androidx.compose.ui.platform.LocalContext.current
     val voiceRecorder = remember { VoiceRecorder(context) }
+    var tempCameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            tempCameraUri?.let { viewModel.sendImage(it) }
+        }
+    }
+
+    val cameraPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val uri = com.example.veiltalk.common.util.CameraCaptureManager.createTempImageUri(context)
+            tempCameraUri = uri
+            cameraLauncher.launch(uri)
+        }
+    }
 
     val recordPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
@@ -76,6 +95,15 @@ fun GroupChatScreen(
     var showForwardDialog by remember { mutableStateOf<List<String>?>(null) }
     var isSearchMode by remember { mutableStateOf(false) }
     var viewingImage by remember { mutableStateOf<GroupMessage?>(null) }
+    var showCameraOptions by remember { mutableStateOf(false) }
+
+    val videoLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CaptureVideo()
+    ) { success ->
+        if (success) {
+            tempCameraUri?.let { viewModel.sendFile(it) }
+        }
+    }
 
     val isSelectionMode = selectedMessages.isNotEmpty()
 
@@ -167,6 +195,9 @@ fun GroupChatScreen(
                     onSendMessage = viewModel::sendMessage,
                     onAttachImage = { imagePicker.launch("image/*") },
                     onAttachFile = { filePicker.launch("*/*") },
+                    onOpenCamera = {
+                        showCameraOptions = true
+                    },
                     onSendSticker = viewModel::sendSticker,
                     onSendGif = viewModel::sendGif,
                     isEditing = uiState.editingMessage != null,
@@ -260,6 +291,42 @@ fun GroupChatScreen(
             onDelete = {
                 showDeleteDialog = listOf(msg.id)
                 showMessageMenu = null
+            }
+        )
+    }
+
+    if (showCameraOptions) {
+        AlertDialog(
+            onDismissRequest = { showCameraOptions = false },
+            title = { Text("انتخاب دوربین") },
+            text = { Text("آیا مایل به گرفتن عکس هستید یا ضبط ویدیو؟") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showCameraOptions = false
+                    if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        val uri = com.example.veiltalk.common.util.CameraCaptureManager.createTempImageUri(context)
+                        tempCameraUri = uri
+                        cameraLauncher.launch(uri)
+                    } else {
+                        cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                    }
+                }) {
+                    Text("عکس")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showCameraOptions = false
+                    if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        val uri = com.example.veiltalk.common.util.CameraCaptureManager.createTempVideoUri(context)
+                        tempCameraUri = uri
+                        videoLauncher.launch(uri)
+                    } else {
+                        cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                    }
+                }) {
+                    Text("ویدیو")
+                }
             }
         )
     }

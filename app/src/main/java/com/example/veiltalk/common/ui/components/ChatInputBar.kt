@@ -36,6 +36,7 @@ fun ChatInputBar(
     onSendMessage: () -> Unit,
     onAttachImage: () -> Unit = {},
     onAttachFile: () -> Unit = {},
+    onOpenCamera: () -> Unit = {}, // اضافه شد
     onSendSticker: (String) -> Unit = {},
     onSendGif: (String) -> Unit = {},
     isEditing: Boolean = false,
@@ -126,6 +127,11 @@ fun ChatInputBar(
                         IconButton(onClick = { showAttachMenu = true }, enabled = !isUploading) {
                             Icon(Icons.Default.AttachFile, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                         }
+
+                        IconButton(onClick = onOpenCamera, enabled = !isUploading) {
+                            Icon(Icons.Default.PhotoCamera, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                        }
+
                         AttachmentMenu(showAttachMenu, { showAttachMenu = false }, onAttachImage, onAttachFile)
                     }
                 } else {
