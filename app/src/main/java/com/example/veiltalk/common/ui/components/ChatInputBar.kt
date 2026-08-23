@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -36,7 +37,7 @@ fun ChatInputBar(
     onSendMessage: () -> Unit,
     onAttachImage: () -> Unit = {},
     onAttachFile: () -> Unit = {},
-    onOpenCamera: () -> Unit = {}, // اضافه شد
+    onOpenCamera: () -> Unit = {},
     onSendSticker: (String) -> Unit = {},
     onSendGif: (String) -> Unit = {},
     isEditing: Boolean = false,
@@ -52,7 +53,7 @@ fun ChatInputBar(
     onStopRecording: () -> Unit = {},
     placeholder: String = "پیام..."
 ) {
-    var showAttachMenu by remember { mutableStateOf(false) }
+    var showAttachmentGrid by remember { mutableStateOf(false) }
     var showEmojiPicker by remember { mutableStateOf(false) }
     var recordSeconds by remember { mutableIntStateOf(0) }
     
@@ -73,7 +74,6 @@ fun ChatInputBar(
     val backgroundColor = MaterialTheme.colorScheme.surfaceVariant
     val inputBackgroundColor = MaterialTheme.colorScheme.surface
 
-    // برای جلوگیری از Capture شدن مقادیر قدیمی در pointerInput
     val currentOnSendMessage by rememberUpdatedState(onSendMessage)
     val currentOnStartRecording by rememberUpdatedState(onStartRecording)
     val currentOnStopRecording by rememberUpdatedState(onStopRecording)
@@ -89,7 +89,6 @@ fun ChatInputBar(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // کادر ورودی یا وضعیت ضبط
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -101,6 +100,7 @@ fun ChatInputBar(
                 if (!isRecording) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { 
+                            showAttachmentGrid = false
                             if (showEmojiPicker) {
                                 showEmojiPicker = false
                                 keyboardController?.show()
@@ -115,7 +115,11 @@ fun ChatInputBar(
 
                         BasicTextField(
                             value = value,
-                            onValueChange = { onValueChange(it); if (showEmojiPicker) showEmojiPicker = false },
+                            onValueChange = { 
+                                onValueChange(it)
+                                if (showEmojiPicker) showEmojiPicker = false
+                                if (showAttachmentGrid) showAttachmentGrid = false
+                            },
                             modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
                             textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                             decorationBox = { innerTextField ->
@@ -124,15 +128,20 @@ fun ChatInputBar(
                             }
                         )
 
-                        IconButton(onClick = { showAttachMenu = true }, enabled = !isUploading) {
-                            Icon(Icons.Default.AttachFile, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                        IconButton(onClick = { 
+                            showEmojiPicker = false
+                            showAttachmentGrid = !showAttachmentGrid
+                            if (showAttachmentGrid) {
+                                keyboardController?.hide()
+                                focusManager.clearFocus()
+                            }
+                        }) {
+                            Icon(if (showAttachmentGrid) Icons.Default.Close else Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                         }
 
-                        IconButton(onClick = onOpenCamera, enabled = !isUploading) {
+                        IconButton(onClick = onOpenCamera) {
                             Icon(Icons.Default.PhotoCamera, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                         }
-
-                        AttachmentMenu(showAttachMenu, { showAttachMenu = false }, onAttachImage, onAttachFile)
                     }
                 } else {
                     Row(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -147,7 +156,6 @@ fun ChatInputBar(
 
             Spacer(Modifier.width(8.dp))
 
-            // دکمه ارسال/ضبط (ثابت در جای خود برای جلوگیری از قطع لمس)
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -155,11 +163,7 @@ fun ChatInputBar(
                     .background(if (isRecording) Color.Red else primaryColor)
                     .pointerInput(Unit) {
                         detectTapGestures(
-                            onTap = { 
-                                if (!currentIsTextEmpty) {
-                                    currentOnSendMessage()
-                                }
-                            },
+                            onTap = { if (!currentIsTextEmpty) currentOnSendMessage() },
                             onPress = {
                                 if (currentIsTextEmpty) {
                                     try {
@@ -183,6 +187,15 @@ fun ChatInputBar(
             }
         }
 
+        AnimatedVisibility(visible = showAttachmentGrid) {
+            AttachmentGrid(
+                onImage = { showAttachmentGrid = false; onAttachImage() },
+                onFile = { showAttachmentGrid = false; onAttachFile() },
+                onContact = { /* پیاده‌سازی در آینده */ },
+                onLocation = { /* پیاده‌سازی در آینده */ }
+            )
+        }
+
         if (showEmojiPicker) {
             EmojiStickerGifPicker(
                 onEmojiSelected = { emoji -> onValueChange(value + emoji) },
@@ -191,6 +204,42 @@ fun ChatInputBar(
                 onBackspace = { if (value.isNotEmpty()) onValueChange(value.dropLast(1)) }
             )
         }
+    }
+}
+
+@Composable
+fun AttachmentGrid(onImage: () -> Unit, onFile: () -> Unit, onContact: () -> Unit, onLocation: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(100.dp)
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceAround
+    ) {
+        AttachmentItem("گالری", Icons.Default.Image, Color(0xFF4CAF50), onImage)
+        AttachmentItem("فایل", Icons.Default.InsertDriveFile, Color(0xFF2196F3), onFile)
+        AttachmentItem("مخاطب", Icons.Default.Person, Color(0xFFFF9800), onContact)
+        AttachmentItem("مکان", Icons.Default.LocationOn, Color(0xFFE91E63), onLocation)
+    }
+}
+
+@Composable
+fun AttachmentItem(label: String, icon: ImageVector, color: Color, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onClick() }
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .background(color.copy(alpha = 0.1f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, tint = color, modifier = Modifier.size(24.dp))
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
     }
 }
 
@@ -221,14 +270,6 @@ private fun ReplyHeader(primaryColor: Color, sender: String?, content: String, o
 private fun UploadErrorHeader(message: String, onClear: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.errorContainer).padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text(message, color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 12.sp); TextButton(onClick = onClear) { Text("باشه") }
-    }
-}
-
-@Composable
-private fun AttachmentMenu(expanded: Boolean, onDismiss: () -> Unit, onImage: () -> Unit, onFile: () -> Unit) {
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        DropdownMenuItem(text = { Text("گالری") }, onClick = { onDismiss(); onImage() })
-        DropdownMenuItem(text = { Text("فایل") }, onClick = { onDismiss(); onFile() })
     }
 }
 

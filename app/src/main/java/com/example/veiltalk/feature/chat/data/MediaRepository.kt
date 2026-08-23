@@ -30,15 +30,23 @@ class MediaRepository @Inject constructor(
     @ApplicationContext private val appContext: Context
 ) {
     suspend fun uploadFile(uri: Uri, encrypt: Boolean = true): Result<UploadedFile> {
-        val inputStream = appContext.contentResolver.openInputStream(uri) ?: return Result.failure(Exception("Could not open file"))
+        val contentResolver = appContext.contentResolver
+        val fileName = getFileName(uri) ?: "file_${System.currentTimeMillis()}"
+        val mimeType = contentResolver.getType(uri) ?: "application/octet-stream"
+        
+        val inputStream = contentResolver.openInputStream(uri) ?: return Result.failure(Exception("Could not open file"))
         val rawBytes = inputStream.use { it.readBytes() }
-        val mimeType = appContext.contentResolver.getType(uri) ?: "application/octet-stream"
-        return uploadBytes(rawBytes, mimeType, encrypt)
+        
+        return uploadBytes(rawBytes, mimeType, encrypt, fileName)
     }
 
-    suspend fun uploadBytes(rawBytes: ByteArray, mimeType: String, encrypt: Boolean = true): Result<UploadedFile> {
+    suspend fun uploadBytes(
+        rawBytes: ByteArray, 
+        mimeType: String, 
+        encrypt: Boolean = true,
+        fileName: String = "file"
+    ): Result<UploadedFile> {
         return try {
-            // تولید Thumbnail اگر تصویر باشد
             var thumbnail: String? = null
             if (mimeType.startsWith("image/")) {
                 thumbnail = generateThumbnail(rawBytes)
@@ -52,8 +60,8 @@ class MediaRepository @Inject constructor(
             }
 
             val requestBody = bytesToUpload.toRequestBody("application/octet-stream".toMediaTypeOrNull())
-            // استفاده از پسوند .enc برای فایل‌های رمزنگاری شده
-            val part = MultipartBody.Part.createFormData("file", "encrypted_file.enc", requestBody)
+            // ارسال نام فایل اصلی با پسوند .enc به سرور
+            val part = MultipartBody.Part.createFormData("file", "$fileName.enc", requestBody)
 
             val response = api.uploadFile(part)
             if (response.isSuccessful && response.body() != null) {
@@ -61,7 +69,7 @@ class MediaRepository @Inject constructor(
                     UploadedFile(
                         fileUrl = response.body()!!.fileUrl,
                         mediaKey = mediaKey,
-                        displayName = "file",
+                        displayName = fileName, // حالا نام واقعی فایل است
                         sizeBytes = bytesToUpload.size.toLong(),
                         thumbnail = thumbnail
                     )
@@ -72,6 +80,25 @@ class MediaRepository @Inject constructor(
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private fun getFileName(uri: Uri): String? {
+        var name: String? = null
+        if (uri.scheme == "content") {
+            val cursor = appContext.contentResolver.query(uri, null, null, null, null)
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val index = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (index != -1) name = it.getString(index)
+                }
+            }
+        }
+        if (name == null) {
+            name = uri.path
+            val cut = name?.lastIndexOf('/') ?: -1
+            if (cut != -1) name = name?.substring(cut + 1)
+        }
+        return name
     }
 
     private fun generateThumbnail(imageBytes: ByteArray): String? {

@@ -334,10 +334,11 @@ data class ConversationSummary(
 
     suspend fun sendVoiceMessage(recipient: String, file: java.io.File): Result<Unit> {
         val bytes = withContext(Dispatchers.IO) { file.readBytes() }
-        return mediaRepository.uploadBytes(bytes, "audio/m4a").map { uploaded ->
+        val fileName = file.name
+        return mediaRepository.uploadBytes(bytes, "audio/m4a", fileName = fileName).map { uploaded ->
             sendMessage(
                 recipient = recipient,
-                content = "",
+                content = fileName, // ذخیره نام فایل صوتی
                 messageType = MessageType.VOICE,
                 fileUrl = uploaded.fileUrl,
                 mediaKey = uploaded.mediaKey
