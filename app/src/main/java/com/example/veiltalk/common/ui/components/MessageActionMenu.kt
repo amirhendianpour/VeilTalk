@@ -1,7 +1,10 @@
 package com.example.veiltalk.common.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Forward
 import androidx.compose.material.icons.automirrored.filled.Reply
@@ -11,11 +14,14 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.veiltalk.ui.theme.WaTeal
+import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,76 +33,91 @@ fun MessageActionMenu(
     onEdit: (() -> Unit)? = null,
     onTogglePin: () -> Unit,
     onForward: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onReact: ((String) -> Unit)? = null // جدید: برای واکنش سریع با ایموجی
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(),
-        containerColor = Color.White,
-        dragHandle = { BottomSheetDefaults.DragHandle(color = WaTeal.copy(alpha = 0.3f)) }
+        containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 24.dp)
+                .padding(bottom = 32.dp)
         ) {
-            ActionMenuItem(
-                text = "کپی کردن متن",
-                icon = Icons.Default.ContentCopy,
-                onClick = {
-                    onCopy()
-                    onDismiss()
+            // --- بخش واکنش‌های سریع (مشابه سیگنال) ---
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val reactions = listOf("❤️", "👍", "👎", "😂", "😮", "😢", "🙏")
+                reactions.forEach { emoji ->
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .clickable { 
+                                onReact?.invoke(emoji)
+                                onDismiss()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = emoji, fontSize = 22.sp)
+                    }
                 }
+            }
+
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                color = MaterialTheme.colorScheme.outlineVariant
             )
+
+            // --- لیست عملیات ---
+            ActionMenuItem(
+                text = "کپی کردن",
+                icon = Icons.Default.ContentCopy,
+                onClick = { onCopy(); onDismiss() }
+            )
+            
             if (onReply != null) {
                 ActionMenuItem(
-                    text = "پاسخ دادن (Reply)",
+                    text = "پاسخ (Reply)",
                     icon = Icons.AutoMirrored.Filled.Reply,
-                    onClick = {
-                        onReply()
-                        onDismiss()
-                    }
+                    onClick = { onReply(); onDismiss() }
                 )
             }
+            
             if (onEdit != null) {
                 ActionMenuItem(
-                    text = "ویرایش پیام",
+                    text = "ویرایش",
                     icon = Icons.Default.Edit,
-                    onClick = {
-                        onEdit()
-                        onDismiss()
-                    }
+                    onClick = { onEdit(); onDismiss() }
                 )
             }
+            
             ActionMenuItem(
-                text = if (isPinned) "برداشتن سنجاق" else "سنجاق کردن پیام",
+                text = if (isPinned) "برداشتن سنجاق" else "سنجاق کردن",
                 icon = Icons.Default.PushPin,
-                onClick = {
-                    onTogglePin()
-                    onDismiss()
-                }
+                onClick = { onTogglePin(); onDismiss() }
             )
+            
             ActionMenuItem(
-                text = "فوروارد کردن",
+                text = "فوروارد",
                 icon = Icons.AutoMirrored.Filled.Forward,
-                onClick = {
-                    onForward()
-                    onDismiss()
-                }
+                onClick = { onForward(); onDismiss() }
             )
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                color = Color.LightGray.copy(alpha = 0.5f)
-            )
+            
             ActionMenuItem(
                 text = "حذف پیام",
                 icon = Icons.Default.Delete,
-                iconTint = Color.Red,
-                textColor = Color.Red,
-                onClick = {
-                    onDelete()
-                    onDismiss()
-                }
+                textColor = MaterialTheme.colorScheme.error,
+                iconTint = MaterialTheme.colorScheme.error,
+                onClick = { onDelete(); onDismiss() }
             )
         }
     }
@@ -106,27 +127,29 @@ fun MessageActionMenu(
 private fun ActionMenuItem(
     text: String,
     icon: ImageVector,
-    iconTint: Color = WaTeal,
-    textColor: Color = Color.Black,
+    iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    textColor: Color = MaterialTheme.colorScheme.onSurface,
     onClick: () -> Unit
 ) {
-    ListItem(
-        headlineContent = {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodyLarge,
-                color = textColor
-            )
-        },
-        leadingContent = {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(24.dp)
-            )
-        },
-        modifier = Modifier.clickable(onClick = onClick),
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = iconTint,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(Modifier.width(16.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = textColor,
+            fontWeight = FontWeight.Medium
+        )
+    }
 }
