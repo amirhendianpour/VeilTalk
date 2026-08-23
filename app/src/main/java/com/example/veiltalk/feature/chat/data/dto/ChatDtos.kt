@@ -56,3 +56,12 @@ data class MessageDeleteDto(
     val recipient: String? = null,
     val groupId: Long? = null
 )
+
+@Serializable
+data class ReactionDto(
+    val messageId: String,
+    val emoji: String,
+    val sender: String? = null, // Backend set this
+    val recipient: String? = null, // for private chat
+    val groupId: Long? = null // for group chat
+)

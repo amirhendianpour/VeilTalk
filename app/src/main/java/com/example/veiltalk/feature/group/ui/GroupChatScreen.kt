@@ -291,6 +291,9 @@ fun GroupChatScreen(
             onDelete = {
                 showDeleteDialog = listOf(msg.id)
                 showMessageMenu = null
+            },
+            onReact = { emoji ->
+                viewModel.sendReaction(msg.id, emoji)
             }
         )
     }
@@ -431,6 +434,9 @@ private fun GroupMessageBubble(
                     color = if (message.status == com.example.veiltalk.common.model.MessageStatus.READ) Color(0xFF3B82F6) else Color.Gray
                 )
             }
+        },
+        reactionsContent = {
+            ReactionsRow(reactions = message.reactions, isMine = mine)
         },
         mediaContent = {
             when (message.messageType) {

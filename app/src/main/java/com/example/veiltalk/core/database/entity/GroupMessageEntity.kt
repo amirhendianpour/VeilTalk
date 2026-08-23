@@ -15,6 +15,7 @@ data class GroupMessageEntity(
     val status: String = "SENT",
     val isPinned: Boolean = false,
     val replyToId: String? = null,
-    val mediaKey: String? = null
+    val mediaKey: String? = null,
+    val reactionsJson: String? = null
 )
 

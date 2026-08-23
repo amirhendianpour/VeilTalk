@@ -27,6 +27,9 @@ interface GroupMessageDao {
     """)
     fun getAllForOwnerFlow(owner: String): Flow<List<GroupMessageEntity>>
 
+    @Query("SELECT * FROM group_messages WHERE id = :messageId AND ownerUsername = :owner LIMIT 1")
+    suspend fun getMessageById(messageId: String, owner: String): GroupMessageEntity?
+
     @Query("DELETE FROM group_messages WHERE id = :messageId AND ownerUsername = :owner")
     suspend fun deleteMessage(messageId: String, owner: String)
 
@@ -35,6 +38,9 @@ interface GroupMessageDao {
 
     @Query("UPDATE group_messages SET isPinned = :pinned WHERE id = :messageId AND ownerUsername = :owner")
     suspend fun updatePinStatus(messageId: String, owner: String, pinned: Boolean)
+
+    @Query("UPDATE group_messages SET reactionsJson = :reactionsJson WHERE id = :messageId AND ownerUsername = :owner")
+    suspend fun updateReactions(messageId: String, owner: String, reactionsJson: String?)
 
     @Query("UPDATE group_messages SET content = :newContent WHERE id = :messageId AND ownerUsername = :owner")
     suspend fun updateMessageContent(messageId: String, owner: String, newContent: String)

@@ -6,11 +6,7 @@ import android.graphics.drawable.BitmapDrawable
 import coil.ImageLoader
 import coil.request.ImageRequest
 import coil.request.SuccessResult
-import com.example.veiltalk.common.model.GroupInfo
-import com.example.veiltalk.common.model.GroupMemberInfo
-import com.example.veiltalk.common.model.GroupMessage
-import com.example.veiltalk.common.model.MessageType
-import com.example.veiltalk.common.model.GroupUpdateEvent
+import com.example.veiltalk.common.model.*
 import com.example.veiltalk.common.util.generateId
 import com.example.veiltalk.common.util.uriToMultipart
 import com.example.veiltalk.core.database.dao.GroupMessageDao
@@ -19,29 +15,17 @@ import com.example.veiltalk.core.di.ApplicationScope
 import com.example.veiltalk.core.service.NotificationHelper
 import com.example.veiltalk.core.session.SessionManager
 import com.example.veiltalk.core.websocket.StompManager
-import com.example.veiltalk.feature.chat.data.dto.MessageDeleteDto
-import com.example.veiltalk.feature.chat.data.dto.ReceiptDto
-import com.example.veiltalk.feature.chat.data.dto.GroupReadRequestDto
-import com.example.veiltalk.feature.chat.data.dto.GroupMessageStatusEventDto
+import com.example.veiltalk.feature.chat.data.dto.*
 import com.example.veiltalk.feature.group.data.dto.*
 import com.example.veiltalk.feature.user.data.UserDirectoryRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -53,7 +37,7 @@ class GroupRepository @Inject constructor(
     private val stompManager: StompManager,
     private val groupMessageDao: GroupMessageDao,
     private val sessionManager: SessionManager,
-    private val mediaRepository: com.example.veiltalk.feature.chat.data.MediaRepository, // اضافه شد
+    private val mediaRepository: com.example.veiltalk.feature.chat.data.MediaRepository,
     private val userDirectory: UserDirectoryRepository,
     private val json: Json,
     @ApplicationContext private val appContext: Context,
@@ -97,6 +81,10 @@ class GroupRepository @Inject constructor(
         stompManager.framesForDestination("/user/queue/group-messages/delete")
             .onEach { frame -> handleRemoteGroupDeletion(frame.body) }
             .launchIn(scope)
+
+        stompManager.framesForDestination("/user/queue/group-reactions")
+            .onEach { frame -> handleGroupReaction(frame.body) }
+            .launchIn(scope)
     }
 
     private suspend fun handleIncomingGroupMessage(rawBody: String) {
@@ -117,7 +105,9 @@ class GroupRepository @Inject constructor(
                 messageType = dto.messageType,
                 fileUrl = dto.fileUrl,
                 status = status,
-                isPinned = false
+                isPinned = false,
+                replyToId = dto.replyToId,
+                mediaKey = dto.mediaKey
             )
         )
 
@@ -128,7 +118,7 @@ class GroupRepository @Inject constructor(
                 status = if (isGroupOpen) "READ" else "DELIVERED",
                 groupId = dto.groupId
             )
-            stompManager.publish("/app/chat/receipt", json.encodeToString(ReceiptDto.serializer(), receipt))
+            stompManager.publish("/app/chat/receipt", json.encodeToString(receipt))
         }
 
         if (dto.sender != me && !isGroupOpen) {
@@ -163,6 +153,19 @@ class GroupRepository @Inject constructor(
         val dto = runCatching { json.decodeFromString<MessageDeleteDto>(rawBody) }.getOrNull() ?: return
         val me = currentUsername ?: return
         groupMessageDao.deleteMessages(dto.messageIds, me)
+    }
+
+    private suspend fun handleGroupReaction(rawBody: String) {
+        val dto = runCatching { json.decodeFromString<ReactionDto>(rawBody) }.getOrNull() ?: return
+        val me = currentUsername ?: return
+        
+        val message = groupMessageDao.getMessageById(dto.messageId, me) ?: return
+        val currentReactions = if (!message.reactionsJson.isNullOrBlank()) {
+            runCatching { json.decodeFromString<Map<String, String>>(message.reactionsJson) }.getOrDefault(emptyMap())
+        } else emptyMap()
+        
+        val newReactions = currentReactions + (dto.sender!! to dto.emoji)
+        groupMessageDao.updateReactions(dto.messageId, me, json.encodeToString(newReactions))
     }
 
     private fun showGroupNotification(dto: GroupChatMessageDto) {
@@ -229,21 +232,7 @@ class GroupRepository @Inject constructor(
         return sessionManager.usernameFlow.flatMapLatest { me ->
             if (me == null) flowOf(emptyList())
             else groupMessageDao.getGroupMessagesFlow(me, groupId).map { list ->
-                list.map { entity ->
-                    GroupMessage(
-                        id = entity.id,
-                        groupId = entity.groupId,
-                        sender = entity.sender,
-                        content = entity.content,
-                        timestamp = entity.timestamp,
-                        messageType = runCatching { MessageType.valueOf(entity.messageType) }.getOrDefault(MessageType.TEXT),
-                        fileUrl = entity.fileUrl,
-                        status = runCatching { com.example.veiltalk.common.model.MessageStatus.valueOf(entity.status) }.getOrDefault(com.example.veiltalk.common.model.MessageStatus.SENT),
-                        isPinned = entity.isPinned,
-                        replyToId = entity.replyToId,
-                        mediaKey = entity.mediaKey
-                    )
-                }
+                list.map { it.toDomain() }
             }
         }
     }
@@ -281,7 +270,7 @@ class GroupRepository @Inject constructor(
         val me = currentUsername ?: return
         groupMessageDao.deleteMessages(messageIds, me)
         val dto = MessageDeleteDto(messageIds = messageIds, groupId = groupId)
-        stompManager.publish("/app/group/delete", json.encodeToString(MessageDeleteDto.serializer(), dto))
+        stompManager.publish("/app/group/delete", json.encodeToString(dto))
     }
 
     suspend fun togglePin(messageId: String, currentPinned: Boolean) {
@@ -346,18 +335,12 @@ class GroupRepository @Inject constructor(
             replyToId = replyToId,
             mediaKey = mediaKey
         )
-        stompManager.publish("/app/group/chat", json.encodeToString(GroupChatMessageDto.serializer(), dto))
+        stompManager.publish("/app/group/chat", json.encodeToString(dto))
     }
 
     suspend fun sendImageMessage(groupId: Long, uri: android.net.Uri): Result<Unit> {
         return mediaRepository.uploadFile(uri).map { uploaded ->
-            sendGroupMessage(
-                groupId = groupId,
-                content = uploaded.thumbnail ?: "",
-                messageType = MessageType.IMAGE,
-                fileUrl = uploaded.fileUrl,
-                mediaKey = uploaded.mediaKey
-            )
+            sendGroupMessage(groupId, uploaded.thumbnail ?: "", MessageType.IMAGE, uploaded.fileUrl, mediaKey = uploaded.mediaKey)
         }
     }
 
@@ -365,27 +348,29 @@ class GroupRepository @Inject constructor(
         val bytes = withContext(Dispatchers.IO) { file.readBytes() }
         val fileName = file.name
         return mediaRepository.uploadBytes(bytes, "audio/m4a", fileName = fileName).map { uploaded ->
-            sendGroupMessage(
-                groupId = groupId,
-                content = fileName, // ذخیره نام فایل صوتی
-                messageType = MessageType.VOICE,
-                fileUrl = uploaded.fileUrl,
-                mediaKey = uploaded.mediaKey
-            )
+            sendGroupMessage(groupId, fileName, MessageType.VOICE, uploaded.fileUrl, mediaKey = uploaded.mediaKey)
             file.delete()
         }
     }
 
     suspend fun sendFileMessage(groupId: Long, uri: android.net.Uri): Result<Unit> {
         return mediaRepository.uploadFile(uri).map { uploaded ->
-            sendGroupMessage(
-                groupId = groupId,
-                content = uploaded.displayName,
-                messageType = MessageType.FILE,
-                fileUrl = uploaded.fileUrl,
-                mediaKey = uploaded.mediaKey
-            )
+            sendGroupMessage(groupId, uploaded.displayName, MessageType.FILE, uploaded.fileUrl, mediaKey = uploaded.mediaKey)
         }
+    }
+
+    suspend fun sendReaction(groupId: Long, messageId: String, emoji: String) {
+        val me = currentUsername ?: return
+        val dto = ReactionDto(messageId = messageId, emoji = emoji, groupId = groupId)
+        stompManager.publish("/app/group/reaction", json.encodeToString(dto))
+        
+        val message = groupMessageDao.getMessageById(messageId, me) ?: return
+        val currentReactions = if (!message.reactionsJson.isNullOrBlank()) {
+            runCatching { json.decodeFromString<Map<String, String>>(message.reactionsJson) }.getOrDefault(emptyMap())
+        } else emptyMap()
+        
+        val newReactions = currentReactions + (me to emoji)
+        groupMessageDao.updateReactions(messageId, me, json.encodeToString(newReactions))
     }
 
     suspend fun editGroupMessage(groupId: Long, messageId: String, newContent: String) {
@@ -399,7 +384,7 @@ class GroupRepository @Inject constructor(
             fileUrl = null, 
             timestamp = Instant.now().toString()
         )
-        stompManager.publish("/app/group/edit", json.encodeToString(GroupChatMessageDto.serializer(), dto))
+        stompManager.publish("/app/group/edit", json.encodeToString(dto))
         groupMessageDao.updateMessageContent(messageId, me, newContent)
     }
 
@@ -407,7 +392,7 @@ class GroupRepository @Inject constructor(
         val me = currentUsername ?: return
         groupMessageDao.markGroupAsRead(me, groupId)
         val request = GroupReadRequestDto(groupId)
-        stompManager.publish("/app/group/read", json.encodeToString(GroupReadRequestDto.serializer(), request))
+        stompManager.publish("/app/group/read", json.encodeToString(request))
     }
 
     suspend fun refreshMyGroups() {
@@ -535,5 +520,26 @@ class GroupRepository @Inject constructor(
 
     suspend fun ensureUsernameLoaded() {
         if (currentUsername == null) currentUsername = sessionManager.usernameFlow.first()
+    }
+
+    private fun GroupMessageEntity.toDomain(): GroupMessage {
+        val reactionsMap: Map<String, String> = if (!reactionsJson.isNullOrBlank()) {
+            runCatching { Json.decodeFromString<Map<String, String>>(reactionsJson!!) }.getOrDefault(emptyMap())
+        } else emptyMap()
+
+        return GroupMessage(
+            id = id,
+            groupId = groupId,
+            sender = sender,
+            content = content,
+            timestamp = timestamp,
+            messageType = runCatching { MessageType.valueOf(messageType) }.getOrDefault(MessageType.TEXT),
+            fileUrl = fileUrl,
+            status = runCatching { MessageStatus.valueOf(status) }.getOrDefault(MessageStatus.SENT),
+            isPinned = isPinned,
+            replyToId = replyToId,
+            mediaKey = mediaKey,
+            reactions = reactionsMap
+        )
     }
 }

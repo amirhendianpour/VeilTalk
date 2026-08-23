@@ -48,6 +48,9 @@ interface MessageDao {
     """)
     suspend fun getUnreadFromSender(owner: String, partner: String): List<PrivateMessageEntity>
 
+    @Query("SELECT * FROM private_messages WHERE id = :messageId AND ownerUsername = :owner LIMIT 1")
+    suspend fun getMessageById(messageId: String, owner: String): PrivateMessageEntity?
+
     @Query("DELETE FROM private_messages WHERE id = :messageId AND ownerUsername = :owner")
     suspend fun deleteMessage(messageId: String, owner: String)
 
@@ -56,6 +59,9 @@ interface MessageDao {
 
     @Query("UPDATE private_messages SET isPinned = :pinned WHERE id = :messageId AND ownerUsername = :owner")
     suspend fun updatePinStatus(messageId: String, owner: String, pinned: Boolean)
+
+    @Query("UPDATE private_messages SET reactionsJson = :reactionsJson WHERE id = :messageId AND ownerUsername = :owner")
+    suspend fun updateReactions(messageId: String, owner: String, reactionsJson: String?)
 
     @Query("UPDATE private_messages SET content = :newContent WHERE id = :messageId AND ownerUsername = :owner")
     suspend fun updateMessageContent(messageId: String, owner: String, newContent: String)

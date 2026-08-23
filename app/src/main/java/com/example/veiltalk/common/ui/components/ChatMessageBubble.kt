@@ -37,7 +37,8 @@ fun ChatMessageBubble(
     replyToContent: String? = null,
     onReplyClick: () -> Unit = {},
     status: @Composable (() -> Unit)? = null,
-    mediaContent: @Composable (() -> Unit)? = null
+    mediaContent: @Composable (() -> Unit)? = null,
+    reactionsContent: @Composable (() -> Unit)? = null
 ) {
     // تشخیص دقیق حالت تیره بر اساس رنگ‌های تم فعلی (نه لزوماً تم سیستم)
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
@@ -150,6 +151,11 @@ fun ChatMessageBubble(
                         style = MaterialTheme.typography.bodyLarge,
                         color = contentColor
                     )
+                }
+
+                reactionsContent?.let {
+                    Spacer(Modifier.height(4.dp))
+                    it()
                 }
 
                 Spacer(Modifier.height(4.dp))

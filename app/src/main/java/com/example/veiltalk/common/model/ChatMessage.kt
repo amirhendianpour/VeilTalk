@@ -14,5 +14,6 @@ data class ChatMessage(
     val status: MessageStatus = MessageStatus.SENT,
     val isPinned: Boolean = false,
     val replyToId: String? = null,
-    val mediaKey: String? = null
+    val mediaKey: String? = null,
+    val reactions: Map<String, String> = emptyMap() // key: username, value: emoji
 )

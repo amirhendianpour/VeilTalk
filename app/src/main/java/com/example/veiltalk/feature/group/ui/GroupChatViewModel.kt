@@ -249,6 +249,12 @@ class GroupChatViewModel @Inject constructor(
         }
     }
 
+    fun sendReaction(messageId: String, emoji: String) {
+        viewModelScope.launch {
+            groupRepository.sendReaction(groupId, messageId, emoji)
+        }
+    }
+
     override fun onCleared() {
         groupRepository.setActiveGroupId(null)
         super.onCleared()

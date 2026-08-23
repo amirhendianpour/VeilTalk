@@ -135,7 +135,9 @@ class ChatViewModel @Inject constructor(
 
     fun onInputChange(text: String) {
         _inputText.value = text
-        chatRepository.sendTyping(partner, true)
+        viewModelScope.launch {
+            chatRepository.sendTyping(partner, true)
+        }
         typingResetJob?.cancel()
         typingResetJob = viewModelScope.launch {
             kotlinx.coroutines.delay(1200)
@@ -147,7 +149,9 @@ class ChatViewModel @Inject constructor(
         val text = _inputText.value.trim()
         if (text.isBlank()) return
         typingResetJob?.cancel()
-        chatRepository.sendTyping(partner, false)
+        viewModelScope.launch {
+            chatRepository.sendTyping(partner, false)
+        }
         
         viewModelScope.launch {
             val editingMsg = _editingMessage.value
@@ -273,9 +277,17 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun sendReaction(messageId: String, emoji: String) {
+        viewModelScope.launch {
+            chatRepository.sendReaction(partner, messageId, emoji)
+        }
+    }
+
     override fun onCleared() {
         chatRepository.setActiveChatPartner(null)
-        chatRepository.sendTyping(partner, false)
+        viewModelScope.launch {
+            chatRepository.sendTyping(partner, false)
+        }
         super.onCleared()
     }
 }

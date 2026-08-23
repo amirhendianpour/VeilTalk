@@ -359,6 +359,9 @@ fun ChatScreen(
             },
             onDelete = {
                 showDeleteDialog = listOf(msg.id)
+            },
+            onReact = { emoji ->
+                viewModel.sendReaction(msg.id, emoji)
             }
         )
     }
@@ -500,6 +503,9 @@ private fun MessageBubble(
                     color = if (message.status == MessageStatus.READ) Color(0xFF3B82F6) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
             }
+        },
+        reactionsContent = {
+            ReactionsRow(reactions = message.reactions, isMine = mine)
         },
         mediaContent = {
             when (message.messageType) {

@@ -16,29 +16,16 @@ import com.example.veiltalk.core.di.ApplicationScope
 import com.example.veiltalk.core.service.NotificationHelper
 import com.example.veiltalk.core.session.SessionManager
 import com.example.veiltalk.core.websocket.StompManager
-import com.example.veiltalk.feature.chat.data.dto.ChatMessageDto
-import com.example.veiltalk.feature.chat.data.dto.MessageDeleteDto
-import com.example.veiltalk.feature.chat.data.dto.ReceiptDto
-import com.example.veiltalk.feature.chat.data.dto.TypingEventDto
-import com.example.veiltalk.feature.chat.data.dto.UserStatusDto
+import com.example.veiltalk.feature.chat.data.dto.*
 import com.example.veiltalk.feature.user.data.UserDirectoryRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -51,7 +38,7 @@ class ChatRepository @Inject constructor(
     private val contactDao: com.example.veiltalk.core.database.dao.ContactDao,
     private val sessionManager: SessionManager,
     private val userDirectory: UserDirectoryRepository,
-    private val mediaRepository: MediaRepository, // اضافه شد
+    private val mediaRepository: MediaRepository,
     private val json: Json,
     @ApplicationContext private val context: Context,
     @ApplicationScope private val scope: CoroutineScope
@@ -67,13 +54,11 @@ class ChatRepository @Inject constructor(
     }
 
     init {
-        // نگه‌داشتن username جاری برای برچسب‌زدن رکوردهای محلی
         sessionManager.usernameFlow
             .distinctUntilChanged()
             .onEach { currentUsername = it }
             .launchIn(scope)
 
-        // گوش دادن دائمی به فریم‌های سوکت — مستقل از باز/بسته بودن صفحه چت (معادل mount شدن WebSocketProvider در ریشه)
         stompManager.framesForDestination("/user/queue/messages")
             .onEach { frame -> handleIncomingMessage(frame.body) }
             .launchIn(scope)
@@ -93,67 +78,72 @@ class ChatRepository @Inject constructor(
         stompManager.framesForDestination("/user/queue/messages/delete")
             .onEach { frame -> handleRemoteDeletion(frame.body) }
             .launchIn(scope)
+
+        stompManager.framesForDestination("/user/queue/reactions")
+            .onEach { frame -> handleReaction(frame.body) }
+            .launchIn(scope)
     }
 
     private suspend fun handleIncomingMessage(rawBody: String) {
         val dto = runCatching { json.decodeFromString<ChatMessageDto>(rawBody) }.getOrNull() ?: return
         val me = currentUsername ?: return
-
-        // اگر کاربر همین الان در صفحه چتِ این شخص است، وضعیت را READ بگذار، در غیر این صورت DELIVERED
-        val isChatOpen = activeChatPartner == dto.sender
-        val finalStatus = if (isChatOpen) "READ" else "DELIVERED"
-
-        messageDao.upsert(dto.toEntity(ownerUsername = me, status = finalStatus))
         
-        // ذخیره به عنوان مخاطب به صورت خودکار
-        if (dto.sender != null) {
-            saveAsContact(dto.sender, me)
-        }
+        val isChatOpen = activeChatPartner == dto.sender
+        val status = if (dto.sender == me) "SENT" else if (isChatOpen) "READ" else "DELIVERED"
+        
+        messageDao.upsert(
+            PrivateMessageEntity(
+                id = dto.id,
+                ownerUsername = me,
+                sender = dto.sender ?: "",
+                recipient = dto.recipient,
+                content = dto.content,
+                timestamp = dto.timestamp,
+                messageType = dto.messageType,
+                fileUrl = dto.fileUrl,
+                status = status,
+                replyToId = dto.replyToId,
+                mediaKey = dto.mediaKey
+            )
+        )
 
-        // ارسال رسید (اگر پیام از طرف ما نیست)
         if (dto.sender != null && dto.sender != me) {
             val receipt = ReceiptDto(
                 messageId = dto.id,
                 recipient = dto.sender,
-                status = finalStatus // بر اساس باز بودن چت، READ یا DELIVERED می‌فرستد
+                status = if (isChatOpen) "READ" else "DELIVERED"
             )
-            stompManager.publish("/app/chat/receipt", json.encodeToString(ReceiptDto.serializer(), receipt))
-            
-            // فقط اگر کاربر در صفحه چت نیست، نوتیفیکیشن نشان بده
-            if (!isChatOpen) {
-                showNotificationForMessage(dto)
-            }
+            stompManager.publish("/app/chat/receipt", json.encodeToString(receipt))
+        }
+
+        if (dto.sender != me && !isChatOpen) {
+            showNotificationForMessage(dto)
         }
     }
 
     private fun showNotificationForMessage(dto: ChatMessageDto) {
         val sender = dto.sender ?: return
         scope.launch {
-            // دریافت اطلاعات فرستنده (نام و آواتار)
             userDirectory.ensureLoaded(listOf(sender))
-            val displayName = userDirectory.getDisplayName(sender)
-            val avatarUrl = userDirectory.getProfilePicture(sender)
+            val lastEntities = messageDao.getLastMessages(currentUsername ?: "", sender, 5).reversed()
+            val notificationMessages = lastEntities.map { entity ->
+                NotificationHelper.NotificationMessage(
+                    senderUsername = entity.sender,
+                    senderName = userDirectory.getDisplayName(entity.sender),
+                    content = entity.content,
+                    timestamp = runCatching { Instant.parse(entity.timestamp).toEpochMilli() }.getOrDefault(System.currentTimeMillis())
+                )
+            }
             
-            // دریافت آخرین پیام‌های این گفتگو برای نمایش در نوتیفیکیشن
-            val lastMessages = messageDao.getLastMessages(currentUsername ?: "", sender, 5)
-                .reversed()
-                .map { entity ->
-                    NotificationHelper.NotificationMessage(
-                        senderUsername = entity.sender,
-                        senderName = if (entity.sender == sender) displayName else "Me",
-                        content = entity.content,
-                        timestamp = runCatching { Instant.parse(entity.timestamp).toEpochMilli() }.getOrDefault(System.currentTimeMillis())
-                    )
-                }
-            
-            val bitmap = avatarUrl?.let { loadAvatar(it) }
+            val partnerAvatarUrl = userDirectory.getProfilePicture(sender)
+            val bitmap = partnerAvatarUrl?.let { loadAvatar(it) }
 
             withContext(Dispatchers.Main) {
                 NotificationHelper.showMessageNotification(
                     context = context,
                     partnerUsername = sender,
-                    partnerDisplayName = displayName,
-                    messages = lastMessages,
+                    partnerDisplayName = userDirectory.getDisplayName(sender),
+                    messages = notificationMessages,
                     avatarBitmap = bitmap
                 )
             }
@@ -162,11 +152,7 @@ class ChatRepository @Inject constructor(
 
     private suspend fun loadAvatar(url: String): Bitmap? {
         val loader = ImageLoader(context)
-        val request = ImageRequest.Builder(context)
-            .data(url)
-            .allowHardware(false)
-            .build()
-        
+        val request = ImageRequest.Builder(context).data(url).allowHardware(false).build()
         return when (val result = loader.execute(request)) {
             is SuccessResult -> (result.drawable as? BitmapDrawable)?.bitmap
             else -> null
@@ -175,24 +161,19 @@ class ChatRepository @Inject constructor(
 
     private suspend fun handleReceipt(rawBody: String) {
         val dto = runCatching { json.decodeFromString<ReceiptDto>(rawBody) }.getOrNull() ?: return
-        val messageId = dto.messageId ?: return
         val me = currentUsername ?: return
-        messageDao.updateStatusIfHigher(messageId, me, dto.status)
+        messageDao.updateStatusIfHigher(dto.messageId ?: return, me, dto.status)
     }
 
     private fun handleTyping(rawBody: String) {
         val dto = runCatching { json.decodeFromString<TypingEventDto>(rawBody) }.getOrNull() ?: return
-        val sender = dto.sender ?: return
-        _typingUsers.value = if (dto.typing) {
-            _typingUsers.value + sender
-        } else {
-            _typingUsers.value - sender
-        }
+        if (dto.typing) _typingUsers.value += (dto.sender ?: return)
+        else _typingUsers.value -= (dto.sender ?: return)
     }
 
     private fun handleUserStatus(rawBody: String) {
         val dto = runCatching { json.decodeFromString<UserStatusDto>(rawBody) }.getOrNull() ?: return
-        userDirectory.updateStatus(dto.username, dto.online, dto.lastSeen)
+        scope.launch { userDirectory.updateStatus(dto.username, dto.online, dto.lastSeen) }
     }
 
     private suspend fun handleRemoteDeletion(rawBody: String) {
@@ -201,14 +182,28 @@ class ChatRepository @Inject constructor(
         messageDao.deleteMessages(dto.messageIds, me)
     }
 
+    private suspend fun handleReaction(rawBody: String) {
+        val dto = runCatching { json.decodeFromString<ReactionDto>(rawBody) }.getOrNull() ?: return
+        val me = currentUsername ?: return
+        
+        val message = messageDao.getMessageById(dto.messageId, me) ?: return
+        val currentReactions = if (!message.reactionsJson.isNullOrBlank()) {
+            runCatching { json.decodeFromString<Map<String, String>>(message.reactionsJson) }.getOrDefault(emptyMap())
+        } else emptyMap()
+        
+        val newReactions = currentReactions + (dto.sender!! to dto.emoji)
+        messageDao.updateReactions(dto.messageId, me, json.encodeToString(newReactions))
+    }
+
     fun conversationFlow(partner: String): Flow<List<ChatMessage>> {
         return sessionManager.usernameFlow.flatMapLatest { me ->
             if (me == null) flowOf(emptyList())
-            else messageDao.getConversationFlow(me, partner).map { list -> list.map { it.toDomain() } }
+            else messageDao.getConversationFlow(me, partner).map { list ->
+                list.map { it.toDomain(json) }
+            }
         }
     }
 
-    // لیست مخاطبین چت + جزئیات آخرین پیام و تعداد پیام‌های نخوانده
     fun conversationSummariesFlow(): Flow<List<ConversationSummary>> {
         return sessionManager.usernameFlow.flatMapLatest { me ->
             if (me == null) flowOf(emptyList())
@@ -217,9 +212,7 @@ class ChatRepository @Inject constructor(
                 for (m in messages) {
                     val partner = if (m.sender == me) m.recipient else m.sender
                     val existing = summaries[partner]
-                    
-                    val isUnread = m.recipient == me && m.status != "READ"
-                    
+                    val isUnread = m.sender != me && m.status != "READ"
                     if (existing == null || (m.timestamp != null && (existing.timestamp == null || m.timestamp > existing.timestamp))) {
                         summaries[partner] = ConversationSummary(
                             partner = partner,
@@ -231,104 +224,74 @@ class ChatRepository @Inject constructor(
                         summaries[partner] = existing.copy(unreadCount = existing.unreadCount + 1)
                     }
                 }
-                summaries.values.sortedByDescending { it.timestamp ?: "" }
+                summaries.values.toList().sortedByDescending { it.timestamp }
             }
         }
     }
 
-data class ConversationSummary(
-    val partner: String,
-    val lastMessage: String,
-    val timestamp: String?,
-    val unreadCount: Int
-)
+    data class ConversationSummary(val partner: String, val lastMessage: String, val timestamp: String?, val unreadCount: Int)
 
-    suspend fun sendMessage(recipient: String, content: String, messageType: MessageType, fileUrl: String? = null, replyToId: String? = null, mediaKey: String? = null) {
+    suspend fun sendMessage(recipient: String, content: String, messageType: MessageType = MessageType.TEXT, fileUrl: String? = null, replyToId: String? = null, mediaKey: String? = null) {
         val me = currentUsername ?: return
         val id = generateId()
         val nowIso = Instant.now().toString()
-
-        // ذخیره به عنوان مخاطب
-        saveAsContact(recipient, me)
-
-        // ذخیره محلی همچنان با timestamp خودمان — فقط برای نمایش فوری در UI
-        val entity = PrivateMessageEntity(
-            id = id,
-            ownerUsername = me,
-            sender = me,
-            recipient = recipient,
-            content = content,
-            messageType = messageType.name,
-            fileUrl = fileUrl,
-            timestamp = nowIso,
-            status = "SENT",
-            replyToId = replyToId,
-            mediaKey = mediaKey
+        
+        messageDao.upsert(
+            PrivateMessageEntity(
+                id = id,
+                ownerUsername = me,
+                sender = me,
+                recipient = recipient,
+                content = content,
+                timestamp = nowIso,
+                messageType = messageType.name,
+                fileUrl = fileUrl,
+                status = "SENT",
+                replyToId = replyToId,
+                mediaKey = mediaKey
+            )
         )
-        messageDao.upsert(entity)
 
-        val dto = ChatMessageDto(
-            id = id,
-            sender = me,
-            recipient = recipient,
-            content = content,
-            messageType = messageType.name,
-            fileUrl = fileUrl,
-            timestamp = null,
-            replyToId = replyToId,
-            mediaKey = mediaKey
-        )
-        stompManager.publish("/app/chat", json.encodeToString(ChatMessageDto.serializer(), dto))
+        val dto = ChatMessageDto(id, me, recipient, content, messageType.name, fileUrl, nowIso, replyToId, mediaKey)
+        stompManager.publish("/app/chat/message", json.encodeToString(dto))
     }
 
     suspend fun editMessage(messageId: String, recipient: String, newContent: String) {
         val me = currentUsername ?: return
         val dto = ChatMessageDto(
-            id = messageId,
-            sender = me,
-            recipient = recipient,
-            content = newContent,
+            id = messageId, 
+            recipient = recipient, 
+            content = newContent, 
             messageType = MessageType.TEXT.name,
             timestamp = Instant.now().toString()
         )
-        stompManager.publish("/app/chat/edit", json.encodeToString(ChatMessageDto.serializer(), dto))
+        stompManager.publish("/app/chat/edit", json.encodeToString(dto))
         messageDao.updateMessageContent(messageId, me, newContent)
     }
 
-    fun sendTyping(recipient: String, isTyping: Boolean) {
-        val dto = TypingEventDto(recipient = recipient, typing = isTyping)
-        stompManager.publish("/app/chat/typing", json.encodeToString(TypingEventDto.serializer(), dto))
+    suspend fun sendTyping(recipient: String, typing: Boolean) {
+        val me = currentUsername ?: return
+        val dto = TypingEventDto(sender = me, recipient = recipient, typing = typing)
+        stompManager.publish("/app/chat/typing", json.encodeToString(dto))
     }
 
     suspend fun markAsRead(partner: String) {
         val me = currentUsername ?: return
-
-        // پیام‌های دریافتی از این partner که هنوز READ نشدن رو پیدا کن
         val unread = messageDao.getUnreadFromSender(me, partner)
-
-        // دیتابیس محلی رو آپدیت کن (مثل قبل)
         messageDao.markConversationAsRead(me, partner)
-
-        // برای هرکدوم به فرستنده اصلی رسید READ بفرست تا تیکش آبی بشه
         unread.forEach { entity ->
             val receipt = ReceiptDto(
                 messageId = entity.id,
                 recipient = entity.sender,
                 status = "READ"
             )
-            stompManager.publish("/app/chat/receipt", json.encodeToString(ReceiptDto.serializer(), receipt))
+            stompManager.publish("/app/chat/receipt", json.encodeToString(receipt))
         }
     }
 
     suspend fun sendImageMessage(recipient: String, uri: android.net.Uri): Result<Unit> {
         return mediaRepository.uploadFile(uri).map { uploaded ->
-            sendMessage(
-                recipient = recipient,
-                content = uploaded.thumbnail ?: "",
-                messageType = MessageType.IMAGE,
-                fileUrl = uploaded.fileUrl,
-                mediaKey = uploaded.mediaKey
-            )
+            sendMessage(recipient, uploaded.thumbnail ?: "", MessageType.IMAGE, uploaded.fileUrl, mediaKey = uploaded.mediaKey)
         }
     }
 
@@ -336,38 +299,20 @@ data class ConversationSummary(
         val bytes = withContext(Dispatchers.IO) { file.readBytes() }
         val fileName = file.name
         return mediaRepository.uploadBytes(bytes, "audio/m4a", fileName = fileName).map { uploaded ->
-            sendMessage(
-                recipient = recipient,
-                content = fileName, // ذخیره نام فایل صوتی
-                messageType = MessageType.VOICE,
-                fileUrl = uploaded.fileUrl,
-                mediaKey = uploaded.mediaKey
-            )
+            sendMessage(recipient, fileName, MessageType.VOICE, uploaded.fileUrl, mediaKey = uploaded.mediaKey)
             file.delete()
         }
     }
 
     suspend fun sendFileMessage(recipient: String, uri: android.net.Uri): Result<Unit> {
         return mediaRepository.uploadFile(uri).map { uploaded ->
-            sendMessage(
-                recipient = recipient,
-                content = uploaded.displayName,
-                messageType = MessageType.FILE,
-                fileUrl = uploaded.fileUrl,
-                mediaKey = uploaded.mediaKey
-            )
+            sendMessage(recipient, uploaded.displayName, MessageType.FILE, uploaded.fileUrl, mediaKey = uploaded.mediaKey)
         }
     }
 
     suspend fun forwardMessages(targetRecipient: String, messages: List<ChatMessage>) {
         messages.forEach { msg ->
-            sendMessage(
-                recipient = targetRecipient,
-                content = msg.content,
-                messageType = msg.messageType,
-                fileUrl = msg.fileUrl,
-                mediaKey = msg.mediaKey
-            )
+            sendMessage(targetRecipient, msg.content, msg.messageType, msg.fileUrl, mediaKey = msg.mediaKey)
         }
     }
 
@@ -376,15 +321,11 @@ data class ConversationSummary(
         messageDao.deleteMessages(messageIds, me)
     }
 
-    suspend fun deleteMessagesForEveryone(partner: String, messageIds: List<String>) {
+    suspend fun deleteMessagesForEveryone(recipient: String, messageIds: List<String>) {
         val me = currentUsername ?: return
-        
-        // ۱. حذف محلی
         messageDao.deleteMessages(messageIds, me)
-        
-        // ۲. اطلاع به سرور برای حذف دوطرفه
-        val dto = MessageDeleteDto(messageIds = messageIds, recipient = partner)
-        stompManager.publish("/app/chat/delete", json.encodeToString(MessageDeleteDto.serializer(), dto))
+        val dto = MessageDeleteDto(messageIds = messageIds, recipient = recipient)
+        stompManager.publish("/app/chat/delete", json.encodeToString(dto))
     }
 
     suspend fun deleteConversation(partner: String) {
@@ -397,48 +338,35 @@ data class ConversationSummary(
         messageDao.updatePinStatus(messageId, me, !currentPinned)
     }
 
-    private suspend fun saveAsContact(username: String, owner: String) {
-        if (username == owner || username.isBlank()) return
-        scope.launch {
-            userDirectory.ensureLoaded(listOf(username))
-            val info = userDirectory.directory.value[username] ?: return@launch
-            contactDao.upsert(
-                com.example.veiltalk.core.database.entity.ContactEntity(
-                    username = username,
-                    ownerUsername = owner,
-                    firstName = info.firstName,
-                    lastName = info.lastName,
-                    profilePictureUrl = info.profilePictureUrl
-                )
-            )
-        }
+    suspend fun sendReaction(partner: String, messageId: String, emoji: String) {
+        val me = currentUsername ?: return
+        val dto = ReactionDto(messageId = messageId, emoji = emoji, recipient = partner)
+        stompManager.publish("/app/chat/reaction", json.encodeToString(dto))
+        
+        val message = messageDao.getMessageById(messageId, me) ?: return
+        val currentReactions = if (!message.reactionsJson.isNullOrBlank()) {
+            runCatching { json.decodeFromString<Map<String, String>>(message.reactionsJson) }.getOrDefault(emptyMap())
+        } else emptyMap()
+        
+        val newReactions = currentReactions + (me to emoji)
+        messageDao.updateReactions(messageId, me, json.encodeToString(newReactions))
+    }
+
+    suspend fun saveAsContact(username: String, firstName: String, lastName: String) {
+        val me = currentUsername ?: return
+        contactDao.upsert(com.example.veiltalk.core.database.entity.ContactEntity(username, me, firstName, lastName))
     }
 
     suspend fun ensureUsernameLoaded() {
-        if (currentUsername == null) {
-            currentUsername = sessionManager.usernameFlow.first()
-        }
+        if (currentUsername == null) currentUsername = sessionManager.usernameFlow.first()
     }
 }
 
-private fun ChatMessageDto.toEntity(ownerUsername: String, status: String): PrivateMessageEntity {
-    return PrivateMessageEntity(
-        id = id,
-        ownerUsername = ownerUsername,
-        sender = sender ?: "",
-        recipient = recipient,
-        content = content,
-        messageType = messageType,
-        fileUrl = fileUrl,
-        timestamp = timestamp,
-        status = status,
-        isPinned = false,
-        replyToId = replyToId,
-        mediaKey = mediaKey
-    )
-}
+private fun PrivateMessageEntity.toDomain(json: Json): ChatMessage {
+    val reactionsMap: Map<String, String> = if (!reactionsJson.isNullOrBlank()) {
+        runCatching { json.decodeFromString<Map<String, String>>(reactionsJson!!) }.getOrDefault(emptyMap())
+    } else emptyMap()
 
-private fun PrivateMessageEntity.toDomain(): ChatMessage {
     return ChatMessage(
         id = id,
         sender = sender,
@@ -450,6 +378,7 @@ private fun PrivateMessageEntity.toDomain(): ChatMessage {
         status = runCatching { MessageStatus.valueOf(status) }.getOrDefault(MessageStatus.SENT),
         isPinned = isPinned,
         replyToId = replyToId,
-        mediaKey = mediaKey
+        mediaKey = mediaKey,
+        reactions = reactionsMap
     )
 }
