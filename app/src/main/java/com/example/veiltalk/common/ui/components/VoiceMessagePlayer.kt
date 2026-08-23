@@ -68,51 +68,21 @@ fun VoiceMessagePlayer(
     }
 
     fun playVoice() {
-        if (mediaKey == null) {
-            voicePlayer.play(absoluteUrl) { isPlaying = false }
-            isPlaying = true
-            return
-        }
-
         isLoading = true
-        scope.launch(Dispatchers.IO) {
-            try {
-                val fileName = hashString(absoluteUrl)
-                val cacheFile = File(context.cacheDir, "decrypted_voice_$fileName.m4a")
-
-                if (!cacheFile.exists()) {
-                    val sessionManager = EntryPointAccessors.fromApplication(
-                        context.applicationContext,
-                        SessionManagerEntryPoint::class.java
-                    ).sessionManager()
-                    val token = sessionManager.getToken()
-
-                    val client = OkHttpClient()
-                    val request = Request.Builder()
-                        .url(absoluteUrl)
-                        .apply { if (token != null) addHeader("Authorization", "Bearer $token") }
-                        .build()
-                    
-                    val response = client.newCall(request).execute()
-                    if (response.isSuccessful) {
-                        val encryptedBytes = response.body?.bytes()
-                        if (encryptedBytes != null) {
-                            val decryptedBytes = MediaCrypto.decrypt(encryptedBytes, mediaKey)
-                            FileOutputStream(cacheFile).use { it.write(decryptedBytes) }
-                        }
-                    }
+        scope.launch {
+            val file = com.example.veiltalk.common.util.FileDownloader.downloadAndDecrypt(
+                context = context,
+                url = absoluteUrl,
+                mediaKey = mediaKey,
+                fileName = "voice_msg.m4a"
+            )
+            
+            withContext(Dispatchers.Main) {
+                isLoading = false
+                if (file != null && file.exists()) {
+                    voicePlayer.play(file.absolutePath) { isPlaying = false }
+                    isPlaying = true
                 }
-
-                withContext(Dispatchers.Main) {
-                    isLoading = false
-                    if (cacheFile.exists()) {
-                        voicePlayer.play(cacheFile.absolutePath) { isPlaying = false }
-                        isPlaying = true
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                withContext(Dispatchers.Main) { isLoading = false }
             }
         }
     }

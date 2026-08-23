@@ -462,22 +462,12 @@ private fun GroupMessageBubble(
                 }
                 MessageType.FILE -> {
                     if (!message.fileUrl.isNullOrBlank()) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clickable {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(message.fileUrl))
-                                    context.startActivity(intent)
-                                }
-                                .padding(vertical = 4.dp)
-                        ) {
-                            Text("📄", fontSize = 20.sp)
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                message.content.ifBlank { "فایل پیوست" },
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
+                        FileMessageItem(
+                            url = message.fileUrl,
+                            mediaKey = message.mediaKey,
+                            fileName = message.content.ifBlank { "فایل پیوست" },
+                            isMine = mine
+                        )
                         Spacer(Modifier.height(4.dp))
                     }
                 }
