@@ -79,10 +79,6 @@ class ChatRepository @Inject constructor(
             .onEach { frame -> handleRemoteDeletion(frame.body) }
             .launchIn(scope)
 
-        stompManager.framesForDestination("/user/queue/messages/edit")
-            .onEach { frame -> handleRemoteEdit(frame.body) }
-            .launchIn(scope)
-
         stompManager.framesForDestination("/user/queue/reactions")
             .onEach { frame -> handleReaction(frame.body) }
             .launchIn(scope)
@@ -92,6 +88,14 @@ class ChatRepository @Inject constructor(
         val dto = runCatching { json.decodeFromString<ChatMessageDto>(rawBody) }.getOrNull() ?: return
         val me = currentUsername ?: return
         
+        // چک کن آیا این یک ویرایش روی پیام موجود است؟
+        val existing = messageDao.getMessageById(dto.id, me)
+        if (existing != null) {
+            // اگر پیام از قبل وجود دارد، فقط محتوایش را آپدیت کن تا عکس و مدیا پاک نشود
+            messageDao.updateMessageContent(dto.id, me, dto.content)
+            return
+        }
+
         val isChatOpen = activeChatPartner == dto.sender
         val status = if (dto.sender == me) "SENT" else if (isChatOpen) "READ" else "DELIVERED"
         

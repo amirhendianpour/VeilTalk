@@ -82,10 +82,6 @@ class GroupRepository @Inject constructor(
             .onEach { frame -> handleRemoteGroupDeletion(frame.body) }
             .launchIn(scope)
 
-        stompManager.framesForDestination("/user/queue/group-messages/edit")
-            .onEach { frame -> handleRemoteGroupEdit(frame.body) }
-            .launchIn(scope)
-
         stompManager.framesForDestination("/user/queue/group-reactions")
             .onEach { frame -> handleGroupReaction(frame.body) }
             .launchIn(scope)
@@ -95,6 +91,13 @@ class GroupRepository @Inject constructor(
         val dto = runCatching { json.decodeFromString<GroupChatMessageDto>(rawBody) }.getOrNull() ?: return
         val me = currentUsername ?: return
         
+        // چک کن آیا این یک ویرایش روی پیام موجود در گروه است؟
+        val existing = groupMessageDao.getMessageById(dto.id, me)
+        if (existing != null) {
+            groupMessageDao.updateMessageContent(dto.id, me, dto.content)
+            return
+        }
+
         val isGroupOpen = activeGroupId == dto.groupId
         val status = if (dto.sender == me) "SENT" else if (isGroupOpen) "READ" else "DELIVERED"
         
