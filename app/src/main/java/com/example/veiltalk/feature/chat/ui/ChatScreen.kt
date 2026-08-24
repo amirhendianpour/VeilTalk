@@ -289,45 +289,62 @@ fun ChatScreen(
             // WhatsApp Doodle Background Pattern (simplified)
             Canvas(modifier = Modifier.fillMaxSize()) { }
             
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-                contentPadding = PaddingValues(bottom = 8.dp)
-            ) {
-                items(uiState.messages, key = { it.id }) { message ->
-                    val repliedTo = message.replyToId?.let { rid -> uiState.messages.find { it.id == rid } }
-                    MessageBubble(
-                        message = message,
-                        partner = viewModel.partner,
-                        isSelected = message.id in selectedMessages,
-                        replyToName = repliedTo?.let { if (it.sender == viewModel.partner) uiState.partnerDisplayName else "شما" },
-                        replyToContent = repliedTo?.content,
-                        onReplyClick = {
-                            val index = uiState.messages.indexOfFirst { it.id == message.replyToId }
+            Column(modifier = Modifier.fillMaxSize()) {
+                if (uiState.pinnedMessages.isNotEmpty()) {
+                    PinnedMessagesBar(
+                        messages = uiState.pinnedMessages,
+                        onMessageClick = { message ->
+                            val index = uiState.messages.indexOfFirst { it.id == message.id }
                             if (index != -1) {
                                 scope.launch { listState.animateScrollToItem(index) }
                             }
                         },
-                        onViewImage = { viewingImage = it },
-                        onClick = {
-                            if (isSelectionMode) {
-                                selectedMessages = if (message.id in selectedMessages) {
-                                    selectedMessages - message.id
-                                } else {
-                                    selectedMessages + message.id
-                                }
-                            } else {
-                                showMessageMenu = message
-                            }
-                        },
-                        onLongClick = {
-                            selectedMessages = setOf(message.id)
-                        },
-                        onSenderClick = {
-                            onOpenProfile(viewModel.partner)
+                        onUnpin = { message ->
+                            viewModel.togglePin(message.id, true)
                         }
                     )
+                }
+
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    contentPadding = PaddingValues(bottom = 8.dp)
+                ) {
+                    items(uiState.messages, key = { it.id }) { message ->
+                        val repliedTo = message.replyToId?.let { rid -> uiState.messages.find { it.id == rid } }
+                        MessageBubble(
+                            message = message,
+                            partner = viewModel.partner,
+                            isSelected = message.id in selectedMessages,
+                            replyToName = repliedTo?.let { if (it.sender == viewModel.partner) uiState.partnerDisplayName else "شما" },
+                            replyToContent = repliedTo?.content,
+                            onReplyClick = {
+                                val index = uiState.messages.indexOfFirst { it.id == message.replyToId }
+                                if (index != -1) {
+                                    scope.launch { listState.animateScrollToItem(index) }
+                                }
+                            },
+                            onViewImage = { viewingImage = it },
+                            onClick = {
+                                if (isSelectionMode) {
+                                    selectedMessages = if (message.id in selectedMessages) {
+                                        selectedMessages - message.id
+                                    } else {
+                                        selectedMessages + message.id
+                                    }
+                                } else {
+                                    showMessageMenu = message
+                                }
+                            },
+                            onLongClick = {
+                                selectedMessages = setOf(message.id)
+                            },
+                            onSenderClick = {
+                                onOpenProfile(viewModel.partner)
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -566,4 +583,64 @@ private fun MessageBubble(
             }
         }
     )
+}
+
+@Composable
+fun PinnedMessagesBar(
+    messages: List<ChatMessage>,
+    onMessageClick: (ChatMessage) -> Unit,
+    onUnpin: (ChatMessage) -> Unit
+) {
+    val message = messages.last() // نمایش آخرین پیام پین شده
+    val context = LocalContext.current
+    
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onMessageClick(message) },
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
+        tonalElevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.PushPin,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "پیام سنجاق شده",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = when (message.messageType) {
+                        MessageType.TEXT -> message.content
+                        MessageType.IMAGE -> "تصویر"
+                        MessageType.VOICE -> "پیام صوتی"
+                        MessageType.FILE -> "فایل"
+                        MessageType.STICKER -> "استیکر"
+                        MessageType.GIF -> "گیف"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+            }
+            IconButton(onClick = { onUnpin(message) }) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "برداشتن سنجاق",
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
 }

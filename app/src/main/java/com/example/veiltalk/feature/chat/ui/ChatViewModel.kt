@@ -32,7 +32,8 @@ data class ChatUiState(
     val replyingMessage: ChatMessage? = null,
     val searchQuery: String = "",
     val allDestinations: List<com.example.veiltalk.feature.chat.ui.HomeListItem> = emptyList(),
-    val isRecording: Boolean = false
+    val isRecording: Boolean = false,
+    val pinnedMessages: List<ChatMessage> = emptyList()
 )
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -118,7 +119,8 @@ class ChatViewModel @Inject constructor(
             replyingMessage = replyingMessage,
             searchQuery = query,
             allDestinations = destinations,
-            isRecording = _isRecording.value
+            isRecording = _isRecording.value,
+            pinnedMessages = messages.filter { it.isPinned }
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ChatUiState())
 
