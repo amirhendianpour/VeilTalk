@@ -24,6 +24,8 @@ object NetworkModule {
         ignoreUnknownKeys = true
         encodeDefaults = true
         explicitNulls = false
+        coerceInputValues = true
+        isLenient = true
     }
 
     @Provides

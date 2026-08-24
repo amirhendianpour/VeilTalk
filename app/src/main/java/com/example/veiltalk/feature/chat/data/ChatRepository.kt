@@ -253,7 +253,7 @@ class ChatRepository @Inject constructor(
         )
 
         val dto = ChatMessageDto(id, me, recipient, content, messageType.name, fileUrl, nowIso, replyToId, mediaKey)
-        stompManager.publish("/app/chat/message", json.encodeToString(dto))
+        stompManager.publish("/app/chat", json.encodeToString(dto))
     }
 
     suspend fun editMessage(messageId: String, recipient: String, newContent: String) {
