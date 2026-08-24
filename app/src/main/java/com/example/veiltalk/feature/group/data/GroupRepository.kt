@@ -82,6 +82,10 @@ class GroupRepository @Inject constructor(
             .onEach { frame -> handleRemoteGroupDeletion(frame.body) }
             .launchIn(scope)
 
+        stompManager.framesForDestination("/user/queue/group-messages/edit")
+            .onEach { frame -> handleRemoteGroupEdit(frame.body) }
+            .launchIn(scope)
+
         stompManager.framesForDestination("/user/queue/group-reactions")
             .onEach { frame -> handleGroupReaction(frame.body) }
             .launchIn(scope)
@@ -153,6 +157,13 @@ class GroupRepository @Inject constructor(
         val dto = runCatching { json.decodeFromString<MessageDeleteDto>(rawBody) }.getOrNull() ?: return
         val me = currentUsername ?: return
         groupMessageDao.deleteMessages(dto.messageIds, me)
+    }
+
+    private suspend fun handleRemoteGroupEdit(rawBody: String) {
+        val dto = runCatching { json.decodeFromString<GroupChatMessageDto>(rawBody) }.getOrNull() ?: return
+        val me = currentUsername ?: return
+        // آپدیت فقط محتوای پیام در گروه
+        groupMessageDao.updateMessageContent(dto.id, me, dto.content)
     }
 
     private suspend fun handleGroupReaction(rawBody: String) {

@@ -79,6 +79,10 @@ class ChatRepository @Inject constructor(
             .onEach { frame -> handleRemoteDeletion(frame.body) }
             .launchIn(scope)
 
+        stompManager.framesForDestination("/user/queue/messages/edit")
+            .onEach { frame -> handleRemoteEdit(frame.body) }
+            .launchIn(scope)
+
         stompManager.framesForDestination("/user/queue/reactions")
             .onEach { frame -> handleReaction(frame.body) }
             .launchIn(scope)
@@ -180,6 +184,13 @@ class ChatRepository @Inject constructor(
         val dto = runCatching { json.decodeFromString<MessageDeleteDto>(rawBody) }.getOrNull() ?: return
         val me = currentUsername ?: return
         messageDao.deleteMessages(dto.messageIds, me)
+    }
+
+    private suspend fun handleRemoteEdit(rawBody: String) {
+        val dto = runCatching { json.decodeFromString<ChatMessageDto>(rawBody) }.getOrNull() ?: return
+        val me = currentUsername ?: return
+        // آپدیت فقط محتوای پیام (بدون دستکاری فرستنده و نوع پیام)
+        messageDao.updateMessageContent(dto.id, me, dto.content)
     }
 
     private suspend fun handleReaction(rawBody: String) {
