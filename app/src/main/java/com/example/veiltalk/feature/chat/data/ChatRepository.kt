@@ -82,6 +82,10 @@ class ChatRepository @Inject constructor(
         stompManager.framesForDestination("/user/queue/reactions")
             .onEach { frame -> handleReaction(frame.body) }
             .launchIn(scope)
+
+        stompManager.framesForDestination("/user/queue/pin")
+            .onEach { frame -> handleRemotePin(frame.body) }
+            .launchIn(scope)
     }
 
     private suspend fun handleIncomingMessage(rawBody: String) {
@@ -208,6 +212,12 @@ class ChatRepository @Inject constructor(
         
         val newReactions = currentReactions + (dto.sender!! to dto.emoji)
         messageDao.updateReactions(dto.messageId, me, json.encodeToString(newReactions))
+    }
+
+    private suspend fun handleRemotePin(rawBody: String) {
+        val dto = runCatching { json.decodeFromString<PinMessageDto>(rawBody) }.getOrNull() ?: return
+        val me = currentUsername ?: return
+        messageDao.updatePinStatus(dto.messageId, me, dto.pinned)
     }
 
     fun conversationFlow(partner: String): Flow<List<ChatMessage>> {
@@ -348,9 +358,13 @@ class ChatRepository @Inject constructor(
         messageDao.deleteConversation(me, partner)
     }
 
-    suspend fun togglePin(messageId: String, currentPinned: Boolean) {
+    suspend fun togglePin(messageId: String, partner: String, currentPinned: Boolean) {
         val me = currentUsername ?: return
-        messageDao.updatePinStatus(messageId, me, !currentPinned)
+        val newPinned = !currentPinned
+        messageDao.updatePinStatus(messageId, me, newPinned)
+        
+        val dto = PinMessageDto(messageId = messageId, recipient = partner, pinned = newPinned)
+        stompManager.publish("/app/chat/pin", json.encodeToString(dto))
     }
 
     suspend fun sendReaction(partner: String, messageId: String, emoji: String) {

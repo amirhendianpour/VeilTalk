@@ -65,3 +65,10 @@ data class ReactionDto(
     val recipient: String? = null, // for private chat
     val groupId: Long? = null // for group chat
 )
+
+@Serializable
+data class PinMessageDto(
+    val messageId: String,
+    val recipient: String,
+    val pinned: Boolean
+)
