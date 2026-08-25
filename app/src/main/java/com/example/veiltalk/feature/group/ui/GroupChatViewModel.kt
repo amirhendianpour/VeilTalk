@@ -21,7 +21,8 @@ data class GroupChatUiState(
     val replyingMessage: GroupMessage? = null,
     val searchQuery: String = "",
     val allDestinations: List<com.example.veiltalk.feature.chat.ui.HomeListItem> = emptyList(),
-    val isRecording: Boolean = false
+    val isRecording: Boolean = false,
+    val pinnedMessages: List<GroupMessage> = emptyList()
 )
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -105,7 +106,8 @@ class GroupChatViewModel @Inject constructor(
             replyingMessage = replyingMessage,
             searchQuery = query,
             allDestinations = destinations,
-            isRecording = _isRecording.value
+            isRecording = _isRecording.value,
+            pinnedMessages = messages.filter { it.isPinned }
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), GroupChatUiState())
 
@@ -243,9 +245,9 @@ class GroupChatViewModel @Inject constructor(
         }
     }
 
-    fun togglePin(messageId: String, currentPinned: Boolean) {
+    fun togglePin(messageId: String, currentPinned: Boolean, forEveryone: Boolean) {
         viewModelScope.launch {
-            groupRepository.togglePin(messageId, currentPinned)
+            groupRepository.togglePin(groupId, messageId, currentPinned, forEveryone)
         }
     }
 

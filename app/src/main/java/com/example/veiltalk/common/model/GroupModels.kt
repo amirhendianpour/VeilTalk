@@ -8,19 +8,19 @@ data class GroupInfo(
 )
 
 data class GroupMessage(
-    val id: String,
+    override val id: String,
     val groupId: Long,
     val sender: String?,
-    val content: String,
-    val timestamp: String?,
-    val messageType: MessageType = MessageType.TEXT,
-    val fileUrl: String? = null,
+    override val content: String,
+    override val timestamp: String?,
+    override val messageType: MessageType = MessageType.TEXT,
+    override val fileUrl: String? = null,
     val status: MessageStatus = MessageStatus.SENT,
-    val isPinned: Boolean = false,
+    override val isPinned: Boolean = false,
     val replyToId: String? = null,
-    val mediaKey: String? = null,
+    override val mediaKey: String? = null,
     val reactions: Map<String, String> = emptyMap()
-)
+) : BaseMessage
 
 data class GroupMemberInfo(
     val username: String,

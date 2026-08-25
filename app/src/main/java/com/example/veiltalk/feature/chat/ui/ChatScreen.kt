@@ -303,7 +303,7 @@ fun ChatScreen(
                             }
                         },
                         onUnpin = { message ->
-                            showPinDialog = message.copy(isPinned = true) // Mark for unpinning dialog
+                            showPinDialog = message as ChatMessage
                         }
                     )
                 }
@@ -489,39 +489,13 @@ fun ChatScreen(
 
     if (showPinDialog != null) {
         val msg = showPinDialog!!
-        val isUnpinning = msg.isPinned
-        
-        var forEveryone by remember { mutableStateOf(true) }
-
-        AlertDialog(
-            onDismissRequest = { showPinDialog = null },
-            title = { Text(if (isUnpinning) "برداشتن سنجاق" else "سنجاق کردن پیام") },
-            text = {
-                Column {
-                    Text(if (isUnpinning) "آیا مایل به برداشتن سنجاق این پیام هستید؟" else "آیا مایل به سنجاق کردن این پیام هستید؟")
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable { forEveryone = !forEveryone }
-                    ) {
-                        Checkbox(checked = forEveryone, onCheckedChange = { forEveryone = it })
-                        Text(if (isUnpinning) "حذف برای هر دو طرف" else "سنجاق برای هر دو طرف")
-                    }
-                }
+        PinActionDialog(
+            isUnpinning = msg.isPinned,
+            onConfirm = { forEveryone ->
+                viewModel.togglePin(msg.id, msg.isPinned, forEveryone)
+                showPinDialog = null
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.togglePin(msg.id, msg.isPinned, forEveryone)
-                    showPinDialog = null
-                }) {
-                    Text("تایید")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPinDialog = null }) {
-                    Text("انصراف")
-                }
-            }
+            onDismiss = { showPinDialog = null }
         )
     }
 }
@@ -627,77 +601,3 @@ private fun MessageBubble(
     )
 }
 
-@Composable
-fun PinnedMessagesBar(
-    messages: List<ChatMessage>,
-    onMessageClick: (ChatMessage) -> Unit,
-    onUnpin: (ChatMessage) -> Unit
-) {
-    var currentIndex by remember { mutableIntStateOf(messages.size - 1) }
-    
-    LaunchedEffect(messages.size) {
-        currentIndex = (messages.size - 1).coerceAtLeast(0)
-    }
-    
-    val message = if (messages.isNotEmpty()) messages[currentIndex] else return
-    
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { 
-                if (messages.size > 1) {
-                    currentIndex = if (currentIndex <= 0) messages.size - 1 else currentIndex - 1
-                }
-                onMessageClick(messages[currentIndex])
-            },
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
-        tonalElevation = 2.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(horizontal = 8.dp, vertical = 8.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Stack indicator like Telegram
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .height(32.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(MaterialTheme.colorScheme.primary)
-            )
-            
-            Spacer(Modifier.width(12.dp))
-            
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = if (messages.size > 1) "پیام‌های سنجاق شده (${messages.size})" else "پیام سنجاق شده",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = when (message.messageType) {
-                        MessageType.TEXT -> message.content
-                        MessageType.IMAGE -> "تصویر"
-                        MessageType.VOICE -> "پیام صوتی"
-                        MessageType.FILE -> "فایل"
-                        MessageType.STICKER -> "استیکر"
-                        MessageType.GIF -> "گیف"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                )
-            }
-            
-            IconButton(onClick = { onUnpin(message) }) {
-                Icon(
-                    Icons.Default.Close,
-                    contentDescription = "برداشتن سنجاق",
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-    }
-}
