@@ -273,9 +273,9 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun togglePin(messageId: String, currentPinned: Boolean) {
+    fun togglePin(messageId: String, currentPinned: Boolean, forEveryone: Boolean) {
         viewModelScope.launch {
-            chatRepository.togglePin(messageId, partner, currentPinned)
+            chatRepository.togglePin(messageId, partner, currentPinned, forEveryone)
         }
     }
 

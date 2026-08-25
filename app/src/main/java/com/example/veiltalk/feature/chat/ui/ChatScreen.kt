@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -147,6 +148,8 @@ fun ChatScreen(
             listState.animateScrollToItem(uiState.messages.size - 1)
         }
     }
+
+    var showPinDialog by remember { mutableStateOf<ChatMessage?>(null) }
 
     ChatBaseLayout(
         topBar = {
@@ -300,7 +303,7 @@ fun ChatScreen(
                             }
                         },
                         onUnpin = { message ->
-                            viewModel.togglePin(message.id, true)
+                            showPinDialog = message.copy(isPinned = true) // Mark for unpinning dialog
                         }
                     )
                 }
@@ -369,7 +372,8 @@ fun ChatScreen(
                 }
             } else null,
             onTogglePin = {
-                viewModel.togglePin(msg.id, msg.isPinned)
+                showPinDialog = msg
+                showMessageMenu = null
             },
             onForward = {
                 showForwardDialog = listOf(msg.id)
@@ -482,6 +486,44 @@ fun ChatScreen(
             )
         }
     }
+
+    if (showPinDialog != null) {
+        val msg = showPinDialog!!
+        val isUnpinning = msg.isPinned
+        
+        var forEveryone by remember { mutableStateOf(true) }
+
+        AlertDialog(
+            onDismissRequest = { showPinDialog = null },
+            title = { Text(if (isUnpinning) "برداشتن سنجاق" else "سنجاق کردن پیام") },
+            text = {
+                Column {
+                    Text(if (isUnpinning) "آیا مایل به برداشتن سنجاق این پیام هستید؟" else "آیا مایل به سنجاق کردن این پیام هستید؟")
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { forEveryone = !forEveryone }
+                    ) {
+                        Checkbox(checked = forEveryone, onCheckedChange = { forEveryone = it })
+                        Text(if (isUnpinning) "حذف برای هر دو طرف" else "سنجاق برای هر دو طرف")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.togglePin(msg.id, msg.isPinned, forEveryone)
+                    showPinDialog = null
+                }) {
+                    Text("تایید")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPinDialog = null }) {
+                    Text("انصراف")
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -591,32 +633,46 @@ fun PinnedMessagesBar(
     onMessageClick: (ChatMessage) -> Unit,
     onUnpin: (ChatMessage) -> Unit
 ) {
-    val message = messages.last() // نمایش آخرین پیام پین شده
-    val context = LocalContext.current
+    var currentIndex by remember { mutableIntStateOf(messages.size - 1) }
+    
+    LaunchedEffect(messages.size) {
+        currentIndex = (messages.size - 1).coerceAtLeast(0)
+    }
+    
+    val message = if (messages.isNotEmpty()) messages[currentIndex] else return
     
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onMessageClick(message) },
+            .clickable { 
+                if (messages.size > 1) {
+                    currentIndex = if (currentIndex <= 0) messages.size - 1 else currentIndex - 1
+                }
+                onMessageClick(messages[currentIndex])
+            },
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
         tonalElevation = 2.dp
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 8.dp, vertical = 8.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Default.PushPin,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.primary
+            // Stack indicator like Telegram
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(32.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.primary)
             )
+            
             Spacer(Modifier.width(12.dp))
+            
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "پیام سنجاق شده",
+                    text = if (messages.size > 1) "پیام‌های سنجاق شده (${messages.size})" else "پیام سنجاق شده",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -634,6 +690,7 @@ fun PinnedMessagesBar(
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
             }
+            
             IconButton(onClick = { onUnpin(message) }) {
                 Icon(
                     Icons.Default.Close,

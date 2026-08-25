@@ -358,13 +358,15 @@ class ChatRepository @Inject constructor(
         messageDao.deleteConversation(me, partner)
     }
 
-    suspend fun togglePin(messageId: String, partner: String, currentPinned: Boolean) {
+    suspend fun togglePin(messageId: String, partner: String, currentPinned: Boolean, forEveryone: Boolean) {
         val me = currentUsername ?: return
         val newPinned = !currentPinned
         messageDao.updatePinStatus(messageId, me, newPinned)
         
-        val dto = PinMessageDto(messageId = messageId, recipient = partner, pinned = newPinned)
-        stompManager.publish("/app/chat/pin", json.encodeToString(dto))
+        if (forEveryone) {
+            val dto = PinMessageDto(messageId = messageId, recipient = partner, pinned = newPinned)
+            stompManager.publish("/app/chat/pin", json.encodeToString(dto))
+        }
     }
 
     suspend fun sendReaction(partner: String, messageId: String, emoji: String) {
