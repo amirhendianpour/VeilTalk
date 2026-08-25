@@ -85,6 +85,10 @@ class GroupRepository @Inject constructor(
         stompManager.framesForDestination("/user/queue/group-reactions")
             .onEach { frame -> handleGroupReaction(frame.body) }
             .launchIn(scope)
+
+        stompManager.framesForDestination("/user/queue/group-pin")
+            .onEach { frame -> handleRemoteGroupPin(frame.body) }
+            .launchIn(scope)
     }
 
     private suspend fun handleIncomingGroupMessage(rawBody: String) {
@@ -180,6 +184,12 @@ class GroupRepository @Inject constructor(
         
         val newReactions = currentReactions + (dto.sender!! to dto.emoji)
         groupMessageDao.updateReactions(dto.messageId, me, json.encodeToString(newReactions))
+    }
+
+    private suspend fun handleRemoteGroupPin(rawBody: String) {
+        val dto = runCatching { json.decodeFromString<PinMessageDto>(rawBody) }.getOrNull() ?: return
+        val me = currentUsername ?: return
+        groupMessageDao.updatePinStatus(dto.messageId, me, dto.pinned)
     }
 
     private fun showGroupNotification(dto: GroupChatMessageDto) {
@@ -287,9 +297,15 @@ class GroupRepository @Inject constructor(
         stompManager.publish("/app/group/delete", json.encodeToString(dto))
     }
 
-    suspend fun togglePin(messageId: String, currentPinned: Boolean) {
+    suspend fun togglePin(groupId: Long, messageId: String, currentPinned: Boolean, forEveryone: Boolean) {
         val me = currentUsername ?: return
-        groupMessageDao.updatePinStatus(messageId, me, !currentPinned)
+        val newPinned = !currentPinned
+        groupMessageDao.updatePinStatus(messageId, me, newPinned)
+        
+        if (forEveryone) {
+            val dto = PinMessageDto(messageId = messageId, groupId = groupId, pinned = newPinned)
+            stompManager.publish("/app/group/pin", json.encodeToString(dto))
+        }
     }
 
     fun groupConversationSummariesFlow(): Flow<Map<Long, GroupSummary>> {

@@ -96,6 +96,7 @@ fun GroupChatScreen(
     var isSearchMode by remember { mutableStateOf(false) }
     var viewingImage by remember { mutableStateOf<GroupMessage?>(null) }
     var showCameraOptions by remember { mutableStateOf(false) }
+    var showPinDialog by remember { mutableStateOf<GroupMessage?>(null) }
 
     val videoLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.CaptureVideo()
@@ -227,39 +228,56 @@ fun GroupChatScreen(
         }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-                contentPadding = PaddingValues(bottom = 8.dp)
-            ) {
-                items(uiState.messages, key = { it.id }) { message ->
-                    val mine = message.sender == uiState.myUsername
-                    val repliedTo = message.replyToId?.let { rid -> uiState.messages.find { it.id == rid } }
-                    GroupMessageBubble(
-                        message = message,
-                        mine = mine,
-                        isSelected = message.id in selectedMessages,
-                        senderDisplayName = userDirectory.getDisplayName(message.sender ?: ""),
-                        replyToName = repliedTo?.let { if (it.sender == uiState.myUsername) "شما" else userDirectory.getDisplayName(it.sender ?: "") },
-                        replyToContent = repliedTo?.content,
-                        onReplyClick = {
-                            val index = uiState.messages.indexOfFirst { it.id == message.replyToId }
+            Column(modifier = Modifier.fillMaxSize()) {
+                if (uiState.pinnedMessages.isNotEmpty()) {
+                    PinnedMessagesBar(
+                        messages = uiState.pinnedMessages,
+                        onMessageClick = { message ->
+                            val index = uiState.messages.indexOfFirst { it.id == message.id }
                             if (index != -1) {
                                 scope.launch { listState.animateScrollToItem(index) }
                             }
                         },
-                        onViewImage = { viewingImage = it },
-                        onClick = {
-                            if (isSelectionMode) {
-                                selectedMessages = if (message.id in selectedMessages) selectedMessages - message.id else selectedMessages + message.id
-                            } else {
-                                showMessageMenu = message
-                            }
-                        },
-                        onLongClick = { selectedMessages = setOf(message.id) },
-                        onSenderClick = { message.sender?.let { onOpenProfile(it) } }
+                        onUnpin = { message ->
+                            showPinDialog = message as GroupMessage
+                        }
                     )
+                }
+
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    contentPadding = PaddingValues(bottom = 8.dp)
+                ) {
+                    items(uiState.messages, key = { it.id }) { message ->
+                        val mine = message.sender == uiState.myUsername
+                        val repliedTo = message.replyToId?.let { rid -> uiState.messages.find { it.id == rid } }
+                        GroupMessageBubble(
+                            message = message,
+                            mine = mine,
+                            isSelected = message.id in selectedMessages,
+                            senderDisplayName = userDirectory.getDisplayName(message.sender ?: ""),
+                            replyToName = repliedTo?.let { if (it.sender == uiState.myUsername) "شما" else userDirectory.getDisplayName(it.sender ?: "") },
+                            replyToContent = repliedTo?.content,
+                            onReplyClick = {
+                                val index = uiState.messages.indexOfFirst { it.id == message.replyToId }
+                                if (index != -1) {
+                                    scope.launch { listState.animateScrollToItem(index) }
+                                }
+                            },
+                            onViewImage = { viewingImage = it },
+                            onClick = {
+                                if (isSelectionMode) {
+                                    selectedMessages = if (message.id in selectedMessages) selectedMessages - message.id else selectedMessages + message.id
+                                } else {
+                                    showMessageMenu = message
+                                }
+                            },
+                            onLongClick = { selectedMessages = setOf(message.id) },
+                            onSenderClick = { message.sender?.let { onOpenProfile(it) } }
+                        )
+                    }
                 }
             }
         }
@@ -283,7 +301,10 @@ fun GroupChatScreen(
                     showMessageMenu = null
                 }
             } else null,
-            onTogglePin = { viewModel.togglePin(msg.id, msg.isPinned) },
+            onTogglePin = { 
+                showPinDialog = msg
+                showMessageMenu = null 
+            },
             onForward = {
                 showForwardDialog = listOf(msg.id)
                 showMessageMenu = null
@@ -394,6 +415,19 @@ fun GroupChatScreen(
                 onDismiss = { viewingImage = null }
             )
         }
+    }
+
+    if (showPinDialog != null) {
+        val msg = showPinDialog!!
+        PinActionDialog(
+            isUnpinning = msg.isPinned,
+            onConfirm = { forEveryone ->
+                viewModel.togglePin(msg.id, msg.isPinned, forEveryone)
+                showPinDialog = null
+            },
+            onDismiss = { showPinDialog = null },
+            isGroup = true
+        )
     }
 }
 
