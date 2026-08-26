@@ -103,6 +103,11 @@ class ChatRepository @Inject constructor(
         val isChatOpen = activeChatPartner == dto.sender
         val status = if (dto.sender == me) "SENT" else if (isChatOpen) "READ" else "DELIVERED"
         
+        // وقتی پیامی از کسی میاد، یعنی طرف حتماً آنلایینه
+        if (dto.sender != null && dto.sender != me) {
+            userDirectory.updateStatus(dto.sender, true)
+        }
+
         messageDao.upsert(
             PrivateMessageEntity(
                 id = dto.id,
@@ -185,6 +190,8 @@ class ChatRepository @Inject constructor(
 
     private fun handleUserStatus(rawBody: String) {
         val dto = runCatching { json.decodeFromString<UserStatusDto>(rawBody) }.getOrNull() ?: return
+        // لاگ برای عیب‌یابی (Clean Code Logging)
+        android.util.Log.d("Presence", "Received status for ${dto.username}: online=${dto.online}")
         scope.launch { userDirectory.updateStatus(dto.username, dto.online, dto.lastSeen) }
     }
 
@@ -386,6 +393,12 @@ class ChatRepository @Inject constructor(
     suspend fun saveAsContact(username: String, firstName: String, lastName: String) {
         val me = currentUsername ?: return
         contactDao.upsert(com.example.veiltalk.core.database.entity.ContactEntity(username, me, firstName, lastName))
+    }
+
+    fun sendManualPresence(online: Boolean) {
+        val me = currentUsername ?: return
+        val dto = UserStatusDto(username = me, online = online)
+        stompManager.publish("/app/chat/presence", json.encodeToString(dto))
     }
 
     suspend fun ensureUsernameLoaded() {

@@ -193,8 +193,11 @@ fun ChatScreen(
                     title = if (isSearchMode) "" else uiState.partnerDisplayName,
                     subtitle = if (isSearchMode) null else when {
                         uiState.isPartnerTyping -> "در حال تایپ..."
-                        uiState.isPartnerOnline -> "آنلاین"
-                        uiState.partnerLastSeen != null -> "آخرین بازدید: ${com.example.veiltalk.common.util.formatMessageTime(uiState.partnerLastSeen)}"
+                        uiState.presence is com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Online -> "آنلاین"
+                        uiState.presence is com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Offline -> {
+                            val lastSeen = (uiState.presence as com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Offline).lastSeen
+                            if (lastSeen != null) "آخرین بازدید: ${com.example.veiltalk.common.util.formatMessageTime(lastSeen)}" else "آفلاین"
+                        }
                         else -> null
                     },
                     imageUrl = if (isSearchMode) null else uiState.partnerProfilePicture,

@@ -51,7 +51,7 @@ fun HomeScreen(
     
     // دریافت وضعیت آنلاینی از UserDirectoryEntryPointViewModel یک‌بار در سطح بالا
     val userDirViewModel = hiltViewModel<com.example.veiltalk.feature.user.ui.UserDirectoryEntryPointViewModel>()
-    val onlineStatus by userDirViewModel.repository.onlineStatus.collectAsState()
+    val presenceMap by userDirViewModel.repository.presenceMap.collectAsState()
 
     val context = LocalContext.current
     var tab by remember { mutableStateOf(HomeTab.ALL) }
@@ -371,7 +371,7 @@ fun HomeScreen(
                                     time = item.time,
                                     unreadCount = item.unreadCount,
                                     isSelected = isSelected,
-                                    isOnline = onlineStatus[item.username] ?: false,
+                                    isOnline = presenceMap[item.username] is com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Online,
                                     onClick = { 
                                         if (isSelectionMode) viewModel.toggleSelection(item.key)
                                         else onOpenChat(item.username) 
@@ -407,7 +407,7 @@ fun HomeScreen(
                                 time = item.time,
                                 unreadCount = item.unreadCount,
                                 isSelected = isSelected,
-                                isOnline = onlineStatus[item.username] ?: false,
+                                isOnline = presenceMap[item.username] is com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Online,
                                 onClick = { 
                                     if (isSelectionMode) viewModel.toggleSelection(item.key)
                                     else onOpenChat(item.username) 

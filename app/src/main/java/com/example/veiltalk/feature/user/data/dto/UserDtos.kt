@@ -10,7 +10,9 @@ data class UserInfoDto(
     val email: String? = null,
     val phoneNumber: String? = null,
     val bio: String? = null,
-    val profilePictureUrl: String? = null
+    val profilePictureUrl: String? = null,
+    val online: Boolean = false,
+    val lastSeen: String? = null
 )
 
 @Serializable

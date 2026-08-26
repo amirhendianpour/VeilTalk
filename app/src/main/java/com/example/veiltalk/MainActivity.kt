@@ -31,8 +31,13 @@ import com.example.veiltalk.feature.user.ui.UserDirectoryEntryPointViewModel
 import com.example.veiltalk.navigation.VeilTalkNavGraph
 import dagger.hilt.android.AndroidEntryPoint
 
+import javax.inject.Inject
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var lifecycleObserver: com.example.veiltalk.core.session.AppLifecycleObserver
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -41,6 +46,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        
+        lifecycleObserver.start()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)

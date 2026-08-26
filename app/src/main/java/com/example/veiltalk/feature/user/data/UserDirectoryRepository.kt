@@ -22,24 +22,23 @@ class UserDirectoryRepository @Inject constructor(
     private val sessionManager: com.example.veiltalk.core.session.SessionManager,
     @ApplicationScope private val scope: CoroutineScope
 ) {
+    sealed class Presence {
+        object Online : Presence()
+        data class Offline(val lastSeen: String?) : Presence()
+        object Unknown : Presence()
+    }
+
     private val _directory = MutableStateFlow<Map<String, UserInfoDto>>(emptyMap())
     val directory: StateFlow<Map<String, UserInfoDto>> = _directory.asStateFlow()
 
-    private val _onlineStatus = MutableStateFlow<Map<String, Boolean>>(emptyMap())
-    val onlineStatus: StateFlow<Map<String, Boolean>> = _onlineStatus.asStateFlow()
-
-    private val _lastSeen = MutableStateFlow<Map<String, String?>>(emptyMap())
-    val lastSeen: StateFlow<Map<String, String?>> = _lastSeen.asStateFlow()
+    private val _presenceMap = MutableStateFlow<Map<String, Presence>>(emptyMap())
+    val presenceMap: StateFlow<Map<String, Presence>> = _presenceMap.asStateFlow()
 
     fun updateStatus(username: String, online: Boolean, lastSeen: String? = null) {
-        _onlineStatus.value = _onlineStatus.value + (username to online)
-        if (lastSeen != null) {
-            _lastSeen.value = _lastSeen.value + (username to lastSeen)
-        }
+        _presenceMap.value = _presenceMap.value + (username to if (online) Presence.Online else Presence.Offline(lastSeen))
     }
 
-    fun isOnline(username: String): Boolean = _onlineStatus.value[username] ?: false
-    fun getLastSeen(username: String): String? = _lastSeen.value[username]
+    fun getPresence(username: String): Presence = _presenceMap.value[username] ?: Presence.Unknown
 
     private val pending = mutableSetOf<String>()
     private val mutex = Mutex()
@@ -67,6 +66,9 @@ class UserDirectoryRepository @Inject constructor(
             info
         }
         _directory.value = _directory.value + (info.username to merged)
+        
+        // آپدیت استاتوس در صورت وجود
+        _presenceMap.value = _presenceMap.value + (info.username to if (info.online) Presence.Online else Presence.Offline(info.lastSeen))
     }
 
     fun ensureLoaded(usernames: List<String>) {
@@ -136,6 +138,10 @@ class UserDirectoryRepository @Inject constructor(
             if (response.isSuccessful) {
                 val results = response.body().orEmpty()
                 _directory.value = _directory.value + results.associateBy { it.username }
+                
+                // بروزرسانی وضعیت حضور بر اساس دیتای دریافت شده
+                val newPresence = results.associate { it.username to if (it.online) Presence.Online else Presence.Offline(it.lastSeen) }
+                _presenceMap.value = _presenceMap.value + newPresence
             }
         } catch (e: Exception) {
             // اگه fail شد، دفعه بعد که ensureLoaded صدا زده بشه دوباره تلاش می‌شه

@@ -8,6 +8,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -17,6 +18,9 @@ private val Context.dataStore by preferencesDataStore(name = "veiltalk_session")
 class SessionManager @Inject constructor(
     private val context: Context
 ) {
+    var currentUsername: String? = null
+        private set
+
     private object Keys {
         val TOKEN = stringPreferencesKey("chat_token")
         val USERNAME = stringPreferencesKey("chat_username")
@@ -29,6 +33,13 @@ class SessionManager @Inject constructor(
     val usernameFlow: Flow<String?> = context.dataStore.data.map { it[Keys.USERNAME] }
     val displayNameFlow: Flow<String?> = context.dataStore.data.map { it[Keys.DISPLAY_NAME] }
     val darkModeFlow: Flow<Boolean?> = context.dataStore.data.map { it[Keys.DARK_MODE] }
+
+    init {
+        // برای دسترسی سریع و سنکرون در مواقع ضروری مثل Lifecycle
+        kotlinx.coroutines.MainScope().launch {
+            usernameFlow.collect { currentUsername = it }
+        }
+    }
 
     suspend fun getToken(): String? = tokenFlow.first()
     suspend fun getUsername(): String? = usernameFlow.first()

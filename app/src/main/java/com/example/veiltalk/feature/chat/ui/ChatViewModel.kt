@@ -27,13 +27,13 @@ data class ChatUiState(
     val partnerProfilePicture: String? = null,
     val isPartnerTyping: Boolean = false,
     val isPartnerOnline: Boolean = false,
-    val partnerLastSeen: String? = null,
     val editingMessage: ChatMessage? = null,
     val replyingMessage: ChatMessage? = null,
     val searchQuery: String = "",
     val allDestinations: List<com.example.veiltalk.feature.chat.ui.HomeListItem> = emptyList(),
     val isRecording: Boolean = false,
-    val pinnedMessages: List<ChatMessage> = emptyList()
+    val pinnedMessages: List<ChatMessage> = emptyList(),
+    val presence: com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence = com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Unknown
 )
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -69,8 +69,7 @@ class ChatViewModel @Inject constructor(
         chatRepository.conversationFlow(partner),
         userDirectory.directory,
         chatRepository.typingUsers,
-        userDirectory.onlineStatus,
-        userDirectory.lastSeen,
+        userDirectory.presenceMap,
         _editingMessage,
         _searchQuery,
         chatRepository.conversationSummariesFlow(), // جدید
@@ -80,13 +79,12 @@ class ChatViewModel @Inject constructor(
         val messages = args[0] as List<ChatMessage>
         val directory = args[1] as Map<String, com.example.veiltalk.feature.user.data.dto.UserInfoDto>
         val typing = args[2] as Set<String>
-        val onlineStatus = args[3] as Map<String, Boolean>
-        val lastSeen = args[4] as Map<String, String?>
-        val editingMessage = args[5] as ChatMessage?
-        val query = args[6] as String
-        val summaries = args[7] as List<com.example.veiltalk.feature.chat.data.ChatRepository.ConversationSummary>
-        val groups = args[8] as List<com.example.veiltalk.common.model.GroupInfo>
-        val replyingMessage = args[9] as ChatMessage?
+        val presenceMap = args[3] as Map<String, com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence>
+        val editingMessage = args[4] as ChatMessage?
+        val query = args[5] as String
+        val summaries = args[6] as List<com.example.veiltalk.feature.chat.data.ChatRepository.ConversationSummary>
+        val groups = args[7] as List<com.example.veiltalk.common.model.GroupInfo>
+        val replyingMessage = args[8] as ChatMessage?
 
         val filteredMessages = if (query.isBlank()) messages else {
             messages.filter { it.content.contains(query, ignoreCase = true) }
@@ -113,8 +111,8 @@ class ChatViewModel @Inject constructor(
             partnerDisplayName = if (info != null) "${info.firstName} ${info.lastName}".trim().ifBlank { partner } else partner,
             partnerProfilePicture = info?.profilePictureUrl,
             isPartnerTyping = typing.contains(partner),
-            isPartnerOnline = onlineStatus[partner] ?: false,
-            partnerLastSeen = lastSeen[partner],
+            isPartnerOnline = presenceMap[partner] is com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Online,
+            presence = presenceMap[partner] ?: com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Unknown,
             editingMessage = editingMessage,
             replyingMessage = replyingMessage,
             searchQuery = query,
