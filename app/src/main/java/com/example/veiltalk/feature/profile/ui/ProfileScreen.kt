@@ -15,7 +15,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.example.veiltalk.common.ui.components.AvatarView
+import com.example.veiltalk.common.ui.components.FullScreenImageViewer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,121 +57,135 @@ fun ProfileScreen(
 
         val profile = uiState.profile ?: return@Scaffold
 
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                modifier = Modifier.clickable(enabled = uiState.mode == ProfileMode.EDIT) {
-                    imagePicker.launch("image/*")
-                }
+        Box(modifier = Modifier.padding(padding)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                AvatarView(
-                    name = "${profile.firstName} ${profile.lastName}",
-                    imageUrl = profile.profilePictureUrl,
-                    size = 96.dp,
-                    colorSeed = profile.username
-                )
-                if (uiState.isUploadingAvatar) {
-                    Box(
+                Box(
+                    modifier = Modifier.clickable {
+                        if (uiState.mode == ProfileMode.EDIT) {
+                            imagePicker.launch("image/*")
+                        } else if (!profile.profilePictureUrl.isNullOrBlank()) {
+                            viewModel.showFullScreenAvatar()
+                        }
+                    }
+                ) {
+                    AvatarView(
+                        name = "${profile.firstName} ${profile.lastName}",
+                        imageUrl = profile.profilePictureUrl,
+                        size = 96.dp,
+                        colorSeed = profile.username
+                    )
+                    if (uiState.isUploadingAvatar) {
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .background(Color.Black.copy(alpha = 0.4f), shape = androidx.compose.foundation.shape.CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(28.dp))
+                        }
+                    }
+                }
+                if (uiState.mode == ProfileMode.EDIT) {
+                    Text("برای تغییر عکس ضربه بزنید", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                if (uiState.error != null) {
+                    Text(
+                        uiState.error!!,
+                        color = Color(0xFFDC2626),
                         modifier = Modifier
-                            .matchParentSize()
-                            .background(Color.Black.copy(alpha = 0.4f), shape = androidx.compose.foundation.shape.CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(28.dp))
+                            .fillMaxWidth()
+                            .background(Color(0xFFFEE2E2), androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                            .padding(12.dp)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                }
+
+                if (uiState.mode == ProfileMode.VIEW) {
+                    Text(
+                        "${profile.firstName} ${profile.lastName}",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        profile.bio ?: "بدون بیو",
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(24.dp))
+
+                    ProfileInfoRow(label = "نام کاربری (آیدی)", value = "@${profile.username}")
+                    if (!profile.phoneNumber.isNullOrBlank()) {
+                        ProfileInfoRow(label = "شماره موبایل", value = profile.phoneNumber)
+                    }
+                    if (!profile.email.isNullOrBlank()) {
+                        ProfileInfoRow(label = "ایمیل", value = profile.email)
+                    }
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = uiState.firstNameInput,
+                            onValueChange = viewModel::onFirstNameChange,
+                            label = { Text("نام") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = uiState.lastNameInput,
+                            onValueChange = viewModel::onLastNameChange,
+                            label = { Text("نام‌خانوادگی") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = uiState.bioInput,
+                        onValueChange = viewModel::onBioChange,
+                        label = { Text("بیو") },
+                        placeholder = { Text("چند کلمه درباره خودتان بنویسید...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 3,
+                        maxLines = 5
+                    )
+                    Text(
+                        "${uiState.bioInput.length}/150",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.End
+                    )
+
+                    Spacer(Modifier.height(20.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = viewModel::cancelEdit,
+                            enabled = !uiState.isSaving,
+                            modifier = Modifier.weight(1f)
+                        ) { Text("انصراف") }
+                        Button(
+                            onClick = viewModel::save,
+                            enabled = !uiState.isSaving,
+                            modifier = Modifier.weight(1f)
+                        ) { Text(if (uiState.isSaving) "در حال ذخیره..." else "ذخیره") }
                     }
                 }
             }
-            if (uiState.mode == ProfileMode.EDIT) {
-                Text("برای تغییر عکس ضربه بزنید", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-            }
 
-            Spacer(Modifier.height(16.dp))
-
-            if (uiState.error != null) {
-                Text(
-                    uiState.error!!,
-                    color = Color(0xFFDC2626),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFFFEE2E2), androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                        .padding(12.dp)
+            if (uiState.showFullScreenAvatar && !profile.profilePictureUrl.isNullOrBlank()) {
+                FullScreenImageViewer(
+                    url = profile.profilePictureUrl,
+                    mediaKey = null,
+                    onDismiss = viewModel::hideFullScreenAvatar
                 )
-                Spacer(Modifier.height(16.dp))
-            }
-
-            if (uiState.mode == ProfileMode.VIEW) {
-                Text(
-                    "${profile.firstName} ${profile.lastName}",
-                    style = MaterialTheme.typography.titleLarge
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    profile.bio ?: "بدون بیو",
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(Modifier.height(24.dp))
-
-                if (!profile.phoneNumber.isNullOrBlank()) {
-                    ProfileInfoRow(label = "شماره موبایل", value = profile.phoneNumber)
-                }
-                if (!profile.email.isNullOrBlank()) {
-                    ProfileInfoRow(label = "ایمیل", value = profile.email)
-                }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = uiState.firstNameInput,
-                        onValueChange = viewModel::onFirstNameChange,
-                        label = { Text("نام") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = uiState.lastNameInput,
-                        onValueChange = viewModel::onLastNameChange,
-                        label = { Text("نام‌خانوادگی") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                }
-
-                Spacer(Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = uiState.bioInput,
-                    onValueChange = viewModel::onBioChange,
-                    label = { Text("بیو") },
-                    placeholder = { Text("چند کلمه درباره خودتان بنویسید...") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3,
-                    maxLines = 5
-                )
-                Text(
-                    "${uiState.bioInput.length}/150",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.End
-                )
-
-                Spacer(Modifier.height(20.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(
-                        onClick = viewModel::cancelEdit,
-                        enabled = !uiState.isSaving,
-                        modifier = Modifier.weight(1f)
-                    ) { Text("انصراف") }
-                    Button(
-                        onClick = viewModel::save,
-                        enabled = !uiState.isSaving,
-                        modifier = Modifier.weight(1f)
-                    ) { Text(if (uiState.isSaving) "در حال ذخیره..." else "ذخیره") }
-                }
             }
         }
     }

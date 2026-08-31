@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.veiltalk.common.ui.components.AvatarView
+import com.example.veiltalk.common.ui.components.FullScreenImageViewer
 import com.example.veiltalk.feature.group.ui.CreateGroupDialog
 import com.example.veiltalk.feature.profile.ui.ProfileViewModel
 import com.example.veiltalk.feature.profile.ui.ProfileMode
@@ -687,8 +688,12 @@ private fun ProfileTab(viewModel: ProfileViewModel) {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box(
-                        modifier = Modifier.clickable(enabled = uiState.mode == ProfileMode.EDIT) {
-                            imagePicker.launch("image/*")
+                        modifier = Modifier.clickable {
+                            if (uiState.mode == ProfileMode.EDIT) {
+                                imagePicker.launch("image/*")
+                            } else if (!profile.profilePictureUrl.isNullOrBlank()) {
+                                viewModel.showFullScreenAvatar()
+                            }
                         }
                     ) {
                         AvatarView(
@@ -744,6 +749,15 @@ private fun ProfileTab(viewModel: ProfileViewModel) {
                                     singleLine = true
                                 )
                             }
+                            Spacer(Modifier.height(12.dp))
+                            OutlinedTextField(
+                                value = uiState.usernameInput,
+                                onValueChange = viewModel::onUsernameChange,
+                                label = { Text("نام کاربری (آیدی)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                prefix = { Text("@") }
+                            )
                             Spacer(Modifier.height(12.dp))
                             OutlinedTextField(
                                 value = uiState.bioInput,
@@ -821,6 +835,14 @@ private fun ProfileTab(viewModel: ProfileViewModel) {
                 }
             }
         }
+    }
+
+    if (uiState.showFullScreenAvatar && !profile.profilePictureUrl.isNullOrBlank()) {
+        FullScreenImageViewer(
+            url = profile.profilePictureUrl,
+            mediaKey = null,
+            onDismiss = viewModel::hideFullScreenAvatar
+        )
     }
 }
 

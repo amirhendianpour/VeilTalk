@@ -62,6 +62,13 @@ class SessionManager @Inject constructor(
         }
     }
 
+    suspend fun updateUsername(username: String) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.USERNAME] = username
+        }
+        currentUsername = username
+    }
+
     suspend fun clearSession() {
         context.dataStore.edit { it.clear() }
     }

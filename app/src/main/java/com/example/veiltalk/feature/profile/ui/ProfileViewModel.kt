@@ -19,12 +19,14 @@ data class ProfileUiState(
     val mode: ProfileMode = ProfileMode.VIEW,
     val firstNameInput: String = "",
     val lastNameInput: String = "",
+    val usernameInput: String = "",
     val bioInput: String = "",
     val emailInput: String = "",
     val phoneInput: String = "",
     val isLoading: Boolean = true,
     val isSaving: Boolean = false,
     val isUploadingAvatar: Boolean = false,
+    val showFullScreenAvatar: Boolean = false,
     val error: String? = null
 )
 
@@ -50,6 +52,7 @@ class ProfileViewModel @Inject constructor(
                         isLoading = false,
                         firstNameInput = profile.firstName,
                         lastNameInput = profile.lastName,
+                        usernameInput = profile.username,
                         bioInput = profile.bio ?: "",
                         emailInput = profile.email ?: "",
                         phoneInput = profile.phoneNumber ?: ""
@@ -67,6 +70,7 @@ class ProfileViewModel @Inject constructor(
             mode = ProfileMode.EDIT,
             firstNameInput = profile.firstName,
             lastNameInput = profile.lastName,
+            usernameInput = profile.username,
             bioInput = profile.bio ?: "",
             emailInput = profile.email ?: "",
             phoneInput = profile.phoneNumber ?: "",
@@ -80,6 +84,7 @@ class ProfileViewModel @Inject constructor(
             mode = ProfileMode.VIEW,
             firstNameInput = profile.firstName,
             lastNameInput = profile.lastName,
+            usernameInput = profile.username,
             bioInput = profile.bio ?: "",
             emailInput = profile.email ?: "",
             phoneInput = profile.phoneNumber ?: "",
@@ -89,26 +94,36 @@ class ProfileViewModel @Inject constructor(
 
     fun onFirstNameChange(value: String) { _uiState.value = _uiState.value.copy(firstNameInput = value) }
     fun onLastNameChange(value: String) { _uiState.value = _uiState.value.copy(lastNameInput = value) }
+    fun onUsernameChange(value: String) { _uiState.value = _uiState.value.copy(usernameInput = value) }
     fun onBioChange(value: String) {
         if (value.length <= 150) _uiState.value = _uiState.value.copy(bioInput = value)
     }
     fun onEmailChange(value: String) { _uiState.value = _uiState.value.copy(emailInput = value) }
     fun onPhoneChange(value: String) { _uiState.value = _uiState.value.copy(phoneInput = value) }
 
+    fun showFullScreenAvatar() {
+        _uiState.value = _uiState.value.copy(showFullScreenAvatar = true)
+    }
+
+    fun hideFullScreenAvatar() {
+        _uiState.value = _uiState.value.copy(showFullScreenAvatar = false)
+    }
+
     fun save() {
         val state = _uiState.value
-        if (state.firstNameInput.isBlank() || state.lastNameInput.isBlank()) {
-            _uiState.value = state.copy(error = "نام و نام‌خانوادگی نمی‌تواند خالی باشد.")
+        if (state.firstNameInput.isBlank() || state.lastNameInput.isBlank() || state.usernameInput.isBlank()) {
+            _uiState.value = state.copy(error = "نام، نام‌خانوادگی و آیدی نمی‌تواند خالی باشد.")
             return
         }
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSaving = true, error = null)
             repository.updateProfile(
-                state.firstNameInput.trim(),
-                state.lastNameInput.trim(),
-                state.bioInput.trim(),
-                state.emailInput.trim().ifBlank { null },
-                state.phoneInput.trim().ifBlank { null }
+                firstName = state.firstNameInput.trim(),
+                lastName = state.lastNameInput.trim(),
+                bio = state.bioInput.trim(),
+                email = state.emailInput.trim().ifBlank { null },
+                phoneNumber = state.phoneInput.trim().ifBlank { null },
+                username = state.usernameInput.trim().lowercase()
             ).onSuccess { updated ->
                 _uiState.value = _uiState.value.copy(
                     profile = updated,

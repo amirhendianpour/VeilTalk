@@ -37,14 +37,16 @@ class ProfileRepository @Inject constructor(
         lastName: String, 
         bio: String,
         email: String? = null,
-        phoneNumber: String? = null
+        phoneNumber: String? = null,
+        username: String? = null
     ): Result<UserProfileResponseDto> {
         return try {
-            val response = api.updateMyProfile(ProfileUpdateRequestDto(firstName, lastName, bio, email, phoneNumber))
+            val response = api.updateMyProfile(ProfileUpdateRequestDto(firstName, lastName, bio, email, phoneNumber, username))
             if (response.isSuccessful && response.body() != null) {
                 val updated = response.body()!!
                 syncWithDirectory(updated)
                 persistDisplayName(updated)
+                persistUsername(updated)
                 Result.success(updated)
             } else {
                 Result.failure(Exception("خطا در بروزرسانی پروفایل"))
@@ -62,6 +64,7 @@ class ProfileRepository @Inject constructor(
                 val updated = response.body()!!
                 syncWithDirectory(updated)
                 persistDisplayName(updated)
+                persistUsername(updated)
                 Result.success(updated)
             } else {
                 Result.failure(Exception("خطا در آپلود عکس پروفایل: ${response.code()}"))
@@ -88,5 +91,9 @@ class ProfileRepository @Inject constructor(
     private suspend fun persistDisplayName(profile: UserProfileResponseDto) {
         val displayName = "${profile.firstName} ${profile.lastName}".trim()
         sessionManager.updateDisplayName(displayName)
+    }
+
+    private suspend fun persistUsername(profile: UserProfileResponseDto) {
+        sessionManager.updateUsername(profile.username)
     }
 }

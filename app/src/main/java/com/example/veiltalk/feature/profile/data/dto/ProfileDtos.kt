@@ -19,5 +19,6 @@ data class ProfileUpdateRequestDto(
     val lastName: String,
     val bio: String,
     val email: String? = null,
-    val phoneNumber: String? = null
+    val phoneNumber: String? = null,
+    val username: String? = null
 )
