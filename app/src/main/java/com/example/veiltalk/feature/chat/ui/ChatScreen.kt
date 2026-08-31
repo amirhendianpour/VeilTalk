@@ -107,6 +107,12 @@ fun ChatScreen(
     var isSearchMode by remember { mutableStateOf(false) }
     var viewingImage by remember { mutableStateOf<ChatMessage?>(null) }
 
+    LaunchedEffect(Unit) {
+        viewModel.uiEvent.collect { message ->
+            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
     val isSelectionMode = selectedMessages.isNotEmpty()
 
     val callPermissionLauncher = rememberLauncherForActivityResult(
@@ -384,6 +390,9 @@ fun ChatScreen(
             onDelete = {
                 showDeleteDialog = listOf(msg.id)
             },
+            onSave = if (!msg.fileUrl.isNullOrBlank()) {
+                { viewModel.saveMedia(msg) }
+            } else null,
             onReact = { emoji ->
                 viewModel.sendReaction(msg.id, emoji)
             }
@@ -485,7 +494,8 @@ fun ChatScreen(
                 url = url,
                 mediaKey = msg.mediaKey,
                 thumbnailBase64 = msg.content,
-                onDismiss = { viewingImage = null }
+                onDismiss = { viewingImage = null },
+                onSave = { viewModel.saveMedia(msg) }
             )
         }
     }
@@ -570,7 +580,8 @@ private fun MessageBubble(
                             url = message.fileUrl,
                             mediaKey = message.mediaKey,
                             fileName = message.content.ifBlank { "فایل پیوست" },
-                            isMine = mine
+                            isMine = mine,
+                            onLongClick = onLongClick
                         )
                         Spacer(Modifier.height(4.dp))
                     }

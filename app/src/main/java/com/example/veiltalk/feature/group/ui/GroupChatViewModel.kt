@@ -54,6 +54,9 @@ class GroupChatViewModel @Inject constructor(
     private val _replyingMessage = MutableStateFlow<GroupMessage?>(null)
     private val _searchQuery = MutableStateFlow("")
 
+    private val _uiEvent = MutableSharedFlow<String>()
+    val uiEvent = _uiEvent.asSharedFlow()
+
     @Suppress("UNCHECKED_CAST")
     val uiState: StateFlow<GroupChatUiState> = combine(
         groupRepository.groupMessagesFlow(groupId),
@@ -254,6 +257,21 @@ class GroupChatViewModel @Inject constructor(
     fun sendReaction(messageId: String, emoji: String) {
         viewModelScope.launch {
             groupRepository.sendReaction(groupId, messageId, emoji)
+        }
+    }
+
+    fun saveMedia(message: GroupMessage) {
+        val url = message.fileUrl ?: return
+        val fileName = if (message.messageType == MessageType.IMAGE) {
+            "IMG_${message.timestamp?.replace(":", "")?.replace("-", "") ?: System.currentTimeMillis()}.jpg"
+        } else {
+            message.content.ifBlank { "file_${System.currentTimeMillis()}" }
+        }
+
+        viewModelScope.launch {
+            mediaRepository.saveToPublicStorage(url, message.mediaKey, fileName)
+                .onSuccess { _uiEvent.emit("فایل در حافظه ذخیره شد") }
+                .onFailure { e -> _uiEvent.emit("خطا در ذخیره‌سازی: ${e.message}") }
         }
     }
 

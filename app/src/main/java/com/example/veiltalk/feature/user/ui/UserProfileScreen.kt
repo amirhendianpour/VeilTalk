@@ -30,6 +30,8 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.veiltalk.common.ui.components.AvatarView
+import com.example.veiltalk.common.ui.components.FullScreenImageViewer
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,6 +43,14 @@ fun UserProfileScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showFullScreenImage by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    LaunchedEffect(Unit) {
+        viewModel.uiEvent.collect { message ->
+            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -192,49 +202,11 @@ fun UserProfileScreen(
 
         if (showFullScreenImage && user.profilePictureUrl != null) {
             FullScreenImageViewer(
-                imageUrl = user.profilePictureUrl,
-                onDismiss = { showFullScreenImage = false }
+                url = user.profilePictureUrl,
+                mediaKey = null,
+                onDismiss = { showFullScreenImage = false },
+                onSave = viewModel::saveProfilePicture
             )
-        }
-    }
-}
-
-@Composable
-private fun FullScreenImageViewer(
-    imageUrl: String,
-    onDismiss: () -> Unit
-) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false
-        )
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black)
-                .clickable { onDismiss() },
-            contentAlignment = Alignment.Center
-        ) {
-            AsyncImage(
-                model = imageUrl,
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f),
-                contentScale = ContentScale.Fit
-            )
-            
-            IconButton(
-                onClick = onDismiss,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(top = 48.dp, start = 16.dp)
-            ) {
-                Icon(Icons.Default.Close, contentDescription = "بستن", tint = Color.White)
-            }
         }
     }
 }

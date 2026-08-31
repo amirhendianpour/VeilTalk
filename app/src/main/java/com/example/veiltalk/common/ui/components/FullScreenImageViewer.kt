@@ -108,7 +108,7 @@ fun FullScreenImageViewer(
                     IconButton(onClick = onSave) {
                         Icon(
                             imageVector = Icons.Default.Download,
-                            contentDescription = "ذخیره",
+                            contentDescription = "ذخیره در گوشی",
                             tint = Color.White
                         )
                     }

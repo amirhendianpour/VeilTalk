@@ -2,6 +2,7 @@ package com.example.veiltalk.common.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,7 +31,8 @@ fun FileMessageItem(
     url: String,
     mediaKey: String?,
     fileName: String,
-    isMine: Boolean
+    isMine: Boolean,
+    onLongClick: (() -> Unit)? = null
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
@@ -57,18 +59,21 @@ fun FileMessageItem(
         modifier = Modifier
             .width(250.dp)
             .clip(RoundedCornerShape(8.dp))
-            .clickable {
-                if (fileExists) {
-                    FileDownloader.openFile(context, localFile)
-                } else {
-                    isDownloading = true
-                    scope.launch {
-                        val file = FileDownloader.downloadAndDecrypt(context, absoluteUrl, mediaKey, fileName)
-                        isDownloading = false
-                        if (file != null) fileExists = true
+            .combinedClickable(
+                onClick = {
+                    if (fileExists) {
+                        FileDownloader.openFile(context, localFile)
+                    } else {
+                        isDownloading = true
+                        scope.launch {
+                            val file = FileDownloader.downloadAndDecrypt(context, absoluteUrl, mediaKey, fileName)
+                            isDownloading = false
+                            if (file != null) fileExists = true
+                        }
                     }
-                }
-            },
+                },
+                onLongClick = onLongClick
+            ),
         color = accentColor.copy(alpha = 0.05f),
         shape = RoundedCornerShape(8.dp)
     ) {

@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import kotlinx.coroutines.launch
 import coil.compose.AsyncImage
 import com.example.veiltalk.common.ui.components.AvatarView
 import com.example.veiltalk.common.ui.components.FullScreenImageViewer
@@ -658,6 +659,15 @@ private fun SettingsSection(title: String, items: List<SettingsItemData>) {
 @Composable
 private fun ProfileTab(viewModel: ProfileViewModel) {
     val uiState by viewModel.uiState.collectAsState()
+    val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    LaunchedEffect(Unit) {
+        viewModel.uiEvent.collect { message ->
+            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
     val imagePicker = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.GetContent()
     ) { uri -> uri?.let { viewModel.uploadAvatar(it) } }
@@ -839,9 +849,10 @@ private fun ProfileTab(viewModel: ProfileViewModel) {
 
     if (uiState.showFullScreenAvatar && !profile.profilePictureUrl.isNullOrBlank()) {
         FullScreenImageViewer(
-            url = profile.profilePictureUrl,
+            url = profile.profilePictureUrl!!,
             mediaKey = null,
-            onDismiss = viewModel::hideFullScreenAvatar
+            onDismiss = viewModel::hideFullScreenAvatar,
+            onSave = viewModel::saveProfilePicture
         )
     }
 }

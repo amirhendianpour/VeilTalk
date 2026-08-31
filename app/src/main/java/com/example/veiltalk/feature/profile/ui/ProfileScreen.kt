@@ -18,6 +18,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.veiltalk.common.ui.components.AvatarView
 import com.example.veiltalk.common.ui.components.FullScreenImageViewer
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,6 +27,14 @@ fun ProfileScreen(
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    LaunchedEffect(Unit) {
+        viewModel.uiEvent.collect { message ->
+            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { viewModel.uploadAvatar(it) }
@@ -182,9 +191,10 @@ fun ProfileScreen(
 
             if (uiState.showFullScreenAvatar && !profile.profilePictureUrl.isNullOrBlank()) {
                 FullScreenImageViewer(
-                    url = profile.profilePictureUrl,
+                    url = profile.profilePictureUrl!!,
                     mediaKey = null,
-                    onDismiss = viewModel::hideFullScreenAvatar
+                    onDismiss = viewModel::hideFullScreenAvatar,
+                    onSave = viewModel::saveProfilePicture
                 )
             }
         }

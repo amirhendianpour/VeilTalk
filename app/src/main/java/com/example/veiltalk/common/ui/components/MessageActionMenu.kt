@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.Forward
 import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.*
@@ -36,6 +37,7 @@ fun MessageActionMenu(
     onTogglePin: () -> Unit,
     onForward: () -> Unit,
     onDelete: () -> Unit,
+    onSave: (() -> Unit)? = null,
     onReact: (String) -> Unit
 ) {
     Dialog(
@@ -120,6 +122,14 @@ fun MessageActionMenu(
                             icon = Icons.AutoMirrored.Filled.Forward,
                             onClick = { onForward(); onDismiss() }
                         )
+
+                        if (onSave != null) {
+                            ActionMenuItem(
+                                text = "ذخیره در گوشی",
+                                icon = Icons.Default.Download,
+                                onClick = { onSave(); onDismiss() }
+                            )
+                        }
                         
                         HorizontalDivider(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),

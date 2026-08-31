@@ -1,7 +1,6 @@
 package com.example.veiltalk.common.util
 
 import android.content.Context
-import android.net.Uri
 import androidx.core.content.FileProvider
 import com.example.veiltalk.common.di.SessionManagerEntryPoint
 import dagger.hilt.android.EntryPointAccessors
@@ -13,16 +12,21 @@ import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
 
+/**
+ * Helper برای دانلود موقت فایل‌ها و باز کردن آن‌ها.
+ * منطق اصلی جابجایی به ریپازیتوری منتقل شده است.
+ */
 object FileDownloader {
     
     suspend fun downloadAndDecrypt(
         context: Context,
         url: String,
         mediaKey: String?,
-        fileName: String,
-        onProgress: (Float) -> Unit = {}
+        fileName: String
     ): File? = withContext(Dispatchers.IO) {
         try {
+            // این تابع برای کارهای سریع یا موقت باقی مانده است.
+            // در چت‌ها از MediaRepository استفاده می‌شود.
             val hashedUrl = hashString(url)
             val outputDir = File(context.cacheDir, "downloads").apply { mkdirs() }
             val outputFile = File(outputDir, "${hashedUrl}_$fileName")

@@ -9,6 +9,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -23,13 +25,17 @@ data class UserProfileUiState(
 @HiltViewModel
 class UserProfileViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val repository: UserDirectoryRepository
+    private val repository: UserDirectoryRepository,
+    private val mediaRepository: com.example.veiltalk.feature.chat.data.MediaRepository
 ) : ViewModel() {
 
     private val username: String = checkNotNull(savedStateHandle["username"])
 
     private val _isLoading = MutableStateFlow(true)
     private val _error = MutableStateFlow<String?>(null)
+
+    private val _uiEvent = kotlinx.coroutines.flow.MutableSharedFlow<String>()
+    val uiEvent = _uiEvent.asSharedFlow()
 
     val uiState: StateFlow<UserProfileUiState> = combine(
         repository.directory,
@@ -65,6 +71,16 @@ class UserProfileViewModel @Inject constructor(
                 }
             
             _isLoading.value = false
+        }
+    }
+
+    fun saveProfilePicture() {
+        val url = uiState.value.userInfo?.profilePictureUrl ?: return
+        val username = uiState.value.userInfo?.username ?: "user"
+        viewModelScope.launch {
+            mediaRepository.saveToPublicStorage(url, null, "Avatar_$username.jpg")
+                .onSuccess { _uiEvent.emit("عکس پروفایل ذخیره شد") }
+                .onFailure { e -> _uiEvent.emit("خطا: ${e.message}") }
         }
     }
 }

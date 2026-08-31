@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import java.time.Instant
 import javax.inject.Inject
@@ -63,6 +64,9 @@ class ChatViewModel @Inject constructor(
     private val _editingMessage = MutableStateFlow<ChatMessage?>(null)
     private val _replyingMessage = MutableStateFlow<ChatMessage?>(null)
     private val _searchQuery = MutableStateFlow("")
+
+    private val _uiEvent = kotlinx.coroutines.flow.MutableSharedFlow<String>()
+    val uiEvent = _uiEvent.asSharedFlow()
 
     @Suppress("UNCHECKED_CAST")
     val uiState: StateFlow<ChatUiState> = combine(
@@ -280,6 +284,21 @@ class ChatViewModel @Inject constructor(
     fun sendReaction(messageId: String, emoji: String) {
         viewModelScope.launch {
             chatRepository.sendReaction(partner, messageId, emoji)
+        }
+    }
+
+    fun saveMedia(message: ChatMessage) {
+        val url = message.fileUrl ?: return
+        val fileName = if (message.messageType == MessageType.IMAGE) {
+            "IMG_${message.timestamp?.replace(":", "")?.replace("-", "") ?: System.currentTimeMillis()}.jpg"
+        } else {
+            message.content.ifBlank { "file_${System.currentTimeMillis()}" }
+        }
+
+        viewModelScope.launch {
+            mediaRepository.saveToPublicStorage(url, message.mediaKey, fileName)
+                .onSuccess { _uiEvent.emit("فایل در حافظه ذخیره شد") }
+                .onFailure { e -> _uiEvent.emit("خطا در ذخیره‌سازی: ${e.message}") }
         }
     }
 

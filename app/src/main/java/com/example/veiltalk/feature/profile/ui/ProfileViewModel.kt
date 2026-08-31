@@ -9,6 +9,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -32,11 +33,15 @@ data class ProfileUiState(
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val repository: ProfileRepository
+    private val repository: ProfileRepository,
+    private val mediaRepository: com.example.veiltalk.feature.chat.data.MediaRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+
+    private val _uiEvent = kotlinx.coroutines.flow.MutableSharedFlow<String>()
+    val uiEvent = _uiEvent.asSharedFlow()
 
     init {
         loadProfile()
@@ -107,6 +112,16 @@ class ProfileViewModel @Inject constructor(
 
     fun hideFullScreenAvatar() {
         _uiState.value = _uiState.value.copy(showFullScreenAvatar = false)
+    }
+
+    fun saveProfilePicture() {
+        val url = _uiState.value.profile?.profilePictureUrl ?: return
+        val username = _uiState.value.profile?.username ?: "user"
+        viewModelScope.launch {
+            mediaRepository.saveToPublicStorage(url, null, "Avatar_$username.jpg")
+                .onSuccess { _uiEvent.emit("عکس پروفایل ذخیره شد") }
+                .onFailure { e -> _uiEvent.emit("خطا: ${e.message}") }
+        }
     }
 
     fun save() {
