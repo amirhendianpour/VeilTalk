@@ -117,6 +117,7 @@ class GroupRepository @Inject constructor(
                 fileUrl = dto.fileUrl,
                 status = status,
                 isPinned = false,
+                isForwarded = dto.isForwarded,
                 replyToId = dto.replyToId,
                 mediaKey = dto.mediaKey
             )
@@ -268,7 +269,8 @@ class GroupRepository @Inject constructor(
                 content = msg.content,
                 messageType = msg.messageType,
                 fileUrl = msg.fileUrl,
-                mediaKey = msg.mediaKey
+                mediaKey = msg.mediaKey,
+                isForwarded = true
             )
         }
     }
@@ -280,7 +282,8 @@ class GroupRepository @Inject constructor(
                 content = msg.content,
                 messageType = msg.messageType,
                 fileUrl = msg.fileUrl,
-                mediaKey = msg.mediaKey
+                mediaKey = msg.mediaKey,
+                isForwarded = true
             )
         }
     }
@@ -333,7 +336,7 @@ class GroupRepository @Inject constructor(
 
     data class GroupSummary(val lastMessage: String, val timestamp: String?, val unreadCount: Int)
 
-    suspend fun sendGroupMessage(groupId: Long, content: String, messageType: MessageType = MessageType.TEXT, fileUrl: String? = null, replyToId: String? = null, mediaKey: String? = null) {
+    suspend fun sendGroupMessage(groupId: Long, content: String, messageType: MessageType = MessageType.TEXT, fileUrl: String? = null, replyToId: String? = null, mediaKey: String? = null, isForwarded: Boolean = false) {
         val me = currentUsername ?: return
         val id = generateId()
         val nowIso = Instant.now().toString()
@@ -349,6 +352,7 @@ class GroupRepository @Inject constructor(
                 messageType = messageType.name,
                 fileUrl = fileUrl,
                 status = "SENT",
+                isForwarded = isForwarded,
                 replyToId = replyToId,
                 mediaKey = mediaKey
             )
@@ -363,7 +367,8 @@ class GroupRepository @Inject constructor(
             fileUrl = fileUrl, 
             timestamp = null,
             replyToId = replyToId,
-            mediaKey = mediaKey
+            mediaKey = mediaKey,
+            isForwarded = isForwarded
         )
         stompManager.publish("/app/group/chat", json.encodeToString(dto))
     }
@@ -569,6 +574,7 @@ class GroupRepository @Inject constructor(
             isPinned = isPinned,
             replyToId = replyToId,
             mediaKey = mediaKey,
+            isForwarded = isForwarded,
             reactions = reactionsMap
         )
     }

@@ -86,7 +86,19 @@ fun VeilTalkNavGraph(
         ) {
             ChatScreen(
                 onBack = { navController.popBackStack() },
-                onOpenProfile = { username -> navController.navigate(Routes.userProfileRoute(username)) }
+                onOpenProfile = { username -> navController.navigate(Routes.userProfileRoute(username)) },
+                onOpenChat = { username -> 
+                    navController.navigate(Routes.chatRoute(username)) {
+                        popUpTo(Routes.HOME) { saveState = true }
+                        launchSingleTop = true
+                    }
+                },
+                onOpenGroup = { groupId ->
+                    navController.navigate(Routes.groupChatRoute(groupId)) {
+                        popUpTo(Routes.HOME) { saveState = true }
+                        launchSingleTop = true
+                    }
+                }
             )
         }
 
@@ -120,6 +132,12 @@ fun VeilTalkNavGraph(
                 onBack = { navController.popBackStack() },
                 onOpenInfo = { navController.navigate(Routes.groupInfoRoute(groupId)) },
                 onOpenProfile = { username -> navController.navigate(Routes.userProfileRoute(username)) },
+                onOpenChat = { username -> 
+                    navController.navigate(Routes.chatRoute(username)) {
+                        popUpTo(Routes.HOME) { saveState = true }
+                        launchSingleTop = true
+                    }
+                },
                 onOpenGroup = { targetId -> 
                     navController.navigate(Routes.groupChatRoute(targetId)) {
                         popUpTo(Routes.HOME) { saveState = true }

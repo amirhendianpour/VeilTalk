@@ -39,6 +39,7 @@ fun GroupChatScreen(
     onBack: () -> Unit,
     onOpenInfo: () -> Unit,
     onOpenProfile: (String) -> Unit,
+    onOpenChat: (String) -> Unit,
     onOpenGroup: (Long) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -404,7 +405,7 @@ fun GroupChatScreen(
                 viewModel.forwardMessages(target, ids)
                 showForwardDialog = null
                 selectedMessages = emptySet()
-                onOpenProfile(target)
+                onOpenChat(target)
             },
             onForwardToGroup = { targetId ->
                 viewModel.forwardMessagesToGroup(targetId, ids)
@@ -464,6 +465,7 @@ private fun GroupMessageBubble(
         senderName = if (!mine) senderDisplayName else null,
         isPinned = message.isPinned,
         isSelected = isSelected,
+        isForwarded = message.isForwarded,
         replyToName = replyToName,
         replyToContent = replyToContent,
         onReplyClick = onReplyClick,

@@ -47,7 +47,9 @@ fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel(),
     callViewModel: com.example.veiltalk.feature.call.ui.CallViewModel = hiltViewModel(),
     onBack: () -> Unit,
-    onOpenProfile: (String) -> Unit
+    onOpenProfile: (String) -> Unit,
+    onOpenChat: (String) -> Unit,
+    onOpenGroup: (Long) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val inputText by viewModel.inputText.collectAsState()
@@ -476,14 +478,13 @@ fun ChatScreen(
                 viewModel.forwardMessages(target, ids)
                 showForwardDialog = null
                 selectedMessages = emptySet()
-                onOpenProfile(target)
+                onOpenChat(target)
             },
             onForwardToGroup = { targetId ->
                 viewModel.forwardMessagesToGroup(targetId, ids)
                 showForwardDialog = null
                 selectedMessages = emptySet()
-                // اگر خواستیم به گروه منتقل شویم:
-                // onOpenGroup(targetId) -- باید به ChatScreen پاس داده شود
+                onOpenGroup(targetId)
             }
         )
     }
@@ -535,6 +536,7 @@ private fun MessageBubble(
         isMine = mine,
         isPinned = message.isPinned,
         isSelected = isSelected,
+        isForwarded = message.isForwarded,
         replyToName = replyToName,
         replyToContent = replyToContent,
         onReplyClick = onReplyClick,

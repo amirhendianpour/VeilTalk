@@ -6,6 +6,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -18,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.veiltalk.common.util.formatMessageTime
 
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import com.example.veiltalk.ui.theme.*
 
@@ -30,6 +32,7 @@ fun ChatMessageBubble(
     senderName: String? = null,
     isPinned: Boolean = false,
     isSelected: Boolean = false,
+    isForwarded: Boolean = false,
     onLongClick: () -> Unit = {},
     onClick: () -> Unit = {},
     onSenderClick: () -> Unit = {},
@@ -87,6 +90,29 @@ fun ChatMessageBubble(
                 .widthIn(max = 300.dp)
         ) {
             Column {
+                if (isForwarded) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(bottom = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Reply,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(12.dp)
+                                .graphicsLayer(scaleX = -1f), // برعکس کردن جهت آیکون ریپلای برای فوروارد
+                            tint = contentColor.copy(alpha = 0.6f)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            "فوروارد شده",
+                            fontSize = 10.sp,
+                            color = contentColor.copy(alpha = 0.6f),
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                        )
+                    }
+                }
+
                 if (isPinned) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.PushPin, null, modifier = Modifier.size(12.dp), tint = primaryColor)

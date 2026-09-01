@@ -19,6 +19,7 @@ data class GroupMessage(
     override val isPinned: Boolean = false,
     val replyToId: String? = null,
     override val mediaKey: String? = null,
+    val isForwarded: Boolean = false,
     val reactions: Map<String, String> = emptyMap()
 ) : BaseMessage
 

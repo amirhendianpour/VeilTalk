@@ -119,6 +119,7 @@ class ChatRepository @Inject constructor(
                 messageType = dto.messageType,
                 fileUrl = dto.fileUrl,
                 status = status,
+                isForwarded = dto.isForwarded,
                 replyToId = dto.replyToId,
                 mediaKey = dto.mediaKey
             )
@@ -263,7 +264,7 @@ class ChatRepository @Inject constructor(
 
     data class ConversationSummary(val partner: String, val lastMessage: String, val timestamp: String?, val unreadCount: Int)
 
-    suspend fun sendMessage(recipient: String, content: String, messageType: MessageType = MessageType.TEXT, fileUrl: String? = null, replyToId: String? = null, mediaKey: String? = null) {
+    suspend fun sendMessage(recipient: String, content: String, messageType: MessageType = MessageType.TEXT, fileUrl: String? = null, replyToId: String? = null, mediaKey: String? = null, isForwarded: Boolean = false) {
         val me = currentUsername ?: return
         val id = generateId()
         val nowIso = Instant.now().toString()
@@ -279,12 +280,13 @@ class ChatRepository @Inject constructor(
                 messageType = messageType.name,
                 fileUrl = fileUrl,
                 status = "SENT",
+                isForwarded = isForwarded,
                 replyToId = replyToId,
                 mediaKey = mediaKey
             )
         )
 
-        val dto = ChatMessageDto(id, me, recipient, content, messageType.name, fileUrl, nowIso, replyToId, mediaKey)
+        val dto = ChatMessageDto(id, me, recipient, content, messageType.name, fileUrl, nowIso, replyToId, mediaKey, isForwarded)
         stompManager.publish("/app/chat", json.encodeToString(dto))
     }
 
@@ -344,7 +346,7 @@ class ChatRepository @Inject constructor(
 
     suspend fun forwardMessages(targetRecipient: String, messages: List<ChatMessage>) {
         messages.forEach { msg ->
-            sendMessage(targetRecipient, msg.content, msg.messageType, msg.fileUrl, mediaKey = msg.mediaKey)
+            sendMessage(targetRecipient, msg.content, msg.messageType, msg.fileUrl, mediaKey = msg.mediaKey, isForwarded = true)
         }
     }
 
@@ -423,6 +425,7 @@ private fun PrivateMessageEntity.toDomain(json: Json): ChatMessage {
         isPinned = isPinned,
         replyToId = replyToId,
         mediaKey = mediaKey,
+        isForwarded = isForwarded,
         reactions = reactionsMap
     )
 }

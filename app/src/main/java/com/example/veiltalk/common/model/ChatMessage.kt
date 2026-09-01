@@ -25,5 +25,6 @@ data class ChatMessage(
     override val isPinned: Boolean = false,
     val replyToId: String? = null,
     override val mediaKey: String? = null,
+    val isForwarded: Boolean = false,
     val reactions: Map<String, String> = emptyMap() // key: username, value: emoji
 ) : BaseMessage
