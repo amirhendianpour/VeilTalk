@@ -16,13 +16,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import androidx.compose.ui.graphics.luminance
+import com.example.veiltalk.ui.theme.*
+
 @Composable
 fun ContactMessageItem(
     name: String,
     phoneNumber: String,
     isMine: Boolean
 ) {
-    val contentColor = if (isMine) Color.White else MaterialTheme.colorScheme.onSurface
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val contentColor = if (isDark) VeilWhite else Color.Black
     val primaryColor = MaterialTheme.colorScheme.primary
 
     Surface(

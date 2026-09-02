@@ -38,7 +38,8 @@ data class CallUiSnapshot(
     val isMuted: Boolean = false,
     val isCameraOff: Boolean = false,
     val isSpeakerOn: Boolean = false,
-    val isLocalVideoPrimary: Boolean = false
+    val isLocalVideoPrimary: Boolean = false,
+    val isMinimized: Boolean = false
 )
 
 @Singleton
@@ -243,6 +244,10 @@ class CallRepository @Inject constructor(
 
     fun swapVideoViews() {
         _uiState.value = _uiState.value.copy(isLocalVideoPrimary = !_uiState.value.isLocalVideoPrimary)
+    }
+
+    fun toggleMinimize() {
+        _uiState.value = _uiState.value.copy(isMinimized = !_uiState.value.isMinimized)
     }
 
     fun toggleSpeaker() {

@@ -40,5 +40,6 @@ class CallViewModel @Inject constructor(
     fun toggleCamera() = callRepository.toggleCamera()
     fun flipCamera() = callRepository.flipCamera()
     fun swapVideoViews() = callRepository.swapVideoViews()
+    fun toggleMinimize() = callRepository.toggleMinimize()
     fun toggleSpeaker() = callRepository.toggleSpeaker()
 }

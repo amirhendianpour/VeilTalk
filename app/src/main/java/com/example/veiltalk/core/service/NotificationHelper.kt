@@ -23,6 +23,7 @@ import com.example.veiltalk.feature.notification.service.NotificationActionRecei
 object NotificationHelper {
     const val CONNECTION_CHANNEL_ID = "veiltalk_connection_channel"
     const val CALL_CHANNEL_ID = "veiltalk_call_channel"
+    const val CALL_ONGOING_CHANNEL_ID = "veiltalk_call_ongoing_channel"
     const val MESSAGE_CHANNEL_ID = "veiltalk_messages_channel"
     
     const val CONNECTION_NOTIFICATION_ID = 1001
@@ -58,18 +59,29 @@ object NotificationHelper {
             }
             manager.createNotificationChannel(messageChannel)
 
-            // کانال تماس (High importance + sound/vibration)
+            // کانال تماس ورودی (High importance)
             val callChannel = NotificationChannel(
                 CALL_CHANNEL_ID,
-                "تماس صوتی و تصویری",
+                "تماس‌های ورودی",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "نمایش تماس‌های ورودی و فعال"
+                description = "نمایش تماس‌های ورودی"
                 enableLights(true)
                 enableVibration(true)
                 setShowBadge(false)
             }
             manager.createNotificationChannel(callChannel)
+
+            // کانال تماس‌های فعال/خروجی (Low importance - Silent)
+            val ongoingCallChannel = NotificationChannel(
+                CALL_ONGOING_CHANNEL_ID,
+                "تماس‌های فعال",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "نمایش وضعیت تماس‌های در حال برقراری یا فعال"
+                setShowBadge(false)
+            }
+            manager.createNotificationChannel(ongoingCallChannel)
         }
     }
 
@@ -224,13 +236,15 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val builder = NotificationCompat.Builder(context, CALL_CHANNEL_ID)
+        val channelId = if (status == "RINGING") CALL_CHANNEL_ID else CALL_ONGOING_CHANNEL_ID
+        val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(com.example.veiltalk.R.mipmap.ic_launcher)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setPriority(if (status == "RINGING") NotificationCompat.PRIORITY_MAX else NotificationCompat.PRIORITY_MIN)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setOngoing(true)
             .setContentIntent(pendingContent)
             .setAutoCancel(false)
+            .setSilent(status != "RINGING")
 
         when (status) {
             "RINGING" -> {

@@ -71,6 +71,7 @@ fun PinnedMessagesBar(
                         MessageType.FILE -> "فایل"
                         MessageType.STICKER -> "استیکر"
                         MessageType.GIF -> "گیف"
+                        MessageType.CONTACT -> "مخاطب"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,

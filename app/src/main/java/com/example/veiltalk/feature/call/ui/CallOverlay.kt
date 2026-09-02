@@ -2,6 +2,7 @@ package com.example.veiltalk.feature.call.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
@@ -55,6 +56,22 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
                 duration++
             }
         }
+    }
+
+    // Handle back button to minimize
+    BackHandler(enabled = uiState.status != CallStatus.IDLE && !uiState.isMinimized) {
+        viewModel.toggleMinimize()
+    }
+
+    if (uiState.isMinimized) {
+        MinimizedCallView(
+            uiState = uiState,
+            duration = duration,
+            onExpand = viewModel::toggleMinimize,
+            onEnd = viewModel.callRepository::endCall,
+            displayName = viewModel.remoteDisplayName()
+        )
+        return
     }
 
     // Pulsating animation for calling state
@@ -136,7 +153,7 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
                     eglContext = viewModel.callRepository.eglBaseContext,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(top = 64.dp, end = 16.dp)
+                        .padding(top = 84.dp, end = 16.dp)
                         .size(width = 110.dp, height = 160.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .clickable { viewModel.swapVideoViews() }
@@ -144,11 +161,22 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
             }
         }
 
+        // دکمه کوچک کردن (Minimize)
+        IconButton(
+            onClick = viewModel::toggleMinimize,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(top = 48.dp, start = 16.dp)
+                .background(Color.Black.copy(alpha = 0.3f), CircleShape)
+        ) {
+            Icon(Icons.Default.KeyboardArrowDown, null, tint = Color.White)
+        }
+
         // Top Info (Name, Status)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 80.dp),
+                .padding(top = 100.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (!showPrimary || uiState.isLocalVideoPrimary) {
@@ -251,6 +279,50 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
                         label = "پایان"
                     ) { viewModel.endCall() }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun MinimizedCallView(
+    uiState: com.example.veiltalk.feature.call.data.CallUiSnapshot,
+    duration: Int,
+    onExpand: () -> Unit,
+    onEnd: () -> Unit,
+    displayName: String
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 48.dp, start = 12.dp, end = 12.dp)
+            .height(56.dp)
+            .clickable { onExpand() },
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.primary,
+        tonalElevation = 8.dp,
+        shadowElevation = 8.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (uiState.callType == CallKind.VIDEO) Icons.Default.Videocam else Icons.Default.Call,
+                contentDescription = null,
+                tint = Color.White
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(displayName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text(
+                    if (uiState.status == CallStatus.CONNECTED) formatDuration(duration) else "در حال تماس...",
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 12.sp
+                )
+            }
+            IconButton(onClick = onEnd) {
+                Icon(Icons.Default.CallEnd, null, tint = Color.Red)
             }
         }
     }
