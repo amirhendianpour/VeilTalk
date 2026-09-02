@@ -213,6 +213,12 @@ class GroupChatViewModel @Inject constructor(
         }
     }
 
+    fun sendContact(name: String, phoneNumber: String) {
+        viewModelScope.launch {
+            groupRepository.sendGroupMessage(groupId, "$name\n$phoneNumber", MessageType.CONTACT)
+        }
+    }
+
     fun deleteMessages(messageIds: List<String>) {
         viewModelScope.launch {
             groupRepository.deleteMessages(messageIds)

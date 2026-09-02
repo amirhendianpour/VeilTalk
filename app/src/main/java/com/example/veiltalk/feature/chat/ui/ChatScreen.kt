@@ -151,6 +151,38 @@ fun ChatScreen(
         uri?.let { viewModel.sendFile(it) }
     }
 
+    val contactPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickContact()) { uri ->
+        uri?.let {
+            val projection = arrayOf(
+                android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER
+            )
+            context.contentResolver.query(
+                android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                projection,
+                "${android.provider.ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
+                arrayOf(it.lastPathSegment),
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val nameIndex = cursor.getColumnIndex(android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                    val numberIndex = cursor.getColumnIndex(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER)
+                    val name = if (nameIndex != -1) cursor.getString(nameIndex) else "Unknown"
+                    val number = if (numberIndex != -1) cursor.getString(numberIndex) else ""
+                    viewModel.sendContact(name, number)
+                }
+            }
+        }
+    }
+
+    val contactPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            contactPicker.launch(null)
+        }
+    }
+
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
             listState.animateScrollToItem(uiState.messages.size - 1)
@@ -269,6 +301,13 @@ fun ChatScreen(
                     onSendMessage = viewModel::sendMessage,
                     onAttachImage = { imagePicker.launch("image/*") },
                     onAttachFile = { filePicker.launch("*/*") },
+                    onSendContact = {
+                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+                            contactPicker.launch(null)
+                        } else {
+                            contactPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+                        }
+                    },
                     onOpenCamera = {
                         showCameraOptions = true
                     },
@@ -610,6 +649,13 @@ private fun MessageBubble(
                         )
                         Spacer(Modifier.height(4.dp))
                     }
+                }
+                MessageType.CONTACT -> {
+                    val parts = message.content.split("\n")
+                    val name = parts.getOrNull(0) ?: "مخاطب"
+                    val phone = parts.getOrNull(1) ?: ""
+                    ContactMessageItem(name = name, phoneNumber = phone, isMine = mine)
+                    Spacer(Modifier.height(4.dp))
                 }
                 else -> {}
             }

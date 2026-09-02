@@ -203,6 +203,12 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun sendContact(name: String, phoneNumber: String) {
+        viewModelScope.launch {
+            chatRepository.sendMessage(partner, "$name\n$phoneNumber", MessageType.CONTACT)
+        }
+    }
+
     fun startRecording() {
         _isRecording.value = true
     }

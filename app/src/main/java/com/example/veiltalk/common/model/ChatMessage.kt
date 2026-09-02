@@ -1,6 +1,6 @@
 package com.example.veiltalk.common.model
 
-enum class MessageType { TEXT, IMAGE, FILE, STICKER, GIF, VOICE }
+enum class MessageType { TEXT, IMAGE, FILE, STICKER, GIF, VOICE, CONTACT }
 enum class MessageStatus { SENT, DELIVERED, READ }
 
 interface BaseMessage {
