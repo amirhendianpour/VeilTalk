@@ -249,7 +249,7 @@ class ChatRepository @Inject constructor(
                     if (existing == null || (m.timestamp != null && (existing.timestamp == null || m.timestamp > existing.timestamp))) {
                         summaries[partner] = ConversationSummary(
                             partner = partner,
-                            lastMessage = m.content,
+                            lastMessage = formatLastMessage(m.content, m.messageType),
                             timestamp = m.timestamp,
                             unreadCount = (existing?.unreadCount ?: 0) + (if (isUnread) 1 else 0)
                         )
@@ -259,6 +259,18 @@ class ChatRepository @Inject constructor(
                 }
                 summaries.values.toList().sortedByDescending { it.timestamp }
             }
+        }
+    }
+
+    private fun formatLastMessage(content: String, type: String): String {
+        return when (type) {
+            "IMAGE" -> "📷 تصویر"
+            "VOICE" -> "🎤 پیام صوتی"
+            "FILE" -> "📁 فایل"
+            "STICKER" -> "🏷️ استیکر"
+            "GIF" -> "🎬 گیف"
+            "CONTACT" -> "👤 مخاطب"
+            else -> content
         }
     }
 

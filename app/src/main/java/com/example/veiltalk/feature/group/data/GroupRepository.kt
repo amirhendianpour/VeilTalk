@@ -321,7 +321,7 @@ class GroupRepository @Inject constructor(
                     val isUnread = m.sender != me && m.status != "READ"
                     if (existing == null || (m.timestamp != null && (existing.timestamp == null || m.timestamp > existing.timestamp))) {
                         map[m.groupId] = GroupSummary(
-                            lastMessage = m.content,
+                            lastMessage = formatLastMessage(m.content, m.messageType),
                             timestamp = m.timestamp,
                             unreadCount = (existing?.unreadCount ?: 0) + (if (isUnread) 1 else 0)
                         )
@@ -331,6 +331,18 @@ class GroupRepository @Inject constructor(
                 }
                 map
             }
+        }
+    }
+
+    private fun formatLastMessage(content: String, type: String): String {
+        return when (type) {
+            "IMAGE" -> "📷 تصویر"
+            "VOICE" -> "🎤 پیام صوتی"
+            "FILE" -> "📁 فایل"
+            "STICKER" -> "🏷️ استیکر"
+            "GIF" -> "🎬 گیف"
+            "CONTACT" -> "👤 مخاطب"
+            else -> content
         }
     }
 
