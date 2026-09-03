@@ -42,6 +42,7 @@ import com.example.veiltalk.feature.profile.ui.ProfileMode
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     profileViewModel: ProfileViewModel = hiltViewModel(),
+    callViewModel: com.example.veiltalk.feature.call.ui.CallViewModel = hiltViewModel(),
     onOpenChat: (username: String) -> Unit,
     onOpenGroup: (groupId: Long) -> Unit,
     onOpenProfile: (username: String) -> Unit, // تغییر یافته برای پروفایل سایرین
@@ -111,7 +112,7 @@ fun HomeScreen(
                         actionIconContentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 )
-            } else if (bottomNavTab == 0 || bottomNavTab == 1) {
+            } else if (bottomNavTab in 0..2) {
                 TopAppBar(
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surface,
@@ -121,6 +122,8 @@ fun HomeScreen(
                     ),
                     title = {
                         if (bottomNavTab == 1) {
+                            Text("تماس‌ها", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        } else if (bottomNavTab == 2) {
                             Text("مخاطبین", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         } else if (isSearchMode) {
                             TextField(
@@ -157,11 +160,16 @@ fun HomeScreen(
                     },
                     actions = {
                         if (bottomNavTab == 1) {
+                            val callHistoryViewModel = hiltViewModel<com.example.veiltalk.feature.call.ui.CallHistoryViewModel>()
+                            IconButton(onClick = callHistoryViewModel::clearHistory) {
+                                Icon(Icons.Default.DeleteSweep, contentDescription = "پاک کردن")
+                            }
+                        } else if (bottomNavTab == 2) {
                             IconButton(onClick = viewModel::syncContacts, enabled = !uiState.isSyncingContacts) {
                                 if (uiState.isSyncingContacts) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                                 else Icon(Icons.Default.Refresh, contentDescription = "همگام‌سازی")
                             }
-                        } else if (!isSearchMode) {
+                        } else if (bottomNavTab == 0 && !isSearchMode) {
                             IconButton(onClick = { isSearchMode = true }) {
                                 Icon(Icons.Default.Search, contentDescription = "جستجو")
                             }
@@ -260,8 +268,8 @@ fun HomeScreen(
                 NavigationBarItem(
                     selected = bottomNavTab == 1,
                     onClick = { bottomNavTab = 1 },
-                    icon = { Icon(Icons.Default.Person, contentDescription = "مخاطبین") },
-                    label = { Text("مخاطبین") },
+                    icon = { Icon(Icons.Default.Call, contentDescription = "تماس‌ها") },
+                    label = { Text("تماس‌ها") },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.primary,
                         selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -271,8 +279,8 @@ fun HomeScreen(
                 NavigationBarItem(
                     selected = bottomNavTab == 2,
                     onClick = { bottomNavTab = 2 },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = "تنظیمات") },
-                    label = { Text("تنظیمات") },
+                    icon = { Icon(Icons.Default.Person, contentDescription = "مخاطبین") },
+                    label = { Text("مخاطبین") },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.primary,
                         selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -282,6 +290,17 @@ fun HomeScreen(
                 NavigationBarItem(
                     selected = bottomNavTab == 3,
                     onClick = { bottomNavTab = 3 },
+                    icon = { Icon(Icons.Default.Settings, contentDescription = "تنظیمات") },
+                    label = { Text("تنظیمات") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                    )
+                )
+                NavigationBarItem(
+                    selected = bottomNavTab == 4,
+                    onClick = { bottomNavTab = 4 },
                     icon = {
                         AvatarView(
                             name = uiState.myDisplayName,
@@ -445,6 +464,10 @@ fun HomeScreen(
                     }
                 }
             } else if (bottomNavTab == 1) {
+                com.example.veiltalk.feature.call.ui.CallHistoryScreen(
+                    onCallClick = { username, kind -> callViewModel.startCall(username, kind) }
+                )
+            } else if (bottomNavTab == 2) {
                 if (uiState.isSyncingContacts && contacts.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -462,7 +485,7 @@ fun HomeScreen(
                         onOpenProfile = onOpenProfile
                     )
                 }
-            } else if (bottomNavTab == 2) {
+            } else if (bottomNavTab == 3) {
                 SettingsTab(
                     displayName = uiState.myDisplayName,
                     username = uiState.myUsername,
@@ -471,7 +494,7 @@ fun HomeScreen(
                     onToggleDarkMode = viewModel::toggleDarkMode,
                     onLogout = { viewModel.logout(onLoggedOut) }
                 )
-            } else if (bottomNavTab == 3) {
+            } else if (bottomNavTab == 4) {
                 ProfileTab(viewModel = profileViewModel)
             }
         }

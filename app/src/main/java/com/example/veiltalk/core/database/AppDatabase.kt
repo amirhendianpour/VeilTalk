@@ -8,14 +8,22 @@ import com.example.veiltalk.core.database.dao.MessageDao
 import com.example.veiltalk.core.database.entity.ContactEntity
 import com.example.veiltalk.core.database.entity.GroupMessageEntity
 import com.example.veiltalk.core.database.entity.PrivateMessageEntity
+import com.example.veiltalk.feature.call.data.dao.CallLogDao
+import com.example.veiltalk.feature.call.data.entity.CallLogEntity
 
 @Database(
-    entities = [PrivateMessageEntity::class, GroupMessageEntity::class, ContactEntity::class],
-    version = 10,
+    entities = [
+        PrivateMessageEntity::class, 
+        GroupMessageEntity::class, 
+        ContactEntity::class,
+        CallLogEntity::class
+    ],
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun groupMessageDao(): GroupMessageDao
     abstract fun contactDao(): ContactDao
+    abstract fun callLogDao(): CallLogDao
 }

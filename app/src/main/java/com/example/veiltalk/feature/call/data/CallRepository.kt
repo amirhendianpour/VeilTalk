@@ -23,6 +23,7 @@ import com.example.veiltalk.feature.call.service.CallForegroundService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.webrtc.*
 import java.util.UUID
@@ -46,6 +47,8 @@ data class CallUiSnapshot(
 class CallRepository @Inject constructor(
     private val stompManager: StompManager,
     private val json: Json,
+    private val callLogDao: com.example.veiltalk.feature.call.data.dao.CallLogDao,
+    private val sessionManager: com.example.veiltalk.core.session.SessionManager,
     @ApplicationContext private val appContext: Context,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
@@ -66,6 +69,11 @@ class CallRepository @Inject constructor(
     private var pendingOffer: CallSignal? = null
     private val iceQueue = mutableListOf<IceCandidate>()
     private var isRestartingIce = false
+
+    private var callStartTime: Long = 0
+    private var connectedTime: Long = 0
+    private var callDirection: String = ""
+    private var callStatus: String = "MISSED"
 
     private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var audioFocusRequest: AudioFocusRequest? = null
@@ -115,6 +123,9 @@ class CallRepository @Inject constructor(
                 }
                 callId = signal.callId
                 pendingOffer = signal
+                callStartTime = System.currentTimeMillis()
+                callDirection = "INCOMING"
+                callStatus = "MISSED"
                 _uiState.value = _uiState.value.copy(
                     status = CallStatus.RINGING,
                     callType = signal.callType ?: CallKind.AUDIO,
@@ -152,6 +163,8 @@ class CallRepository @Inject constructor(
             }
             CallSignalType.REJECT, CallSignalType.END, CallSignalType.BUSY -> {
                 Log.d("CallRepo", "Received ${signal.type} from ${signal.from}")
+                if (signal.type == CallSignalType.REJECT) callStatus = "REJECTED"
+                if (signal.type == CallSignalType.BUSY) callStatus = "BUSY"
                 cleanup()
             }
         }
@@ -161,6 +174,9 @@ class CallRepository @Inject constructor(
         if (_uiState.value.status != CallStatus.IDLE) return
 
         callId = UUID.randomUUID().toString()
+        callStartTime = System.currentTimeMillis()
+        callDirection = "OUTGOING"
+        callStatus = "NO_ANSWER"
         _uiState.value = _uiState.value.copy(status = CallStatus.CALLING, callType = kind, remoteUser = recipient)
         playRingback()
 
@@ -216,6 +232,7 @@ class CallRepository @Inject constructor(
         pendingOffer?.from?.let { from ->
             sendSignal(CallSignal(CallSignalType.REJECT, to = from, callId = callId))
         }
+        callStatus = "REJECTED"
         cleanup()
     }
 
@@ -308,6 +325,8 @@ class CallRepository @Inject constructor(
             when (state) {
                 PeerConnection.PeerConnectionState.CONNECTED -> {
                     isRestartingIce = false
+                    connectedTime = System.currentTimeMillis()
+                    callStatus = "CONNECTED"
                     _uiState.value = _uiState.value.copy(status = CallStatus.CONNECTED)
                 }
                 PeerConnection.PeerConnectionState.DISCONNECTED -> {
@@ -339,6 +358,31 @@ class CallRepository @Inject constructor(
     }
 
     private fun cleanup() {
+        val snapshot = _uiState.value
+        val remote = snapshot.remoteUser
+        val type = snapshot.callType
+        val startTime = callStartTime
+        val direction = callDirection
+        val status = callStatus
+        val duration = if (connectedTime > 0) (System.currentTimeMillis() - connectedTime) / 1000 else 0
+
+        if (remote != null && type != null && startTime > 0) {
+            scope.launch {
+                val owner = sessionManager.usernameFlow.first() ?: return@launch
+                callLogDao.insert(
+                    com.example.veiltalk.feature.call.data.entity.CallLogEntity(
+                        ownerUsername = owner,
+                        remoteUser = remote,
+                        callType = type.name,
+                        direction = direction,
+                        status = status,
+                        startTime = startTime,
+                        duration = duration
+                    )
+                )
+            }
+        }
+
         mainHandler.removeCallbacksAndMessages(null)
         mainHandler.post {
             stopAudio()
@@ -354,6 +398,10 @@ class CallRepository @Inject constructor(
             pendingOffer = null
             iceQueue.clear()
             callId = ""
+            callStartTime = 0
+            connectedTime = 0
+            callDirection = ""
+            callStatus = "MISSED"
             _uiState.value = CallUiSnapshot()
         }
     }

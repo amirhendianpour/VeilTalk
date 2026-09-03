@@ -35,4 +35,8 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideContactDao(db: AppDatabase): com.example.veiltalk.core.database.dao.ContactDao = db.contactDao()
+
+    @Provides
+    @Singleton
+    fun provideCallLogDao(db: AppDatabase): com.example.veiltalk.feature.call.data.dao.CallLogDao = db.callLogDao()
 }
