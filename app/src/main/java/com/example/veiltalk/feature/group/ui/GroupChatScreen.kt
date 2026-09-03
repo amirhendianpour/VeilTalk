@@ -154,6 +154,13 @@ fun GroupChatScreen(
 
     val isSelectionMode = selectedMessages.isNotEmpty()
 
+    // الگوبرداری از سیگنال: اسکرول خودکار به آخرین پیام (اندیس 0 در reverseLayout)
+    LaunchedEffect(uiState.messages.firstOrNull()?.id) {
+        if (uiState.messages.isNotEmpty()) {
+            listState.animateScrollToItem(0)
+        }
+    }
+
     ChatBaseLayout(
         topBar = {
             if (isSelectionMode) {

@@ -187,6 +187,13 @@ fun ChatScreen(
         }
     }
 
+    // الگوبرداری از سیگنال: اسکرول خودکار به آخرین پیام (اندیس 0 در reverseLayout)
+    LaunchedEffect(uiState.messages.firstOrNull()?.id) {
+        if (uiState.messages.isNotEmpty()) {
+            listState.animateScrollToItem(0)
+        }
+    }
+
     var showPinDialog by remember { mutableStateOf<ChatMessage?>(null) }
 
     ChatBaseLayout(
