@@ -151,7 +151,7 @@ class ChatRepository @Inject constructor(
     private fun showNotificationForMessage(dto: ChatMessageDto) {
         val sender = dto.sender ?: return
         scope.launch {
-            userDirectory.ensureLoaded(listOf(sender))
+            userDirectory.ensureLoadedSync(listOf(sender))
             val lastEntities = messageDao.getLastMessages(currentUsername ?: "", sender, 5).reversed()
             val notificationMessages = lastEntities.map { entity ->
                 NotificationHelper.NotificationMessage(

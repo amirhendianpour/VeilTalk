@@ -196,11 +196,11 @@ class GroupRepository @Inject constructor(
     private fun showGroupNotification(dto: GroupChatMessageDto) {
         val sender = dto.sender ?: return
         scope.launch {
-            userDirectory.ensureLoaded(listOf(sender))
+            userDirectory.ensureLoadedSync(listOf(sender))
             val groupInfo = _myGroups.value.find { it.id == dto.groupId }
             val lastEntities = groupMessageDao.getLastMessages(currentUsername ?: "", dto.groupId, 5).reversed()
             val senderUsernames = lastEntities.mapNotNull { it.sender }.distinct()
-            userDirectory.ensureLoaded(senderUsernames)
+            userDirectory.ensureLoadedSync(senderUsernames)
             
             val notificationMessages = lastEntities.map { entity ->
                 val s = entity.sender ?: "Unknown"
@@ -256,7 +256,10 @@ class GroupRepository @Inject constructor(
     fun groupMessagesFlow(groupId: Long, limit: Int = 200): Flow<List<GroupMessage>> {
         return sessionManager.usernameFlow.flatMapLatest { me ->
             if (me == null) flowOf(emptyList())
-            else groupMessageDao.getGroupMessagesFlowWithLimit(me, groupId, limit).map { list ->
+            else groupMessageDao.getGroupMessagesFlowWithLimit(me, groupId, limit).onEach { list ->
+                val senderUsernames = list.mapNotNull { it.sender }.distinct()
+                userDirectory.ensureLoaded(senderUsernames)
+            }.map { list ->
                 list.map { it.toDomain() }
             }
         }

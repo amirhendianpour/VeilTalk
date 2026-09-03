@@ -8,6 +8,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -69,6 +70,54 @@ class UserDirectoryRepository @Inject constructor(
         
         // آپدیت استاتوس در صورت وجود
         _presenceMap.value = _presenceMap.value + (info.username to if (info.online) Presence.Online else Presence.Offline(info.lastSeen))
+    }
+
+    suspend fun ensureLoadedSync(usernames: List<String>) {
+        val me = sessionManager.usernameFlow.first()
+        val toFetch = mutableListOf<String>()
+        
+        mutex.withLock {
+            usernames.forEach { u ->
+                if (u.isBlank()) return@forEach
+                
+                // اگر در دایرکتوری نیست، ابتدا در دیتابیس محلی بگرد
+                if (!_directory.value.containsKey(u)) {
+                    if (me != null) {
+                        val local = contactDao.getContact(me, u)
+                        if (local != null) {
+                            setUserInfo(
+                                UserInfoDto(
+                                    username = local.username,
+                                    firstName = local.firstName,
+                                    lastName = local.lastName,
+                                    profilePictureUrl = local.profilePictureUrl,
+                                    phoneNumber = local.phoneNumber,
+                                    email = local.email,
+                                    bio = local.bio
+                                )
+                            )
+                        }
+                    }
+                }
+                
+                // اگر هنوز در دایرکتوری نیست، باید از سرور واکشی شود
+                if (!_directory.value.containsKey(u)) {
+                    toFetch.add(u)
+                    pending.add(u)
+                }
+            }
+        }
+
+        if (toFetch.isNotEmpty()) {
+            flush()
+        }
+        
+        // منتظر بمان تا تمام یوزرنیم‌های درخواستی در دایرکتوری ظاهر شوند (یا تایم‌اوت شود)
+        kotlinx.coroutines.withTimeoutOrNull(3000) {
+            directory.filter { dir ->
+                usernames.all { u -> u.isBlank() || dir.containsKey(u) }
+            }.first()
+        }
     }
 
     fun ensureLoaded(usernames: List<String>) {

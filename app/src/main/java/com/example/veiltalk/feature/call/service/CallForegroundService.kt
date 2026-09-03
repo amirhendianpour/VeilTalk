@@ -17,12 +17,14 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class CallForegroundService : Service() {
 
     @Inject lateinit var callRepository: CallRepository
+    @Inject lateinit var userDirectory: com.example.veiltalk.feature.user.data.UserDirectoryRepository
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate() {
@@ -41,11 +43,12 @@ class CallForegroundService : Service() {
 
     private fun updateNotification(state: com.example.veiltalk.feature.call.data.CallUiSnapshot) {
         val remoteUser = state.remoteUser ?: "کاربر"
+        val displayName = userDirectory.getDisplayName(remoteUser)
         val isVideo = state.callType == com.example.veiltalk.common.model.CallKind.VIDEO
         
         val notification = NotificationHelper.buildCallNotification(
             this, 
-            remoteUser, 
+            displayName, 
             state.status.name, 
             isVideo
         )
@@ -59,17 +62,21 @@ class CallForegroundService : Service() {
         val status = intent?.getStringExtra(EXTRA_STATUS) ?: "RINGING"
         val isVideo = intent?.getBooleanExtra(EXTRA_IS_VIDEO, false) ?: false
         
-        val notification = NotificationHelper.buildCallNotification(this, remoteUser, status, isVideo)
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ServiceCompat.startForeground(
-                this,
-                NotificationHelper.CALL_NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
-            )
-        } else {
-            startForeground(NotificationHelper.CALL_NOTIFICATION_ID, notification)
+        serviceScope.launch {
+            userDirectory.ensureLoadedSync(listOf(remoteUser))
+            val displayName = userDirectory.getDisplayName(remoteUser)
+            val notification = NotificationHelper.buildCallNotification(this@CallForegroundService, displayName, status, isVideo)
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ServiceCompat.startForeground(
+                    this@CallForegroundService,
+                    NotificationHelper.CALL_NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+                )
+            } else {
+                startForeground(NotificationHelper.CALL_NOTIFICATION_ID, notification)
+            }
         }
         
         return START_NOT_STICKY
