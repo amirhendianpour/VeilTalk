@@ -49,6 +49,8 @@ class ChatRepository @Inject constructor(
     private val _typingUsers = MutableStateFlow<Set<String>>(emptySet())
     val typingUsers: StateFlow<Set<String>> = _typingUsers.asStateFlow()
 
+    val usernameFlow: Flow<String?> = sessionManager.usernameFlow
+
     fun setActiveChatPartner(partner: String?) {
         activeChatPartner = partner
     }
@@ -101,7 +103,8 @@ class ChatRepository @Inject constructor(
         }
 
         val isChatOpen = activeChatPartner == dto.sender
-        val status = if (dto.sender == me) "SENT" else if (isChatOpen) "READ" else "DELIVERED"
+        val isMessageToSelf = dto.sender == me && dto.recipient == me
+        val status = if (isMessageToSelf) "READ" else if (dto.sender == me) "SENT" else if (isChatOpen) "READ" else "DELIVERED"
         
         // وقتی پیامی از کسی میاد، یعنی طرف حتماً آنلایینه
         if (dto.sender != null && dto.sender != me) {
@@ -228,10 +231,10 @@ class ChatRepository @Inject constructor(
         messageDao.updatePinStatus(dto.messageId, me, dto.pinned)
     }
 
-    fun conversationFlow(partner: String): Flow<List<ChatMessage>> {
+    fun conversationFlow(partner: String, limit: Int = 200): Flow<List<ChatMessage>> {
         return sessionManager.usernameFlow.flatMapLatest { me ->
             if (me == null) flowOf(emptyList())
-            else messageDao.getConversationFlow(me, partner).map { list ->
+            else messageDao.getConversationFlowWithLimit(me, partner, limit).map { list ->
                 list.map { it.toDomain(json) }
             }
         }
@@ -280,6 +283,7 @@ class ChatRepository @Inject constructor(
         val me = currentUsername ?: return
         val id = generateId()
         val nowIso = Instant.now().toString()
+        val isMessageToSelf = me == recipient
         
         messageDao.upsert(
             PrivateMessageEntity(
@@ -291,7 +295,7 @@ class ChatRepository @Inject constructor(
                 timestamp = nowIso,
                 messageType = messageType.name,
                 fileUrl = fileUrl,
-                status = "SENT",
+                status = if (isMessageToSelf) "READ" else "SENT",
                 isForwarded = isForwarded,
                 replyToId = replyToId,
                 mediaKey = mediaKey

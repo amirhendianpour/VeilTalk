@@ -78,7 +78,8 @@ class ChatViewModel @Inject constructor(
         _searchQuery,
         chatRepository.conversationSummariesFlow(), // جدید
         groupRepository.myGroups, // جدید
-        _replyingMessage
+        _replyingMessage,
+        chatRepository.usernameFlow // جدید برای تشخیص Saved Messages
     ) { args ->
         val messages = args[0] as List<ChatMessage>
         val directory = args[1] as Map<String, com.example.veiltalk.feature.user.data.dto.UserInfoDto>
@@ -89,18 +90,24 @@ class ChatViewModel @Inject constructor(
         val summaries = args[6] as List<com.example.veiltalk.feature.chat.data.ChatRepository.ConversationSummary>
         val groups = args[7] as List<com.example.veiltalk.common.model.GroupInfo>
         val replyingMessage = args[8] as ChatMessage?
+        val myUsername = args[9] as String?
 
         val filteredMessages = if (query.isBlank()) messages else {
             messages.filter { it.content.contains(query, ignoreCase = true) }
         }
 
+        val isSavedMessages = partner == myUsername
+
         // ساخت لیست مقصدهای فوروارد
         val destinations = summaries.map { s ->
             val info = directory[s.partner]
+            val isTargetSavedMessages = s.partner == myUsername
             com.example.veiltalk.feature.chat.ui.HomeListItem.ChatItem(
                 username = s.partner,
-                displayName = if (info != null) "${info.firstName} ${info.lastName}".trim().ifBlank { s.partner } else s.partner,
-                profilePictureUrl = info?.profilePictureUrl,
+                displayName = if (isTargetSavedMessages) "پیام‌های ذخیره شده"
+                             else if (info != null) "${info.firstName} ${info.lastName}".trim().ifBlank { s.partner } 
+                             else s.partner,
+                profilePictureUrl = if (isTargetSavedMessages) "special://saved_messages" else info?.profilePictureUrl,
                 time = s.timestamp ?: "",
                 lastMessage = s.lastMessage,
                 unreadCount = s.unreadCount
@@ -112,11 +119,14 @@ class ChatViewModel @Inject constructor(
         val info = directory[partner]
         ChatUiState(
             messages = filteredMessages,
-            partnerDisplayName = if (info != null) "${info.firstName} ${info.lastName}".trim().ifBlank { partner } else partner,
-            partnerProfilePicture = info?.profilePictureUrl,
-            isPartnerTyping = typing.contains(partner),
-            isPartnerOnline = presenceMap[partner] is com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Online,
-            presence = presenceMap[partner] ?: com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Unknown,
+            partnerDisplayName = if (isSavedMessages) "پیام‌های ذخیره شده"
+                                 else if (info != null) "${info.firstName} ${info.lastName}".trim().ifBlank { partner } 
+                                 else partner,
+            partnerProfilePicture = if (isSavedMessages) "special://saved_messages" else info?.profilePictureUrl,
+            isPartnerTyping = if (isSavedMessages) false else typing.contains(partner),
+            isPartnerOnline = if (isSavedMessages) false else presenceMap[partner] is com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Online,
+            presence = if (isSavedMessages) com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Unknown 
+                       else (presenceMap[partner] ?: com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Unknown),
             editingMessage = editingMessage,
             replyingMessage = replyingMessage,
             searchQuery = query,

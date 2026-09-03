@@ -29,6 +29,7 @@ fun ChatMessageBubble(
     content: String,
     timestamp: String?,
     isMine: Boolean,
+    isDark: Boolean,
     senderName: String? = null,
     isPinned: Boolean = false,
     isSelected: Boolean = false,
@@ -43,9 +44,6 @@ fun ChatMessageBubble(
     mediaContent: @Composable (() -> Unit)? = null,
     reactionsContent: @Composable (() -> Unit)? = null
 ) {
-    // تشخیص دقیق حالت تیره بر اساس رنگ‌های تم فعلی (نه لزوماً تم سیستم)
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    
     val bubbleColor = if (isMine) {
         if (isDark) DarkBubbleMine else LightBubbleMine
     } else {

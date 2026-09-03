@@ -27,6 +27,14 @@ interface MessageDao {
     """)
     fun getConversationFlow(owner: String, partner: String): Flow<List<PrivateMessageEntity>>
 
+    @Query("""
+        SELECT * FROM private_messages 
+        WHERE ownerUsername = :owner AND (sender = :partner OR recipient = :partner)
+        ORDER BY timestamp DESC, id DESC
+        LIMIT :limit
+    """)
+    fun getConversationFlowWithLimit(owner: String, partner: String, limit: Int): Flow<List<PrivateMessageEntity>>
+
     @Query("UPDATE private_messages SET status = :status WHERE id = :messageId AND ownerUsername = :owner")
     suspend fun updateStatus(messageId: String, owner: String, status: String)
 

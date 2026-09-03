@@ -373,7 +373,8 @@ fun HomeScreen(
                                     time = item.time,
                                     unreadCount = item.unreadCount,
                                     isSelected = isSelected,
-                                    isOnline = presenceMap[item.username] is com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Online,
+                                    isOnline = item.profilePictureUrl != "special://saved_messages" && 
+                                              presenceMap[item.username] is com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Online,
                                     onClick = { 
                                         if (isSelectionMode) viewModel.toggleSelection(item.key)
                                         else onOpenChat(item.username) 
@@ -409,7 +410,8 @@ fun HomeScreen(
                                 time = item.time,
                                 unreadCount = item.unreadCount,
                                 isSelected = isSelected,
-                                isOnline = presenceMap[item.username] is com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Online,
+                                isOnline = item.profilePictureUrl != "special://saved_messages" && 
+                                          presenceMap[item.username] is com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Online,
                                 onClick = { 
                                     if (isSelectionMode) viewModel.toggleSelection(item.key)
                                     else onOpenChat(item.username) 

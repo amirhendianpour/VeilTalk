@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -49,6 +50,10 @@ fun GroupChatScreen(
     val isRecording by viewModel.isRecording.collectAsState()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    
+    // بهینه‌سازی: تشخیص حالت تیره یک‌بار در سطح صفحه
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+
     @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -148,12 +153,6 @@ fun GroupChatScreen(
     }
 
     val isSelectionMode = selectedMessages.isNotEmpty()
-
-    LaunchedEffect(uiState.messages.size) {
-        if (uiState.messages.isNotEmpty()) {
-            listState.animateScrollToItem(uiState.messages.size - 1)
-        }
-    }
 
     ChatBaseLayout(
         topBar = {
@@ -295,8 +294,9 @@ fun GroupChatScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.weight(1f),
+                    reverseLayout = true,
                     verticalArrangement = Arrangement.spacedBy(2.dp),
-                    contentPadding = PaddingValues(bottom = 8.dp)
+                    contentPadding = PaddingValues(top = 8.dp)
                 ) {
                     items(uiState.messages, key = { it.id }) { message ->
                         val mine = message.sender == uiState.myUsername
@@ -305,6 +305,7 @@ fun GroupChatScreen(
                             message = message,
                             mine = mine,
                             isSelected = message.id in selectedMessages,
+                            isDark = isDark,
                             senderDisplayName = userDirectory.getDisplayName(message.sender ?: ""),
                             replyToName = repliedTo?.let { if (it.sender == uiState.myUsername) "شما" else userDirectory.getDisplayName(it.sender ?: "") },
                             replyToContent = repliedTo?.content,
@@ -488,6 +489,7 @@ private fun GroupMessageBubble(
     message: GroupMessage,
     mine: Boolean,
     isSelected: Boolean,
+    isDark: Boolean,
     senderDisplayName: String,
     replyToName: String? = null,
     replyToContent: String? = null,
@@ -503,6 +505,7 @@ private fun GroupMessageBubble(
         content = if (message.messageType == MessageType.TEXT) message.content else "",
         timestamp = message.timestamp,
         isMine = mine,
+        isDark = isDark,
         senderName = if (!mine) senderDisplayName else null,
         isPinned = message.isPinned,
         isSelected = isSelected,

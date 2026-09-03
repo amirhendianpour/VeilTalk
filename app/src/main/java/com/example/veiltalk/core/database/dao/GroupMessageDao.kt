@@ -22,6 +22,14 @@ interface GroupMessageDao {
 
     @Query("""
         SELECT * FROM group_messages 
+        WHERE ownerUsername = :owner AND groupId = :groupId
+        ORDER BY timestamp DESC, id DESC
+        LIMIT :limit
+    """)
+    fun getGroupMessagesFlowWithLimit(owner: String, groupId: Long, limit: Int): Flow<List<GroupMessageEntity>>
+
+    @Query("""
+        SELECT * FROM group_messages 
         WHERE ownerUsername = :owner
         ORDER BY timestamp ASC, id ASC
     """)

@@ -253,10 +253,10 @@ class GroupRepository @Inject constructor(
         scope.launch { refreshMyGroups() }
     }
 
-    fun groupMessagesFlow(groupId: Long): Flow<List<GroupMessage>> {
+    fun groupMessagesFlow(groupId: Long, limit: Int = 200): Flow<List<GroupMessage>> {
         return sessionManager.usernameFlow.flatMapLatest { me ->
             if (me == null) flowOf(emptyList())
-            else groupMessageDao.getGroupMessagesFlow(me, groupId).map { list ->
+            else groupMessageDao.getGroupMessagesFlowWithLimit(me, groupId, limit).map { list ->
                 list.map { it.toDomain() }
             }
         }

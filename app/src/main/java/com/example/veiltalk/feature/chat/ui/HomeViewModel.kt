@@ -134,7 +134,8 @@ class HomeViewModel @Inject constructor(
                 groupRepository.groupConversationSummariesFlow(),
                 userDirectory.directory,
                 _searchQuery,
-                sessionManager.darkModeFlow
+                sessionManager.darkModeFlow,
+                sessionManager.usernameFlow
             ) { args ->
                 val summaries = args[0] as List<com.example.veiltalk.feature.chat.data.ChatRepository.ConversationSummary>
                 val groupsData = args[1] as List<GroupInfo>
@@ -142,15 +143,19 @@ class HomeViewModel @Inject constructor(
                 val directory = args[3] as Map<String, com.example.veiltalk.feature.user.data.dto.UserInfoDto>
                 val query = args[4] as String
                 val isDark = args[5] as Boolean?
+                val myUsername = args[6] as String?
 
                 userDirectory.ensureLoaded(summaries.map { it.partner })
 
                 val chatItems = summaries.map { summary ->
                     val info = directory[summary.partner]
+                    val isSavedMessages = summary.partner == myUsername
                     HomeListItem.ChatItem(
                         username = summary.partner,
-                        displayName = if (info != null) "${info.firstName} ${info.lastName}".trim().ifBlank { summary.partner } else summary.partner,
-                        profilePictureUrl = info?.profilePictureUrl,
+                        displayName = if (isSavedMessages) "پیام‌های ذخیره شده" 
+                                     else if (info != null) "${info.firstName} ${info.lastName}".trim().ifBlank { summary.partner } 
+                                     else summary.partner,
+                        profilePictureUrl = if (isSavedMessages) "special://saved_messages" else info?.profilePictureUrl,
                         time = summary.timestamp ?: "",
                         lastMessage = summary.lastMessage,
                         unreadCount = summary.unreadCount

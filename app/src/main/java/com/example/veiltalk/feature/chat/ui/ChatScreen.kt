@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -60,6 +61,9 @@ fun ChatScreen(
     val context = LocalContext.current
     val voiceRecorder = remember { VoiceRecorder(context) }
     var tempCameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    
+    // بهینه‌سازی: تشخیص حالت تیره یک‌بار در سطح صفحه
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
     val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.TakePicture()
@@ -180,12 +184,6 @@ fun ChatScreen(
     ) { granted ->
         if (granted) {
             contactPicker.launch(null)
-        }
-    }
-
-    LaunchedEffect(uiState.messages.size) {
-        if (uiState.messages.isNotEmpty()) {
-            listState.animateScrollToItem(uiState.messages.size - 1)
         }
     }
 
@@ -361,8 +359,9 @@ fun ChatScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.weight(1f),
+                    reverseLayout = true,
                     verticalArrangement = Arrangement.spacedBy(2.dp),
-                    contentPadding = PaddingValues(bottom = 8.dp)
+                    contentPadding = PaddingValues(top = 8.dp)
                 ) {
                     items(uiState.messages, key = { it.id }) { message ->
                         val repliedTo = message.replyToId?.let { rid -> uiState.messages.find { it.id == rid } }
@@ -370,6 +369,7 @@ fun ChatScreen(
                             message = message,
                             partner = viewModel.partner,
                             isSelected = message.id in selectedMessages,
+                            isDark = isDark,
                             replyToName = repliedTo?.let { if (it.sender == viewModel.partner) uiState.partnerDisplayName else "شما" },
                             replyToContent = repliedTo?.content,
                             onReplyClick = {
@@ -558,6 +558,7 @@ private fun MessageBubble(
     message: ChatMessage,
     partner: String,
     isSelected: Boolean,
+    isDark: Boolean,
     replyToName: String? = null,
     replyToContent: String? = null,
     onReplyClick: () -> Unit = {},
@@ -573,6 +574,7 @@ private fun MessageBubble(
         content = if (message.messageType == MessageType.TEXT) message.content else "",
         timestamp = message.timestamp,
         isMine = mine,
+        isDark = isDark,
         isPinned = message.isPinned,
         isSelected = isSelected,
         isForwarded = message.isForwarded,
