@@ -268,17 +268,20 @@ fun ChatScreen(
                             IconButton(onClick = { isSearchMode = true }) {
                                 Icon(Icons.Default.Search, contentDescription = "جستجو")
                             }
-                            IconButton(onClick = { requestCallStart(CallKind.VIDEO) }) {
-                                Icon(
-                                    imageVector = Icons.Default.Videocam,
-                                    contentDescription = "Video Call"
-                                )
-                            }
-                            IconButton(onClick = { requestCallStart(CallKind.AUDIO) }) {
-                                Icon(
-                                    imageVector = Icons.Default.Call,
-                                    contentDescription = "Audio Call"
-                                )
+                            val isSavedMessages = viewModel.partner == uiState.myUsername
+                            if (!isSavedMessages) {
+                                IconButton(onClick = { requestCallStart(CallKind.VIDEO) }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Videocam,
+                                        contentDescription = "Video Call"
+                                    )
+                                }
+                                IconButton(onClick = { requestCallStart(CallKind.AUDIO) }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Call,
+                                        contentDescription = "Audio Call"
+                                    )
+                                }
                             }
                             IconButton(onClick = { /* Menu */ }) {
                                 Icon(

@@ -34,7 +34,8 @@ data class ChatUiState(
     val allDestinations: List<com.example.veiltalk.feature.chat.ui.HomeListItem> = emptyList(),
     val isRecording: Boolean = false,
     val pinnedMessages: List<ChatMessage> = emptyList(),
-    val presence: com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence = com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Unknown
+    val presence: com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence = com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Unknown,
+    val myUsername: String = ""
 )
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -99,15 +100,21 @@ class ChatViewModel @Inject constructor(
         val isSavedMessages = partner == myUsername
 
         // ساخت لیست مقصدهای فوروارد
-        val destinations = summaries.map { s ->
-            val info = directory[s.partner]
-            val isTargetSavedMessages = s.partner == myUsername
+        val destinations = listOf(
+            com.example.veiltalk.feature.chat.ui.HomeListItem.ChatItem(
+                username = myUsername ?: "",
+                displayName = "پیام‌های ذخیره شده",
+                profilePictureUrl = "special://saved_messages",
+                time = "",
+                lastMessage = "",
+                unreadCount = 0
+            )
+        ) + summaries.filter { it.partner != myUsername }.map { s ->
+            val infoDest = directory[s.partner]
             com.example.veiltalk.feature.chat.ui.HomeListItem.ChatItem(
                 username = s.partner,
-                displayName = if (isTargetSavedMessages) "پیام‌های ذخیره شده"
-                             else if (info != null) "${info.firstName} ${info.lastName}".trim().ifBlank { s.partner } 
-                             else s.partner,
-                profilePictureUrl = if (isTargetSavedMessages) "special://saved_messages" else info?.profilePictureUrl,
+                displayName = if (infoDest != null) "${infoDest.firstName} ${infoDest.lastName}".trim().ifBlank { s.partner } else s.partner,
+                profilePictureUrl = infoDest?.profilePictureUrl,
                 time = s.timestamp ?: "",
                 lastMessage = s.lastMessage,
                 unreadCount = s.unreadCount
@@ -132,7 +139,8 @@ class ChatViewModel @Inject constructor(
             searchQuery = query,
             allDestinations = destinations,
             isRecording = _isRecording.value,
-            pinnedMessages = messages.filter { it.isPinned }
+            pinnedMessages = messages.filter { it.isPinned },
+            myUsername = myUsername ?: ""
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ChatUiState())
 
