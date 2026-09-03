@@ -49,12 +49,12 @@ interface MessageDao {
     """)
     suspend fun updateStatusIfHigher(messageId: String, owner: String, newStatus: String)
 
-    @Query("UPDATE private_messages SET status = 'READ' WHERE ownerUsername = :owner AND sender = :partner AND status != 'READ'")
+    @Query("UPDATE private_messages SET status = 'READ' WHERE ownerUsername = :owner AND sender = :partner AND recipient = :owner AND status != 'READ'")
     suspend fun markConversationAsRead(owner: String, partner: String)
 
     @Query("""
         SELECT * FROM private_messages
-        WHERE ownerUsername = :owner AND sender = :partner AND status != 'READ'
+        WHERE ownerUsername = :owner AND sender = :partner AND recipient = :owner AND status != 'READ'
     """)
     suspend fun getUnreadFromSender(owner: String, partner: String): List<PrivateMessageEntity>
 

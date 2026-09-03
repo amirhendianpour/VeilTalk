@@ -102,9 +102,14 @@ class ChatRepository @Inject constructor(
             return
         }
 
-        val isChatOpen = activeChatPartner == dto.sender
         val isMessageToSelf = dto.sender == me && dto.recipient == me
-        val status = if (isMessageToSelf) "READ" else if (dto.sender == me) "SENT" else if (isChatOpen) "READ" else "DELIVERED"
+        // چت زمانی "باز" محسوب می‌شود که فرستنده پیام، همان مخاطب فعال باشد (و چت با خود نباشد مگر پیام به خود باشد)
+        val isChatOpen = activeChatPartner != null && activeChatPartner == dto.sender && (dto.sender != me || isMessageToSelf)
+        
+        val status = if (isMessageToSelf) "READ" 
+                    else if (dto.sender == me) "SENT" 
+                    else if (isChatOpen) "READ" 
+                    else "DELIVERED"
         
         // وقتی پیامی از کسی میاد، یعنی طرف حتماً آنلایینه
         if (dto.sender != null && dto.sender != me) {
@@ -128,6 +133,7 @@ class ChatRepository @Inject constructor(
             )
         )
 
+        // فقط برای پیام‌های دریافتی از دیگران رسید (Receipt) می‌فرستیم
         if (dto.sender != null && dto.sender != me) {
             val receipt = ReceiptDto(
                 messageId = dto.id,
