@@ -22,14 +22,16 @@ interface MessageDao {
 
     @Query("""
         SELECT * FROM private_messages 
-        WHERE ownerUsername = :owner AND (sender = :partner OR recipient = :partner)
+        WHERE ownerUsername = :owner 
+        AND ((sender = :owner AND recipient = :partner) OR (sender = :partner AND recipient = :owner))
         ORDER BY timestamp ASC, id ASC
     """)
     fun getConversationFlow(owner: String, partner: String): Flow<List<PrivateMessageEntity>>
 
     @Query("""
         SELECT * FROM private_messages 
-        WHERE ownerUsername = :owner AND (sender = :partner OR recipient = :partner)
+        WHERE ownerUsername = :owner 
+        AND ((sender = :owner AND recipient = :partner) OR (sender = :partner AND recipient = :owner))
         ORDER BY timestamp DESC, id DESC
         LIMIT :limit
     """)

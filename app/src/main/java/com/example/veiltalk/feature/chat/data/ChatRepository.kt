@@ -329,6 +329,10 @@ class ChatRepository @Inject constructor(
         val me = currentUsername ?: return
         val unread = messageDao.getUnreadFromSender(me, partner)
         messageDao.markConversationAsRead(me, partner)
+        
+        // اگر چت با خودمان است، نیازی به ارسال رسید (Receipt) به سرور نیست
+        if (partner == me) return
+
         unread.forEach { entity ->
             val receipt = ReceiptDto(
                 messageId = entity.id,
