@@ -85,6 +85,9 @@ dependencies {
 
     implementation(libs.coil.compose)
 
+    implementation(libs.zxing.core)
+    implementation(libs.zxing.embedded)
+
     implementation(libs.stream.webrtc)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)

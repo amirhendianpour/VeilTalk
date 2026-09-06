@@ -1,6 +1,8 @@
 package com.example.veiltalk.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -26,6 +28,7 @@ object Routes {
     const val FORGOT_PASSWORD = "forgotPassword"
     const val RESET_PASSWORD = "resetPassword/{identifier}"
     const val BLOCKED_USERS = "blockedUsers"
+    const val QR_CODE = "qrCode"
     const val HOME = "home"
     const val CHAT = "chat/{username}"
     const val GROUP_CHAT = "groupChat/{groupId}"
@@ -82,6 +85,7 @@ fun VeilTalkNavGraph(
                 onOpenGroup = { groupId -> navController.navigate(Routes.groupChatRoute(groupId)) },
                 onOpenProfile = { username -> navController.navigate(Routes.userProfileRoute(username)) },
                 onOpenMyProfile = { navController.navigate(Routes.PROFILE) },
+                onOpenQrCode = { navController.navigate(Routes.QR_CODE) },
                 onChangePassword = { navController.navigate(Routes.CHANGE_PASSWORD) },
                 onOpenBlockedUsers = { navController.navigate(Routes.BLOCKED_USERS) },
                 onLoggedOut = { navController.navigate(Routes.LOGIN) { popUpTo(0) } }
@@ -176,6 +180,23 @@ fun VeilTalkNavGraph(
                 onLoggedOut = {
                     navController.navigate(Routes.LOGIN) {
                         popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(Routes.QR_CODE) {
+            val homeViewModel: com.example.veiltalk.feature.chat.ui.HomeViewModel = hiltViewModel()
+            val uiState by homeViewModel.uiState.collectAsState()
+            
+            com.example.veiltalk.feature.user.ui.QrCodeSectionScreen(
+                displayName = uiState.myDisplayName,
+                username = uiState.myUsername,
+                profilePicture = uiState.myProfilePictureUrl,
+                onBack = { navController.popBackStack() },
+                onScanned = { username ->
+                    navController.navigate(Routes.chatRoute(username)) {
+                        popUpTo(Routes.HOME)
                     }
                 }
             )

@@ -52,6 +52,7 @@ fun HomeScreen(
     onOpenGroup: (groupId: Long) -> Unit,
     onOpenProfile: (username: String) -> Unit, // تغییر یافته برای پروفایل سایرین
     onOpenMyProfile: () -> Unit, // نام جدید برای پروفایل خود کاربر
+    onOpenQrCode: () -> Unit,
     onChangePassword: () -> Unit,
     onOpenBlockedUsers: () -> Unit,
     onLoggedOut: () -> Unit
@@ -186,6 +187,9 @@ fun HomeScreen(
                                 else Icon(Icons.Default.Refresh, contentDescription = "همگام‌سازی")
                             }
                         } else if (bottomNavTab == 0 && !isSearchMode) {
+                            IconButton(onClick = onOpenQrCode) {
+                                Icon(Icons.Default.QrCodeScanner, contentDescription = "QR Code")
+                            }
                             IconButton(onClick = { isSearchMode = true }) {
                                 Icon(Icons.Default.Search, contentDescription = "جستجو")
                             }
