@@ -46,14 +46,14 @@ class UserDirectoryRepository @Inject constructor(
     private var flushJob: kotlinx.coroutines.Job? = null
 
     fun getDisplayName(username: String): String {
-        val info = _directory.value[username] ?: return username
+        val info = _directory.value[username.lowercase()] ?: return username
         if (info.isDeleted) return "حساب حذف شده"
         val full = "${info.firstName} ${info.lastName}".trim()
         return full.ifBlank { username }
     }
 
     fun getProfilePicture(username: String): String? {
-        val info = _directory.value[username]
+        val info = _directory.value[username.lowercase()]
         if (info?.isDeleted == true) return "special://deleted_user"
         return info?.profilePictureUrl
     }
@@ -65,22 +65,23 @@ class UserDirectoryRepository @Inject constructor(
     }
 
     fun setUserInfo(info: UserInfoDto) {
-        val current = _directory.value[info.username]
+        val key = info.username.lowercase()
+        val current = _directory.value[key]
         val merged = if (current != null) {
-            // ترکیب اطلاعات: اگر فیلد جدید خالی یا نال بود، از مقدار قبلی استفاده کن
             info.copy(
+                username = key,
                 phoneNumber = info.phoneNumber?.takeIf { it.isNotBlank() } ?: current.phoneNumber,
                 email = info.email?.takeIf { it.isNotBlank() } ?: current.email,
                 bio = info.bio?.takeIf { it.isNotBlank() } ?: current.bio,
-                profilePictureUrl = info.profilePictureUrl?.takeIf { it.isNotBlank() } ?: current.profilePictureUrl
+                profilePictureUrl = info.profilePictureUrl?.takeIf { it.isNotBlank() } ?: current.profilePictureUrl,
+                isDeleted = info.isDeleted || current.isDeleted
             )
         } else {
-            info
+            info.copy(username = key)
         }
-        _directory.value = _directory.value + (info.username to merged)
+        _directory.value = _directory.value + (key to merged)
         
-        // آپدیت استاتوس در صورت وجود
-        _presenceMap.value = _presenceMap.value + (info.username to if (info.online) Presence.Online else Presence.Offline(info.lastSeen))
+        _presenceMap.value = _presenceMap.value + (key to if (info.online) Presence.Online else Presence.Offline(info.lastSeen))
     }
 
     suspend fun ensureLoadedSync(usernames: List<String>) {
@@ -178,12 +179,6 @@ class UserDirectoryRepository @Inject constructor(
                 val info = response.body()!!
                 setUserInfo(info)
                 Result.success(info)
-            } else if (response.code() == 404) {
-                // اگر با یوزرنیم دقیق جستجو شده بود و پیدا نشد، احتمالا پاک شده
-                if (!identifier.contains("@") && identifier.all { it.isLetterOrDigit() || it == '_' }) {
-                    setUserInfo(UserInfoDto(identifier, "", "", isDeleted = true))
-                }
-                Result.failure(Exception("کاربری با این مشخصات یافت نشد."))
             } else {
                 Result.failure(Exception("کاربری با این مشخصات یافت نشد."))
             }
@@ -203,18 +198,16 @@ class UserDirectoryRepository @Inject constructor(
             val response = api.batchInfo(BatchInfoRequestDto(usernames))
             if (response.isSuccessful) {
                 val results = response.body().orEmpty()
-                val foundUsernames = results.map { it.username }.toSet()
+                val foundUsernamesLower = results.map { it.username.lowercase() }.toSet()
                 
-                // یوزرهایی که درخواست دادیم ولی در جواب نبودند -> حذف شده‌اند
-                val deletedInfos = usernames.filter { it !in foundUsernames }.associateWith { 
-                    UserInfoDto(it, "", "", isDeleted = true)
-                }
+                results.forEach { setUserInfo(it) }
 
-                _directory.value = _directory.value + results.associateBy { it.username } + deletedInfos
-                
-                // بروزرسانی وضعیت حضور بر اساس دیتای دریافت شده
-                val newPresence = results.associate { it.username to if (it.online) Presence.Online else Presence.Offline(it.lastSeen) }
-                _presenceMap.value = _presenceMap.value + newPresence
+                // یوزرهایی که درخواست دادیم ولی در جواب نبودند -> حذف شده‌اند
+                usernames.forEach { requested ->
+                    if (requested.lowercase() !in foundUsernamesLower) {
+                        setUserInfo(UserInfoDto(requested, "", "", isDeleted = true))
+                    }
+                }
             }
         } catch (e: Exception) {
             // اگه fail شد، دفعه بعد که ensureLoaded صدا زده بشه دوباره تلاش می‌شه
