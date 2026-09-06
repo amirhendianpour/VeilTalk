@@ -48,6 +48,7 @@ fun HomeScreen(
     onOpenProfile: (username: String) -> Unit, // تغییر یافته برای پروفایل سایرین
     onOpenMyProfile: () -> Unit, // نام جدید برای پروفایل خود کاربر
     onChangePassword: () -> Unit,
+    onOpenBlockedUsers: () -> Unit,
     onLoggedOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -494,6 +495,7 @@ fun HomeScreen(
                     isDarkMode = uiState.isDarkMode == true,
                     onToggleDarkMode = viewModel::toggleDarkMode,
                     onChangePassword = onChangePassword,
+                    onOpenBlockedUsers = onOpenBlockedUsers,
                     onLogout = { viewModel.logout(onLoggedOut) }
                 )
             } else if (bottomNavTab == 4) {
@@ -570,6 +572,7 @@ private fun SettingsTab(
     isDarkMode: Boolean,
     onToggleDarkMode: (Boolean) -> Unit,
     onChangePassword: () -> Unit,
+    onOpenBlockedUsers: () -> Unit,
     onLogout: () -> Unit
 ) {
     LazyColumn(
@@ -651,6 +654,11 @@ private fun SettingsTab(
                         headlineContent = { Text("تغییر رمز عبور") },
                         leadingContent = { Icon(Icons.Default.Lock, null) },
                         modifier = Modifier.clickable { onChangePassword() }
+                    )
+                    ListItem(
+                        headlineContent = { Text("لیست مسدودی‌ها") },
+                        leadingContent = { Icon(Icons.Default.Block, null) },
+                        modifier = Modifier.clickable { onOpenBlockedUsers() }
                     )
                 }
             }

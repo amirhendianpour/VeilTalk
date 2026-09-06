@@ -9,15 +9,11 @@ import com.example.veiltalk.common.model.MessageType
 import com.example.veiltalk.feature.chat.data.ChatRepository
 import com.example.veiltalk.feature.group.data.GroupRepository
 import com.example.veiltalk.feature.chat.data.MediaRepository
+import com.example.veiltalk.common.util.ApiResult
+import com.example.veiltalk.feature.user.data.BlockRepository
 import com.example.veiltalk.feature.user.data.UserDirectoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.Instant
 import javax.inject.Inject
@@ -35,7 +31,8 @@ data class ChatUiState(
     val isRecording: Boolean = false,
     val pinnedMessages: List<ChatMessage> = emptyList(),
     val presence: com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence = com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Unknown,
-    val myUsername: String = ""
+    val myUsername: String = "",
+    val isBlockedByMe: Boolean = false
 )
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -46,7 +43,8 @@ class ChatViewModel @Inject constructor(
     private val groupRepository: GroupRepository, // اضافه شد
     private val userDirectory: UserDirectoryRepository,
     private val mediaRepository: MediaRepository,
-    private val locationHelper: com.example.veiltalk.core.location.LocationHelper
+    private val locationHelper: com.example.veiltalk.core.location.LocationHelper,
+    private val blockRepository: BlockRepository
 ) : ViewModel() {
 
     val partner: String = checkNotNull(savedStateHandle["username"])
@@ -67,6 +65,8 @@ class ChatViewModel @Inject constructor(
     private val _replyingMessage = MutableStateFlow<ChatMessage?>(null)
     private val _searchQuery = MutableStateFlow("")
 
+    private val _isBlockedByMe = MutableStateFlow(false)
+
     private val _uiEvent = kotlinx.coroutines.flow.MutableSharedFlow<String>()
     val uiEvent = _uiEvent.asSharedFlow()
 
@@ -81,7 +81,8 @@ class ChatViewModel @Inject constructor(
         chatRepository.conversationSummariesFlow(), // جدید
         groupRepository.myGroups, // جدید
         _replyingMessage,
-        chatRepository.usernameFlow // جدید برای تشخیص Saved Messages
+        chatRepository.usernameFlow, // جدید برای تشخیص Saved Messages
+        _isBlockedByMe
     ) { args ->
         val messages = args[0] as List<ChatMessage>
         val directory = args[1] as Map<String, com.example.veiltalk.feature.user.data.dto.UserInfoDto>
@@ -93,6 +94,7 @@ class ChatViewModel @Inject constructor(
         val groups = args[7] as List<com.example.veiltalk.common.model.GroupInfo>
         val replyingMessage = args[8] as ChatMessage?
         val myUsername = args[9] as String?
+        val isBlockedByMe = args[10] as Boolean
 
         val filteredMessages = if (query.isBlank()) messages else {
             messages.filter { it.content.contains(query, ignoreCase = true) }
@@ -141,7 +143,8 @@ class ChatViewModel @Inject constructor(
             allDestinations = destinations,
             isRecording = _isRecording.value,
             pinnedMessages = messages.filter { it.isPinned },
-            myUsername = myUsername ?: ""
+            myUsername = myUsername ?: "",
+            isBlockedByMe = isBlockedByMe
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ChatUiState())
 
@@ -153,6 +156,32 @@ class ChatViewModel @Inject constructor(
             chatRepository.ensureUsernameLoaded()
             userDirectory.ensureLoaded(listOf(partner))
             chatRepository.markAsRead(partner)
+        }
+        checkBlockStatus()
+    }
+
+    private fun checkBlockStatus() {
+        viewModelScope.launch {
+            when (val result = blockRepository.isBlocked(partner)) {
+                is ApiResult.Success -> {
+                    _isBlockedByMe.value = result.data["isBlocked"] ?: false
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun unblock() {
+        viewModelScope.launch {
+            when (val result = blockRepository.unblockUser(partner)) {
+                is ApiResult.Success -> {
+                    _isBlockedByMe.value = false
+                    _uiEvent.emit("کاربر از لیست بلاک خارج شد")
+                }
+                is ApiResult.Error -> {
+                    _uiEvent.emit("خطا: ${result.message}")
+                }
+            }
         }
     }
 

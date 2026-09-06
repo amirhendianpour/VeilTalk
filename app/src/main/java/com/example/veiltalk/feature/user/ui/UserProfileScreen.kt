@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -43,6 +44,7 @@ fun UserProfileScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showFullScreenImage by remember { mutableStateOf(false) }
+    var showBlockDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -198,6 +200,70 @@ fun UserProfileScreen(
                     }
                 }
             }
+
+            item { Spacer(Modifier.height(24.dp)) }
+
+            // دکمه بلاک
+            item {
+                Surface(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .clickable {
+                            if (uiState.isBlocked) viewModel.toggleBlock()
+                            else showBlockDialog = true
+                        },
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (uiState.isActionLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Block,
+                                contentDescription = null,
+                                tint = if (uiState.isBlocked) MaterialTheme.colorScheme.primary else Color.Red,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(16.dp))
+                        Text(
+                            text = if (uiState.isBlocked) "رفع مسدودیت" else "بلاک کردن کاربر",
+                            color = if (uiState.isBlocked) MaterialTheme.colorScheme.primary else Color.Red,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+            
+            item { Spacer(Modifier.height(32.dp)) }
+        }
+
+        if (showBlockDialog) {
+            AlertDialog(
+                onDismissRequest = { showBlockDialog = false },
+                title = { Text("بلاک کردن کاربر") },
+                text = { Text("آیا مایل به مسدود کردن این کاربر هستید؟ شما دیگر پیامی از او دریافت نخواهید کرد.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showBlockDialog = false
+                        viewModel.toggleBlock()
+                    }) {
+                        Text("بلاک", color = Color.Red)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showBlockDialog = false }) {
+                        Text("انصراف")
+                    }
+                }
+            )
         }
 
         if (showFullScreenImage && user.profilePictureUrl != null) {

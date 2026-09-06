@@ -25,6 +25,7 @@ object Routes {
     const val CHANGE_PASSWORD = "changePassword"
     const val FORGOT_PASSWORD = "forgotPassword"
     const val RESET_PASSWORD = "resetPassword/{identifier}"
+    const val BLOCKED_USERS = "blockedUsers"
     const val HOME = "home"
     const val CHAT = "chat/{username}"
     const val GROUP_CHAT = "groupChat/{groupId}"
@@ -82,6 +83,7 @@ fun VeilTalkNavGraph(
                 onOpenProfile = { username -> navController.navigate(Routes.userProfileRoute(username)) },
                 onOpenMyProfile = { navController.navigate(Routes.PROFILE) },
                 onChangePassword = { navController.navigate(Routes.CHANGE_PASSWORD) },
+                onOpenBlockedUsers = { navController.navigate(Routes.BLOCKED_USERS) },
                 onLoggedOut = { navController.navigate(Routes.LOGIN) { popUpTo(0) } }
             )
         }
@@ -171,6 +173,12 @@ fun VeilTalkNavGraph(
             com.example.veiltalk.feature.profile.ui.ProfileScreen(
                 onBack = { navController.popBackStack() },
                 onChangePassword = { navController.navigate(Routes.CHANGE_PASSWORD) }
+            )
+        }
+
+        composable(Routes.BLOCKED_USERS) {
+            com.example.veiltalk.feature.user.ui.BlockedUsersScreen(
+                onBack = { navController.popBackStack() }
             )
         }
 

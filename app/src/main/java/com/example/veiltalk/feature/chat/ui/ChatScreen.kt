@@ -326,7 +326,7 @@ fun ChatScreen(
             }
         },
         bottomBar = {
-            if (!isSelectionMode) {
+            if (!isSelectionMode && !uiState.isBlockedByMe) {
                 ChatInputBar(
                     value = inputText,
                     onValueChange = viewModel::onInputChange,
@@ -386,6 +386,28 @@ fun ChatScreen(
             Canvas(modifier = Modifier.fillMaxSize()) { }
             
             Column(modifier = Modifier.fillMaxSize()) {
+                if (uiState.isBlockedByMe) {
+                    Surface(
+                        color = Color.Red.copy(alpha = 0.1f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "شما این کاربر را مسدود کرده‌اید.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Red
+                            )
+                            TextButton(onClick = viewModel::unblock) {
+                                Text("رفع مسدودیت", fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+
                 if (uiState.pinnedMessages.isNotEmpty()) {
                     PinnedMessagesBar(
                         messages = uiState.pinnedMessages,
