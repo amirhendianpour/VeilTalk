@@ -41,6 +41,7 @@ fun ChatInputBar(
     onSendSticker: (String) -> Unit = {},
     onSendGif: (String) -> Unit = {},
     onSendContact: () -> Unit = {},
+    onSendLocation: () -> Unit = {},
     isEditing: Boolean = false,
     replyingMessageContent: String? = null,
     replyingMessageSender: String? = null,
@@ -193,7 +194,7 @@ fun ChatInputBar(
                 onImage = { showAttachmentGrid = false; onAttachImage() },
                 onFile = { showAttachmentGrid = false; onAttachFile() },
                 onContact = { showAttachmentGrid = false; onSendContact() },
-                onLocation = { /* پیاده‌سازی در آینده */ }
+                onLocation = { showAttachmentGrid = false; onSendLocation() }
             )
         }
 

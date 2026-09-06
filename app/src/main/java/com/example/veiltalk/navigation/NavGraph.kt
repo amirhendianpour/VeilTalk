@@ -127,8 +127,9 @@ fun VeilTalkNavGraph(
             arguments = listOf(navArgument("groupId") { type = NavType.LongType })
         ) { backStackEntry ->
             val groupId = backStackEntry.arguments?.getLong("groupId") ?: 0L
+            val viewModel: com.example.veiltalk.feature.group.ui.GroupChatViewModel = hiltViewModel()
             GroupChatScreen(
-                userDirectory = userDirectoryRepository,
+                viewModel = viewModel,
                 onBack = { navController.popBackStack() },
                 onOpenInfo = { navController.navigate(Routes.groupInfoRoute(groupId)) },
                 onOpenProfile = { username -> navController.navigate(Routes.userProfileRoute(username)) },

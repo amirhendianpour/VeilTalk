@@ -45,7 +45,8 @@ class ChatViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
     private val groupRepository: GroupRepository, // اضافه شد
     private val userDirectory: UserDirectoryRepository,
-    private val mediaRepository: MediaRepository
+    private val mediaRepository: MediaRepository,
+    private val locationHelper: com.example.veiltalk.core.location.LocationHelper
 ) : ViewModel() {
 
     val partner: String = checkNotNull(savedStateHandle["username"])
@@ -225,6 +226,27 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             chatRepository.sendMessage(partner, "$name\n$phoneNumber", MessageType.CONTACT)
         }
+    }
+
+    fun sendLocation(lat: Double, lng: Double) {
+        viewModelScope.launch {
+            chatRepository.sendMessage(partner, "$lat,$lng", MessageType.LOCATION)
+        }
+    }
+
+    fun sendCurrentLocation() {
+        viewModelScope.launch {
+            val loc = locationHelper.getCurrentLocation()
+            if (loc != null) {
+                sendLocation(loc.latitude, loc.longitude)
+            } else {
+                _uiEvent.emit("امکان دریافت موقعیت فعلی وجود ندارد. مطمئن شوید GPS روشن است.")
+            }
+        }
+    }
+
+    fun startLiveLocation() {
+        // This will be handled by the UI calling the service
     }
 
     fun startRecording() {

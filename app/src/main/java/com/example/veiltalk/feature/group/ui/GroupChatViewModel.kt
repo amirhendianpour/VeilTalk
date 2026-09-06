@@ -31,8 +31,9 @@ class GroupChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val groupRepository: GroupRepository,
     private val chatRepository: com.example.veiltalk.feature.chat.data.ChatRepository, // اضافه شد
-    private val userDirectory: com.example.veiltalk.feature.user.data.UserDirectoryRepository,
+    val userDirectory: com.example.veiltalk.feature.user.data.UserDirectoryRepository,
     private val mediaRepository: com.example.veiltalk.feature.chat.data.MediaRepository,
+    private val locationHelper: com.example.veiltalk.core.location.LocationHelper,
     private val sessionManager: SessionManager
 ) : ViewModel() {
 
@@ -225,6 +226,23 @@ class GroupChatViewModel @Inject constructor(
     fun sendContact(name: String, phoneNumber: String) {
         viewModelScope.launch {
             groupRepository.sendGroupMessage(groupId, "$name\n$phoneNumber", MessageType.CONTACT)
+        }
+    }
+
+    fun sendLocation(lat: Double, lng: Double) {
+        viewModelScope.launch {
+            groupRepository.sendGroupMessage(groupId, "$lat,$lng", MessageType.LOCATION)
+        }
+    }
+
+    fun sendCurrentLocation() {
+        viewModelScope.launch {
+            val loc = locationHelper.getCurrentLocation()
+            if (loc != null) {
+                sendLocation(loc.latitude, loc.longitude)
+            } else {
+                _uiEvent.emit("امکان دریافت موقعیت فعلی وجود ندارد. مطمئن شوید GPS روشن است.")
+            }
         }
     }
 

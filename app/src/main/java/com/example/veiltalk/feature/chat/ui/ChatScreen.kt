@@ -187,6 +187,16 @@ fun ChatScreen(
         }
     }
 
+    var showLocationSelection by remember { mutableStateOf(false) }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { granted ->
+        if (granted.values.all { it }) {
+            showLocationSelection = true
+        }
+    }
+
     // الگوبرداری از سیگنال: اسکرول خودکار به آخرین پیام (اندیس 0 در reverseLayout)
     LaunchedEffect(uiState.messages.firstOrNull()?.id) {
         if (uiState.messages.isNotEmpty()) {
@@ -195,6 +205,20 @@ fun ChatScreen(
     }
 
     var showPinDialog by remember { mutableStateOf<ChatMessage?>(null) }
+
+    if (showLocationSelection) {
+        LocationSelectionDialog(
+            onDismiss = { showLocationSelection = false },
+            onSendCurrent = {
+                showLocationSelection = false
+                viewModel.sendCurrentLocation()
+            },
+            onShareLive = {
+                showLocationSelection = false
+                com.example.veiltalk.feature.chat.service.LiveLocationService.start(context, viewModel.partner, false)
+            }
+        )
+    }
 
     ChatBaseLayout(
         topBar = {
@@ -314,6 +338,17 @@ fun ChatScreen(
                             contactPicker.launch(null)
                         } else {
                             contactPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+                        }
+                    },
+                    onSendLocation = {
+                        val needed = arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                        if (needed.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }) {
+                            showLocationSelection = true
+                        } else {
+                            locationPermissionLauncher.launch(needed)
                         }
                     },
                     onOpenCamera = {
@@ -667,6 +702,26 @@ private fun MessageBubble(
                     val name = parts.getOrNull(0) ?: "مخاطب"
                     val phone = parts.getOrNull(1) ?: ""
                     ContactMessageItem(name = name, phoneNumber = phone, isMine = mine)
+                    Spacer(Modifier.height(4.dp))
+                }
+                MessageType.LOCATION, MessageType.LIVE_LOCATION -> {
+                    val parts = message.content.split(",")
+                    val lat = parts.getOrNull(0)?.toDoubleOrNull() ?: 0.0
+                    val lng = parts.getOrNull(1)?.toDoubleOrNull() ?: 0.0
+                    LocationMessageItem(
+                        lat = lat,
+                        lng = lng,
+                        isMine = mine,
+                        isLive = message.messageType == MessageType.LIVE_LOCATION,
+                        onStopLive = {
+                            com.example.veiltalk.feature.chat.service.LiveLocationService.stop(context)
+                        },
+                        onClick = {
+                            val uri = "geo:$lat,$lng?q=$lat,$lng"
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+                            context.startActivity(intent)
+                        }
+                    )
                     Spacer(Modifier.height(4.dp))
                 }
                 else -> {}
