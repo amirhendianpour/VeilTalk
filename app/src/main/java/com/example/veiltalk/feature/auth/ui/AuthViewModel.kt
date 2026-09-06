@@ -133,4 +133,42 @@ class AuthViewModel @Inject constructor(
             }
         }
     }
+
+    fun requestPasswordReset(identifier: String) {
+        if (identifier.isBlank()) {
+            _uiState.value = _uiState.value.copy(errorMessage = "ایمیل یا شماره موبایل را وارد کنید.")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            when (val result = repository.requestPasswordReset(identifier)) {
+                is ApiResult.Success -> {
+                    _uiState.value = _uiState.value.copy(isLoading = false)
+                    _events.emit(AuthEvent.PasswordResetOtpRequested(identifier))
+                }
+                is ApiResult.Error -> {
+                    _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = result.message)
+                }
+            }
+        }
+    }
+
+    fun confirmPasswordReset(identifier: String, code: String, new: String) {
+        if (code.isBlank() || new.length < 6) {
+            _uiState.value = _uiState.value.copy(errorMessage = "کد تایید و رمز عبور جدید (حداقل ۶ کاراکتر) را وارد کنید.")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            when (val result = repository.confirmPasswordReset(identifier, code, new)) {
+                is ApiResult.Success -> {
+                    _uiState.value = _uiState.value.copy(isLoading = false)
+                    _events.emit(AuthEvent.PasswordResetSuccess(result.data.message))
+                }
+                is ApiResult.Error -> {
+                    _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = result.message)
+                }
+            }
+        }
+    }
 }

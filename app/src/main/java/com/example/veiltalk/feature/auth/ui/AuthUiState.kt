@@ -10,5 +10,7 @@ data class AuthUiState(
 
 sealed class AuthEvent {
     data class OtpRequested(val identifier: String) : AuthEvent()
+    data class PasswordResetOtpRequested(val identifier: String) : AuthEvent()
+    data class PasswordResetSuccess(val message: String) : AuthEvent()
     data class Authenticated(val auth: AuthResponseDto) : AuthEvent()
 }

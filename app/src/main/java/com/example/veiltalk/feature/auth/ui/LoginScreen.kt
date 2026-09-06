@@ -31,6 +31,7 @@ private enum class LoginMode { PASSWORD, OTP }
 fun LoginScreen(
     viewModel: AuthViewModel = hiltViewModel(),
     onSwitchToRegister: () -> Unit,
+    onForgotPassword: () -> Unit,
     onOtpRequested: (identifier: String) -> Unit,
     onAuthenticated: (AuthResponseDto) -> Unit
 ) {
@@ -47,6 +48,7 @@ fun LoginScreen(
             when (event) {
                 is AuthEvent.OtpRequested -> onOtpRequested(event.identifier)
                 is AuthEvent.Authenticated -> onAuthenticated(event.auth)
+                else -> {}
             }
         }
     }
@@ -228,6 +230,13 @@ fun LoginScreen(
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp)
                         )
+
+                        TextButton(
+                            onClick = onForgotPassword,
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Text("فراموشی رمز عبور؟", style = MaterialTheme.typography.bodySmall)
+                        }
                     }
 
                     Spacer(Modifier.height(32.dp))

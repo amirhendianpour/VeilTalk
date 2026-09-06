@@ -38,6 +38,18 @@ class AuthRepository @Inject constructor(
         api.loginWithPassword(LoginPasswordRequest(identifier, password))
     }
 
+    suspend fun changePassword(old: String, new: String): ApiResult<MessageResponseDto> = safeApiCall(json) {
+        api.changePassword(ChangePasswordRequest(old, new))
+    }
+
+    suspend fun requestPasswordReset(identifier: String): ApiResult<MessageResponseDto> = safeApiCall(json) {
+        api.requestPasswordReset(PasswordResetRequest(identifier))
+    }
+
+    suspend fun confirmPasswordReset(identifier: String, code: String, new: String): ApiResult<MessageResponseDto> = safeApiCall(json) {
+        api.confirmPasswordReset(PasswordResetConfirmRequest(identifier, code, new))
+    }
+
     // معادل saveAuthSession در useAuth.ts
     suspend fun persistSession(auth: AuthResponseDto) {
         val displayName = "${auth.firstName} ${auth.lastName}".trim()

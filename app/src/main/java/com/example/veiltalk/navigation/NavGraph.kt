@@ -22,6 +22,9 @@ object Routes {
     const val REGISTER = "register"
     const val OTP = "otp/{identifier}"
     const val PROFILE = "profile"
+    const val CHANGE_PASSWORD = "changePassword"
+    const val FORGOT_PASSWORD = "forgotPassword"
+    const val RESET_PASSWORD = "resetPassword/{identifier}"
     const val HOME = "home"
     const val CHAT = "chat/{username}"
     const val GROUP_CHAT = "groupChat/{groupId}"
@@ -29,6 +32,7 @@ object Routes {
     const val USER_PROFILE = "userProfile/{username}"
 
     fun otpRoute(identifier: String) = "otp/$identifier"
+    fun resetPasswordRoute(identifier: String) = "resetPassword/$identifier"
     fun chatRoute(username: String) = "chat/$username"
     fun groupChatRoute(groupId: Long) = "groupChat/$groupId"
     fun groupInfoRoute(groupId: Long) = "groupInfo/$groupId"
@@ -46,6 +50,7 @@ fun VeilTalkNavGraph(
         composable(Routes.LOGIN) {
             LoginScreen(
                 onSwitchToRegister = { navController.navigate(Routes.REGISTER) },
+                onForgotPassword = { navController.navigate(Routes.FORGOT_PASSWORD) },
                 onOtpRequested = { identifier -> navController.navigate(Routes.otpRoute(identifier)) },
                 onAuthenticated = { navController.navigate(Routes.HOME) { popUpTo(0) } }
             )
@@ -76,6 +81,7 @@ fun VeilTalkNavGraph(
                 onOpenGroup = { groupId -> navController.navigate(Routes.groupChatRoute(groupId)) },
                 onOpenProfile = { username -> navController.navigate(Routes.userProfileRoute(username)) },
                 onOpenMyProfile = { navController.navigate(Routes.PROFILE) },
+                onChangePassword = { navController.navigate(Routes.CHANGE_PASSWORD) },
                 onLoggedOut = { navController.navigate(Routes.LOGIN) { popUpTo(0) } }
             )
         }
@@ -163,7 +169,39 @@ fun VeilTalkNavGraph(
 
         composable(Routes.PROFILE) {
             com.example.veiltalk.feature.profile.ui.ProfileScreen(
+                onBack = { navController.popBackStack() },
+                onChangePassword = { navController.navigate(Routes.CHANGE_PASSWORD) }
+            )
+        }
+
+        composable(Routes.CHANGE_PASSWORD) {
+            com.example.veiltalk.feature.profile.ui.ChangePasswordScreen(
                 onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.FORGOT_PASSWORD) {
+            com.example.veiltalk.feature.auth.ui.ForgotPasswordScreen(
+                onBack = { navController.popBackStack() },
+                onOtpRequested = { identifier ->
+                    navController.navigate(Routes.resetPasswordRoute(identifier))
+                }
+            )
+        }
+
+        composable(
+            route = Routes.RESET_PASSWORD,
+            arguments = listOf(navArgument("identifier") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val identifier = backStackEntry.arguments?.getString("identifier") ?: ""
+            com.example.veiltalk.feature.auth.ui.ResetPasswordConfirmScreen(
+                identifier = identifier,
+                onBack = { navController.popBackStack() },
+                onSuccess = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(Routes.FORGOT_PASSWORD) { inclusive = true }
+                    }
+                }
             )
         }
     }

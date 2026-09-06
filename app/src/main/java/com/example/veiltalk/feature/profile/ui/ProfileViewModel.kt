@@ -28,12 +28,16 @@ data class ProfileUiState(
     val isSaving: Boolean = false,
     val isUploadingAvatar: Boolean = false,
     val showFullScreenAvatar: Boolean = false,
+    val oldPasswordInput: String = "",
+    val newPasswordInput: String = "",
+    val isChangingPassword: Boolean = false,
     val error: String? = null
 )
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val repository: ProfileRepository,
+    private val authRepository: com.example.veiltalk.feature.auth.data.AuthRepository,
     private val mediaRepository: com.example.veiltalk.feature.chat.data.MediaRepository
 ) : ViewModel() {
 
@@ -105,6 +109,33 @@ class ProfileViewModel @Inject constructor(
     }
     fun onEmailChange(value: String) { _uiState.value = _uiState.value.copy(emailInput = value) }
     fun onPhoneChange(value: String) { _uiState.value = _uiState.value.copy(phoneInput = value) }
+
+    fun onOldPasswordChange(value: String) { _uiState.value = _uiState.value.copy(oldPasswordInput = value) }
+    fun onNewPasswordChange(value: String) { _uiState.value = _uiState.value.copy(newPasswordInput = value) }
+
+    fun changePassword() {
+        val state = _uiState.value
+        if (state.oldPasswordInput.isBlank() || state.newPasswordInput.length < 6) {
+            _uiState.value = state.copy(error = "لطفاً رمز فعلی و رمز جدید (حداقل ۶ کاراکتر) را وارد کنید.")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isChangingPassword = true, error = null)
+            when (val result = authRepository.changePassword(state.oldPasswordInput, state.newPasswordInput)) {
+                is com.example.veiltalk.common.util.ApiResult.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isChangingPassword = false,
+                        oldPasswordInput = "",
+                        newPasswordInput = ""
+                    )
+                    _uiEvent.emit("رمز عبور با موفقیت تغییر کرد.")
+                }
+                is com.example.veiltalk.common.util.ApiResult.Error -> {
+                    _uiState.value = _uiState.value.copy(isChangingPassword = false, error = result.message)
+                }
+            }
+        }
+    }
 
     fun showFullScreenAvatar() {
         _uiState.value = _uiState.value.copy(showFullScreenAvatar = true)

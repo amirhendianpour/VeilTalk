@@ -18,4 +18,13 @@ interface AuthApi {
 
     @POST("api/auth/login/password")
     suspend fun loginWithPassword(@Body request: LoginPasswordRequest): Response<AuthResponseDto>
+
+    @POST("api/auth/password/change")
+    suspend fun changePassword(@Body request: ChangePasswordRequest): Response<MessageResponseDto>
+
+    @POST("api/auth/password/reset/request")
+    suspend fun requestPasswordReset(@Body request: PasswordResetRequest): Response<MessageResponseDto>
+
+    @POST("api/auth/password/reset/confirm")
+    suspend fun confirmPasswordReset(@Body request: PasswordResetConfirmRequest): Response<MessageResponseDto>
 }

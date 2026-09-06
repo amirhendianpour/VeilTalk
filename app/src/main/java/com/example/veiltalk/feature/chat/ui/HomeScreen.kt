@@ -47,6 +47,7 @@ fun HomeScreen(
     onOpenGroup: (groupId: Long) -> Unit,
     onOpenProfile: (username: String) -> Unit, // تغییر یافته برای پروفایل سایرین
     onOpenMyProfile: () -> Unit, // نام جدید برای پروفایل خود کاربر
+    onChangePassword: () -> Unit,
     onLoggedOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -492,10 +493,14 @@ fun HomeScreen(
                     profilePicture = uiState.myProfilePictureUrl,
                     isDarkMode = uiState.isDarkMode == true,
                     onToggleDarkMode = viewModel::toggleDarkMode,
+                    onChangePassword = onChangePassword,
                     onLogout = { viewModel.logout(onLoggedOut) }
                 )
             } else if (bottomNavTab == 4) {
-                ProfileTab(viewModel = profileViewModel)
+                ProfileTab(
+                    viewModel = profileViewModel,
+                    onChangePassword = onChangePassword
+                )
             }
         }
     }
@@ -564,6 +569,7 @@ private fun SettingsTab(
     profilePicture: String?,
     isDarkMode: Boolean,
     onToggleDarkMode: (Boolean) -> Unit,
+    onChangePassword: () -> Unit,
     onLogout: () -> Unit
 ) {
     LazyColumn(
@@ -632,11 +638,31 @@ private fun SettingsTab(
         item { Spacer(Modifier.height(12.dp)) }
 
         item {
+            Surface(color = MaterialTheme.colorScheme.surface) {
+                Column {
+                    Text(
+                        "امنیت",
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                    ListItem(
+                        headlineContent = { Text("تغییر رمز عبور") },
+                        leadingContent = { Icon(Icons.Default.Lock, null) },
+                        modifier = Modifier.clickable { onChangePassword() }
+                    )
+                }
+            }
+        }
+
+        item { Spacer(Modifier.height(12.dp)) }
+
+        item {
             SettingsSection(
                 title = "تنظیمات اپلیکیشن",
                 items = listOf(
                     SettingsItemData("اعلان‌ها و صداها", Icons.Default.Notifications),
-                    SettingsItemData("حریم خصوصی و امنیت", Icons.Default.PrivacyTip),
                     SettingsItemData("داده‌ها و ذخیره‌سازی", Icons.Default.Storage),
                     SettingsItemData("تغییر زبان", Icons.Default.Language)
                 )
@@ -682,7 +708,10 @@ private fun SettingsSection(title: String, items: List<SettingsItemData>) {
 }
 
 @Composable
-private fun ProfileTab(viewModel: ProfileViewModel) {
+private fun ProfileTab(
+    viewModel: ProfileViewModel,
+    onChangePassword: () -> Unit
+) {
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -868,6 +897,18 @@ private fun ProfileTab(viewModel: ProfileViewModel) {
                     ProfileDetailRow(label = "ایمیل", value = profile.email ?: "تنظیم نشده")
                     ProfileDetailRow(label = "بیو", value = profile.bio ?: "توضیحی وجود ندارد")
                 }
+            }
+        }
+
+        item {
+            Spacer(Modifier.height(12.dp))
+            Surface(color = MaterialTheme.colorScheme.surface) {
+                ListItem(
+                    headlineContent = { Text("تنظیمات امنیت") },
+                    supportingContent = { Text("تغییر رمز عبور حساب کاربری") },
+                    leadingContent = { Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.primary) },
+                    modifier = Modifier.clickable { onChangePassword() }
+                )
             }
         }
     }

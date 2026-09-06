@@ -50,3 +50,21 @@ data class AuthResponseDto(
     val bio: String? = null,
     val profilePictureUrl: String? = null
 )
+
+@Serializable
+data class ChangePasswordRequest(
+    val oldPassword: String,
+    val newPassword: String
+)
+
+@Serializable
+data class PasswordResetRequest(
+    val identifier: String
+)
+
+@Serializable
+data class PasswordResetConfirmRequest(
+    val identifier: String,
+    val code: String,
+    val newPassword: String
+)
