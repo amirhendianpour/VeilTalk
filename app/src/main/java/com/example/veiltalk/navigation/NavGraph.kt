@@ -172,7 +172,12 @@ fun VeilTalkNavGraph(
         composable(Routes.PROFILE) {
             com.example.veiltalk.feature.profile.ui.ProfileScreen(
                 onBack = { navController.popBackStack() },
-                onChangePassword = { navController.navigate(Routes.CHANGE_PASSWORD) }
+                onChangePassword = { navController.navigate(Routes.CHANGE_PASSWORD) },
+                onLoggedOut = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
             )
         }
 

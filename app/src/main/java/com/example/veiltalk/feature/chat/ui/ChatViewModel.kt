@@ -32,7 +32,8 @@ data class ChatUiState(
     val pinnedMessages: List<ChatMessage> = emptyList(),
     val presence: com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence = com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Unknown,
     val myUsername: String = "",
-    val isBlockedByMe: Boolean = false
+    val isBlockedByMe: Boolean = false,
+    val isPartnerDeleted: Boolean = false
 )
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -130,12 +131,15 @@ class ChatViewModel @Inject constructor(
         ChatUiState(
             messages = filteredMessages,
             partnerDisplayName = if (isSavedMessages) "پیام‌های ذخیره شده"
+                                 else if (info?.isDeleted == true) "حساب حذف شده"
                                  else if (info != null) "${info.firstName} ${info.lastName}".trim().ifBlank { partner } 
                                  else partner,
-            partnerProfilePicture = if (isSavedMessages) "special://saved_messages" else info?.profilePictureUrl,
-            isPartnerTyping = if (isSavedMessages) false else typing.contains(partner),
-            isPartnerOnline = if (isSavedMessages) false else presenceMap[partner] is com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Online,
-            presence = if (isSavedMessages) com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Unknown 
+            partnerProfilePicture = if (isSavedMessages) "special://saved_messages" 
+                                     else if (info?.isDeleted == true) "special://deleted_user"
+                                     else info?.profilePictureUrl,
+            isPartnerTyping = if (isSavedMessages || info?.isDeleted == true) false else typing.contains(partner),
+            isPartnerOnline = if (isSavedMessages || info?.isDeleted == true) false else presenceMap[partner] is com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Online,
+            presence = if (isSavedMessages || info?.isDeleted == true) com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Unknown 
                        else (presenceMap[partner] ?: com.example.veiltalk.feature.user.data.UserDirectoryRepository.Presence.Unknown),
             editingMessage = editingMessage,
             replyingMessage = replyingMessage,
@@ -144,7 +148,8 @@ class ChatViewModel @Inject constructor(
             isRecording = _isRecording.value,
             pinnedMessages = messages.filter { it.isPinned },
             myUsername = myUsername ?: "",
-            isBlockedByMe = isBlockedByMe
+            isBlockedByMe = isBlockedByMe,
+            isPartnerDeleted = info?.isDeleted ?: false
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ChatUiState())
 

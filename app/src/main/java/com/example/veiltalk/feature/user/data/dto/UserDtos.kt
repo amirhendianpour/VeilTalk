@@ -12,7 +12,8 @@ data class UserInfoDto(
     val bio: String? = null,
     val profilePictureUrl: String? = null,
     val online: Boolean = false,
-    val lastSeen: String? = null
+    val lastSeen: String? = null,
+    val isDeleted: Boolean = false
 )
 
 @Serializable

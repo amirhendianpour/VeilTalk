@@ -90,11 +90,13 @@ class HomeViewModel @Inject constructor(
             sessionManager.usernameFlow.flatMapLatest { me ->
                 if (me != null) contactDao.getContactsFlow(me) else flowOf(emptyList())
             }.collect { entities ->
+                val usernames = entities.map { it.username }
+                userDirectory.ensureLoaded(usernames)
                 _contacts.value = entities.map { e ->
                     HomeListItem.ChatItem(
                         username = e.username,
-                        displayName = "${e.firstName} ${e.lastName}".trim().ifBlank { e.username },
-                        profilePictureUrl = e.profilePictureUrl,
+                        displayName = userDirectory.getDisplayName(e.username),
+                        profilePictureUrl = userDirectory.getProfilePicture(e.username),
                         time = "", 
                         lastMessage = "", 
                         unreadCount = 0
@@ -148,14 +150,13 @@ class HomeViewModel @Inject constructor(
                 userDirectory.ensureLoaded(summaries.map { it.partner })
 
                 val chatItems = summaries.map { summary ->
-                    val info = directory[summary.partner]
                     val isSavedMessages = summary.partner == myUsername
                     HomeListItem.ChatItem(
                         username = summary.partner,
                         displayName = if (isSavedMessages) "پیام‌های ذخیره شده" 
-                                     else if (info != null) "${info.firstName} ${info.lastName}".trim().ifBlank { summary.partner } 
-                                     else summary.partner,
-                        profilePictureUrl = if (isSavedMessages) "special://saved_messages" else info?.profilePictureUrl,
+                                     else userDirectory.getDisplayName(summary.partner),
+                        profilePictureUrl = if (isSavedMessages) "special://saved_messages" 
+                                            else userDirectory.getProfilePicture(summary.partner),
                         time = summary.timestamp ?: "",
                         lastMessage = summary.lastMessage,
                         unreadCount = summary.unreadCount

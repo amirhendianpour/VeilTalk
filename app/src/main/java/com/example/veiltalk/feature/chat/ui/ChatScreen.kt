@@ -326,7 +326,7 @@ fun ChatScreen(
             }
         },
         bottomBar = {
-            if (!isSelectionMode && !uiState.isBlockedByMe) {
+            if (!isSelectionMode && !uiState.isBlockedByMe && !uiState.isPartnerDeleted) {
                 ChatInputBar(
                     value = inputText,
                     onValueChange = viewModel::onInputChange,
@@ -405,6 +405,21 @@ fun ChatScreen(
                                 Text("رفع مسدودیت", fontSize = 12.sp)
                             }
                         }
+                    }
+                }
+
+                if (uiState.isPartnerDeleted) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "این حساب کاربری حذف شده است.",
+                            modifier = Modifier.padding(12.dp),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
 

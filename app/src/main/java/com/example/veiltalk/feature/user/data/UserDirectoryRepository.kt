@@ -47,11 +47,22 @@ class UserDirectoryRepository @Inject constructor(
 
     fun getDisplayName(username: String): String {
         val info = _directory.value[username] ?: return username
+        if (info.isDeleted) return "حساب حذف شده"
         val full = "${info.firstName} ${info.lastName}".trim()
         return full.ifBlank { username }
     }
 
-    fun getProfilePicture(username: String): String? = _directory.value[username]?.profilePictureUrl
+    fun getProfilePicture(username: String): String? {
+        val info = _directory.value[username]
+        if (info?.isDeleted == true) return "special://deleted_user"
+        return info?.profilePictureUrl
+    }
+
+    fun clearAll() {
+        _directory.value = emptyMap()
+        _presenceMap.value = emptyMap()
+        pending.clear()
+    }
 
     fun setUserInfo(info: UserInfoDto) {
         val current = _directory.value[info.username]
@@ -167,6 +178,12 @@ class UserDirectoryRepository @Inject constructor(
                 val info = response.body()!!
                 setUserInfo(info)
                 Result.success(info)
+            } else if (response.code() == 404) {
+                // اگر با یوزرنیم دقیق جستجو شده بود و پیدا نشد، احتمالا پاک شده
+                if (!identifier.contains("@") && identifier.all { it.isLetterOrDigit() || it == '_' }) {
+                    setUserInfo(UserInfoDto(identifier, "", "", isDeleted = true))
+                }
+                Result.failure(Exception("کاربری با این مشخصات یافت نشد."))
             } else {
                 Result.failure(Exception("کاربری با این مشخصات یافت نشد."))
             }
@@ -186,7 +203,14 @@ class UserDirectoryRepository @Inject constructor(
             val response = api.batchInfo(BatchInfoRequestDto(usernames))
             if (response.isSuccessful) {
                 val results = response.body().orEmpty()
-                _directory.value = _directory.value + results.associateBy { it.username }
+                val foundUsernames = results.map { it.username }.toSet()
+                
+                // یوزرهایی که درخواست دادیم ولی در جواب نبودند -> حذف شده‌اند
+                val deletedInfos = usernames.filter { it !in foundUsernames }.associateWith { 
+                    UserInfoDto(it, "", "", isDeleted = true)
+                }
+
+                _directory.value = _directory.value + results.associateBy { it.username } + deletedInfos
                 
                 // بروزرسانی وضعیت حضور بر اساس دیتای دریافت شده
                 val newPresence = results.associate { it.username to if (it.online) Presence.Online else Presence.Offline(it.lastSeen) }

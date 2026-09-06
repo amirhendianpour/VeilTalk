@@ -196,7 +196,10 @@ fun GroupChatScreen(
                     onSendGif = viewModel::sendGif,
                     isEditing = uiState.editingMessage != null,
                     replyingMessageContent = uiState.replyingMessage?.content,
-                    replyingMessageSender = uiState.replyingMessage?.let { if (it.sender == uiState.myUsername) "شما" else userDirectory.getDisplayName(it.sender ?: "") },
+                    replyingMessageSender = uiState.replyingMessage?.let { 
+                        if (it.sender == uiState.myUsername) "شما" 
+                        else userDirectory.getDisplayName(it.sender ?: "") 
+                    },
                     onCancelEdit = viewModel::cancelEditing,
                     onCancelReply = viewModel::cancelReplying,
                     isUploading = isUploading,

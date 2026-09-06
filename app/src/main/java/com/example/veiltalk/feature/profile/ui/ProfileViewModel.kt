@@ -31,6 +31,7 @@ data class ProfileUiState(
     val oldPasswordInput: String = "",
     val newPasswordInput: String = "",
     val isChangingPassword: Boolean = false,
+    val isDeletingAccount: Boolean = false,
     val error: String? = null
 )
 
@@ -191,6 +192,21 @@ class ProfileViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(isUploadingAvatar = false, error = e.message)
+                }
+        }
+    }
+
+    fun deleteAccount(onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isDeletingAccount = true, error = null)
+            repository.deleteAccount()
+                .onSuccess { 
+                    _uiState.value = _uiState.value.copy(isDeletingAccount = false)
+                    _uiEvent.emit("حساب کاربری شما با موفقیت حذف شد.")
+                    onSuccess()
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(isDeletingAccount = false, error = e.message)
                 }
         }
     }

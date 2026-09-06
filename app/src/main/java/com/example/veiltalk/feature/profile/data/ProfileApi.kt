@@ -17,4 +17,7 @@ interface ProfileApi {
     @Multipart
     @POST("api/users/me/avatar")
     suspend fun uploadAvatar(@Part file: MultipartBody.Part): Response<UserProfileResponseDto>
+
+    @DELETE("api/users/me")
+    suspend fun deleteAccount(): Response<Map<String, String>>
 }

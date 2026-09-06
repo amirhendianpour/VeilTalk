@@ -99,23 +99,23 @@ fun UserProfileScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         AvatarView(
-                            name = "${user.firstName} ${user.lastName}",
-                            imageUrl = user.profilePictureUrl,
+                            name = if (user.isDeleted) "حساب حذف شده" else "${user.firstName} ${user.lastName}",
+                            imageUrl = if (user.isDeleted) "special://deleted_user" else user.profilePictureUrl,
                             size = 120.dp,
                             colorSeed = user.username,
                             modifier = Modifier.clickable {
-                                if (user.profilePictureUrl != null) showFullScreenImage = true
+                                if (user.profilePictureUrl != null && !user.isDeleted) showFullScreenImage = true
                             }
                         )
                         Spacer(Modifier.height(16.dp))
                         Text(
-                            text = "${user.firstName} ${user.lastName}",
+                            text = if (user.isDeleted) "حساب حذف شده" else "${user.firstName} ${user.lastName}",
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "@${user.username}",
+                            text = if (user.isDeleted) "این کاربر از VeilTalk خارج شده است." else "@${user.username}",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
@@ -123,121 +123,131 @@ fun UserProfileScreen(
                 }
             }
 
-            item { Spacer(Modifier.height(12.dp)) }
+            if (!user.isDeleted) {
+                item { Spacer(Modifier.height(12.dp)) }
 
-            // دکمه‌های عملیاتی سریع
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    QuickActionButton(
-                        icon = Icons.AutoMirrored.Filled.Chat,
-                        label = "پیام",
-                        modifier = Modifier.weight(1f)
-                    ) { onStartChat(user.username) }
-                    
-                    QuickActionButton(
-                        icon = Icons.Default.Call,
-                        label = "تماس صوتی",
-                        modifier = Modifier.weight(1f)
-                    ) { onStartCall(user.username, false) }
-                    
-                    QuickActionButton(
-                        icon = Icons.Default.Videocam,
-                        label = "تماس تصویری",
-                        modifier = Modifier.weight(1f)
-                    ) { onStartCall(user.username, true) }
-                }
-            }
-
-            item { Spacer(Modifier.height(24.dp)) }
-
-            // بخش اطلاعات (بیوگرافی و ...)
-            item {
-                Surface(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surface
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        InfoRow(
-                            icon = Icons.Default.Info,
-                            title = "بیوگرافی",
-                            value = user.bio?.takeIf { it.isNotBlank() } ?: "توضیحی وجود ندارد."
-                        )
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                        )
-                        InfoRow(
-                            icon = Icons.Default.Person,
-                            title = "نام کاربری",
-                            value = "@${user.username}"
-                        )
+                // دکمه‌های عملیاتی سریع
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        QuickActionButton(
+                            icon = Icons.AutoMirrored.Filled.Chat,
+                            label = "پیام",
+                            modifier = Modifier.weight(1f)
+                        ) { onStartChat(user.username) }
                         
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                        )
-                        InfoRow(
+                        QuickActionButton(
                             icon = Icons.Default.Call,
-                            title = "شماره موبایل",
-                            value = user.phoneNumber?.takeIf { it.isNotBlank() } ?: "ثبت نشده"
-                        )
-
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                        )
-                        InfoRow(
-                            icon = Icons.Default.Email,
-                            title = "ایمیل",
-                            value = user.email?.takeIf { it.isNotBlank() } ?: "ثبت نشده"
-                        )
+                            label = "تماس صوتی",
+                            modifier = Modifier.weight(1f)
+                        ) { onStartCall(user.username, false) }
+                        
+                        QuickActionButton(
+                            icon = Icons.Default.Videocam,
+                            label = "تماس تصویری",
+                            modifier = Modifier.weight(1f)
+                        ) { onStartCall(user.username, true) }
                     }
                 }
             }
 
             item { Spacer(Modifier.height(24.dp)) }
 
-            // دکمه بلاک
-            item {
-                Surface(
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .clickable {
-                            if (uiState.isBlocked) viewModel.toggleBlock()
-                            else showBlockDialog = true
-                        },
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surface
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+            // بخش اطلاعات (بیوگرافی و ...)
+            if (!user.isDeleted) {
+                item {
+                    Surface(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surface
                     ) {
-                        if (uiState.isActionLoading) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Block,
-                                contentDescription = null,
-                                tint = if (uiState.isBlocked) MaterialTheme.colorScheme.primary else Color.Red,
-                                modifier = Modifier.size(20.dp)
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            InfoRow(
+                                icon = Icons.Default.Info,
+                                title = "بیوگرافی",
+                                value = user.bio?.takeIf { it.isNotBlank() } ?: "توضیحی وجود ندارد."
+                            )
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 12.dp),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                            )
+                            InfoRow(
+                                icon = Icons.Default.Person,
+                                title = "نام کاربری",
+                                value = "@${user.username}"
+                            )
+                            
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 12.dp),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                            )
+                            InfoRow(
+                                icon = Icons.Default.Call,
+                                title = "شماره موبایل",
+                                value = user.phoneNumber?.takeIf { it.isNotBlank() } ?: "ثبت نشده"
+                            )
+
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 12.dp),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                            )
+                            InfoRow(
+                                icon = Icons.Default.Email,
+                                title = "ایمیل",
+                                value = user.email?.takeIf { it.isNotBlank() } ?: "ثبت نشده"
                             )
                         }
-                        Spacer(Modifier.width(16.dp))
-                        Text(
-                            text = if (uiState.isBlocked) "رفع مسدودیت" else "بلاک کردن کاربر",
-                            color = if (uiState.isBlocked) MaterialTheme.colorScheme.primary else Color.Red,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Bold
-                        )
+                    }
+                }
+
+                item { Spacer(Modifier.height(24.dp)) }
+
+                // دکمه بلاک
+                item {
+                    Surface(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .clickable {
+                                if (uiState.isBlocked) viewModel.toggleBlock()
+                                else showBlockDialog = true
+                            },
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surface
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (uiState.isActionLoading) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Block,
+                                    contentDescription = null,
+                                    tint = if (uiState.isBlocked) MaterialTheme.colorScheme.primary else Color.Red,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(Modifier.width(16.dp))
+                            Text(
+                                text = if (uiState.isBlocked) "رفع مسدودیت" else "بلاک کردن کاربر",
+                                color = if (uiState.isBlocked) MaterialTheme.colorScheme.primary else Color.Red,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            } else {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Text("این حساب کاربری غیرفعال شده است.", color = Color.Gray)
                     }
                 }
             }

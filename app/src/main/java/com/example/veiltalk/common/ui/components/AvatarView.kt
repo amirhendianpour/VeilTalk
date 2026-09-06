@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.NoAccounts
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +56,21 @@ fun AvatarView(
         ) {
             Icon(
                 imageVector = Icons.Default.Bookmark,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(size * 0.6f)
+            )
+        }
+    } else if (imageUrl == "special://deleted_user") {
+        Box(
+            modifier = modifier
+                .size(size)
+                .clip(CircleShape)
+                .background(Color.Gray.copy(alpha = 0.5f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.NoAccounts,
                 contentDescription = null,
                 tint = Color.White,
                 modifier = Modifier.size(size * 0.6f)

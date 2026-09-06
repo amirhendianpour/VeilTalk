@@ -9,6 +9,8 @@ import com.example.veiltalk.feature.profile.data.dto.UserProfileResponseDto
 import com.example.veiltalk.feature.user.data.UserDirectoryRepository
 import com.example.veiltalk.feature.user.data.dto.UserInfoDto
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.withContext
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -17,6 +19,7 @@ class ProfileRepository @Inject constructor(
     private val api: ProfileApi,
     private val sessionManager: SessionManager,
     private val userDirectory: UserDirectoryRepository,
+    private val database: com.example.veiltalk.core.database.AppDatabase,
     @ApplicationContext private val appContext: Context
 ) {
     suspend fun getMyProfile(): Result<UserProfileResponseDto> {
@@ -71,6 +74,37 @@ class ProfileRepository @Inject constructor(
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    suspend fun deleteAccount(): Result<String> {
+        return try {
+            val response = api.deleteAccount()
+            if (response.isSuccessful) {
+                clearAllLocalData()
+                Result.success(response.body()?.get("message") ?: "حساب با موفقیت حذف شد.")
+            } else {
+                Result.failure(Exception("خطا در حذف حساب کاربری"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private suspend fun clearAllLocalData() {
+        withContext(kotlinx.coroutines.Dispatchers.IO) {
+            // ۱. پاک کردن دیتابیس محلی
+            database.clearAllTables()
+
+            // ۲. پاک کردن فایل‌های دانلود شده و کش
+            val downloadsDir = File(appContext.cacheDir, "downloads")
+            if (downloadsDir.exists()) {
+                downloadsDir.deleteRecursively()
+            }
+            
+            // ۳. پاک کردن سشن و اطلاعات کاربر
+            userDirectory.clearAll()
+            sessionManager.clearSession()
         }
     }
 

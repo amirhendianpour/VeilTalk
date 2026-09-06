@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,9 +27,11 @@ import kotlinx.coroutines.launch
 fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
     onBack: () -> Unit,
-    onChangePassword: () -> Unit
+    onChangePassword: () -> Unit,
+    onLoggedOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showDeleteDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -153,6 +156,20 @@ fun ProfileScreen(
                         Spacer(Modifier.width(8.dp))
                         Text("تغییر رمز عبور")
                     }
+                    
+                    TextButton(
+                        onClick = { showDeleteDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteForever,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("حذف حساب کاربری")
+                    }
                 } else {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         OutlinedTextField(
@@ -213,6 +230,30 @@ fun ProfileScreen(
                     onSave = viewModel::saveProfilePicture
                 )
             }
+        }
+
+        if (showDeleteDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                title = { Text("حذف حساب کاربری") },
+                text = { Text("آیا واقعاً می‌خواهید حساب کاربری خود را حذف کنید؟ این عمل غیرقابل بازگشت است و تمام چت‌ها، گروه‌ها و اطلاعات شما برای همیشه پاک خواهد شد.") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showDeleteDialog = false
+                            viewModel.deleteAccount(onLoggedOut)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    ) {
+                        Text("حذف دائم حساب", color = Color.White)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteDialog = false }) {
+                        Text("انصراف")
+                    }
+                }
+            )
         }
     }
 }
