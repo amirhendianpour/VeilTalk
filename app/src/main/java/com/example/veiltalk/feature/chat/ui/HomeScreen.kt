@@ -504,12 +504,17 @@ fun HomeScreen(
                         }
                     }
                 } else {
+                    val unregisteredContacts by viewModel.unregisteredContacts.collectAsState()
                     ContactsTab(
                         allItems = contacts,
+                        unregisteredItems = unregisteredContacts,
                         isSyncing = uiState.isSyncingContacts,
                         onSync = viewModel::syncContacts,
                         onOpenChat = onOpenChat,
-                        onOpenProfile = onOpenProfile
+                        onOpenProfile = onOpenProfile,
+                        onInvite = { phoneNumber -> 
+                            com.example.veiltalk.common.util.InvitationHelper.inviteViaSms(context, phoneNumber) 
+                        }
                     )
                 }
             } else if (bottomNavTab == 3) {
@@ -561,10 +566,12 @@ fun HomeScreen(
 @Composable
 private fun ContactsTab(
     allItems: List<HomeListItem.ChatItem>,
+    unregisteredItems: List<com.example.veiltalk.feature.user.data.ContactSyncRepository.PhoneContact>,
     isSyncing: Boolean,
     onSync: () -> Unit,
     onOpenChat: (String) -> Unit,
-    onOpenProfile: (String) -> Unit
+    onOpenProfile: (String) -> Unit,
+    onInvite: (String) -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -585,21 +592,57 @@ private fun ContactsTab(
                 modifier = Modifier.clickable { /* logic to add contact */ }
             )
         }
-        items(allItems, key = { it.username }) { item ->
-            ListItem(
-                headlineContent = { Text(item.displayName, fontWeight = FontWeight.SemiBold) },
-                supportingContent = { Text("آخرین بازدید اخیراً", fontSize = 12.sp) },
-                leadingContent = {
-                    AvatarView(
-                        name = item.displayName,
-                        imageUrl = item.profilePictureUrl,
-                        size = 40.dp,
-                        colorSeed = item.username,
-                        modifier = Modifier.clickable { onOpenProfile(item.username) }
-                    )
-                },
-                modifier = Modifier.clickable { onOpenChat(item.username) }
-            )
+
+        if (allItems.isNotEmpty()) {
+            item {
+                Text(
+                    "مخاطبین VeilTalk",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = primaryColor,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+            items(allItems, key = { it.username }) { item ->
+                ListItem(
+                    headlineContent = { Text(item.displayName, fontWeight = FontWeight.SemiBold) },
+                    supportingContent = { Text("آخرین بازدید اخیراً", fontSize = 12.sp) },
+                    leadingContent = {
+                        AvatarView(
+                            name = item.displayName,
+                            imageUrl = item.profilePictureUrl,
+                            size = 40.dp,
+                            colorSeed = item.username,
+                            modifier = Modifier.clickable { onOpenProfile(item.username) }
+                        )
+                    },
+                    modifier = Modifier.clickable { onOpenChat(item.username) }
+                )
+            }
+        }
+
+        if (unregisteredItems.isNotEmpty()) {
+            item {
+                Text(
+                    "دعوت به VeilTalk",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = primaryColor,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+            items(unregisteredItems, key = { it.phoneNumber }) { contact ->
+                ListItem(
+                    headlineContent = { Text(contact.name, fontWeight = FontWeight.Medium) },
+                    supportingContent = { Text(contact.phoneNumber, fontSize = 12.sp) },
+                    leadingContent = {
+                        AvatarView(name = contact.name, size = 40.dp, colorSeed = contact.phoneNumber)
+                    },
+                    trailingContent = {
+                        TextButton(onClick = { onInvite(contact.phoneNumber) }) {
+                            Text("دعوت")
+                        }
+                    }
+                )
+            }
         }
     }
 }

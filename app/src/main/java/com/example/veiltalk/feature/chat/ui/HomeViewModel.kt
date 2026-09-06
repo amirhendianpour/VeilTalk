@@ -27,6 +27,7 @@ sealed class HomeListItem {
         val username: String,
         val displayName: String,
         val profilePictureUrl: String?,
+        val phoneNumber: String? = null,
         override val time: String,
         override val lastMessage: String,
         override val unreadCount: Int
@@ -77,6 +78,9 @@ class HomeViewModel @Inject constructor(
     private val _contacts = MutableStateFlow<List<HomeListItem.ChatItem>>(emptyList())
     val contacts: StateFlow<List<HomeListItem.ChatItem>> = _contacts.asStateFlow()
 
+    private val _unregisteredContacts = MutableStateFlow<List<ContactSyncRepository.PhoneContact>>(emptyList())
+    val unregisteredContacts: StateFlow<List<ContactSyncRepository.PhoneContact>> = _unregisteredContacts.asStateFlow()
+
     private val _searchQuery = MutableStateFlow("")
 
     init {
@@ -97,6 +101,7 @@ class HomeViewModel @Inject constructor(
                         username = e.username,
                         displayName = userDirectory.getDisplayName(e.username),
                         profilePictureUrl = userDirectory.getProfilePicture(e.username),
+                        phoneNumber = e.phoneNumber,
                         time = "", 
                         lastMessage = "", 
                         unreadCount = 0
@@ -151,12 +156,14 @@ class HomeViewModel @Inject constructor(
 
                 val chatItems = summaries.map { summary ->
                     val isSavedMessages = summary.partner == myUsername
+                    val info = directory[summary.partner]
                     HomeListItem.ChatItem(
                         username = summary.partner,
                         displayName = if (isSavedMessages) "پیام‌های ذخیره شده" 
                                      else userDirectory.getDisplayName(summary.partner),
                         profilePictureUrl = if (isSavedMessages) "special://saved_messages" 
                                             else userDirectory.getProfilePicture(summary.partner),
+                        phoneNumber = info?.phoneNumber,
                         time = summary.timestamp ?: "",
                         lastMessage = summary.lastMessage,
                         unreadCount = summary.unreadCount
@@ -212,6 +219,15 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSyncingContacts = true)
             contactSyncRepository.syncContacts()
+            
+            // After sync, find who's NOT registered
+            val allPhoneContacts = contactSyncRepository.fetchAllPhoneContacts()
+            val registeredNumbers = _contacts.value.mapNotNull { it.phoneNumber }.toSet()
+            
+            _unregisteredContacts.value = allPhoneContacts.filter { 
+                it.phoneNumber !in registeredNumbers && it.phoneNumber != _uiState.value.myUsername
+            }
+
             _uiState.value = _uiState.value.copy(isSyncingContacts = false)
         }
     }

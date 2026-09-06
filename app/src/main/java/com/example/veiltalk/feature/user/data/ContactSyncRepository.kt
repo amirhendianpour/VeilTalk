@@ -66,7 +66,40 @@ class ContactSyncRepository @Inject constructor(
         }
     }
 
+    data class PhoneContact(val name: String, val phoneNumber: String)
+
+    suspend fun fetchAllPhoneContacts(): List<PhoneContact> = withContext(Dispatchers.IO) {
+        val contacts = mutableListOf<PhoneContact>()
+        val contentResolver = context.contentResolver
+        val cursor = contentResolver.query(
+            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+            arrayOf(
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                ContactsContract.CommonDataKinds.Phone.NUMBER
+            ),
+            null,
+            null,
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC"
+        )
+
+        cursor?.use {
+            val nameIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+            val numberIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+            while (it.moveToNext()) {
+                val name = it.getString(nameIndex) ?: ""
+                val rawNumber = it.getString(numberIndex) ?: ""
+                val cleanNumber = sanitizePhoneNumber(rawNumber)
+                if (cleanNumber.isNotBlank()) {
+                    contacts.add(PhoneContact(name, cleanNumber))
+                }
+            }
+        }
+        // Group by number to avoid duplicates if one person has multiple entries
+        contacts.distinctBy { it.phoneNumber }
+    }
+
     private fun fetchPhoneNumbers(): List<String> {
+        // ... (Keep existing implementation for internal sync use, or just map fetchAllPhoneContacts)
         val numbers = mutableSetOf<String>()
         val contentResolver = context.contentResolver
         val cursor = contentResolver.query(
@@ -81,7 +114,6 @@ class ContactSyncRepository @Inject constructor(
             val numberIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
             while (it.moveToNext()) {
                 val rawNumber = it.getString(numberIndex)
-                // تمیز کردن شماره: حذف فاصله، پرانتز و خط تیره
                 val cleanNumber = sanitizePhoneNumber(rawNumber)
                 if (cleanNumber.isNotBlank()) {
                     numbers.add(cleanNumber)
