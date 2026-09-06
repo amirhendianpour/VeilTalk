@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import kotlinx.coroutines.launch
 import coil.compose.AsyncImage
@@ -36,12 +37,16 @@ import com.example.veiltalk.common.ui.components.FullScreenImageViewer
 import com.example.veiltalk.feature.group.ui.CreateGroupDialog
 import com.example.veiltalk.feature.profile.ui.ProfileViewModel
 import com.example.veiltalk.feature.profile.ui.ProfileMode
+import com.example.veiltalk.feature.story.ui.StoryViewModel
+import com.example.veiltalk.feature.story.ui.components.StoriesRow
+import com.example.veiltalk.feature.story.ui.StoryViewerScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     profileViewModel: ProfileViewModel = hiltViewModel(),
+    storyViewModel: StoryViewModel = hiltViewModel(),
     callViewModel: com.example.veiltalk.feature.call.ui.CallViewModel = hiltViewModel(),
     onOpenChat: (username: String) -> Unit,
     onOpenGroup: (groupId: Long) -> Unit,
@@ -57,10 +62,19 @@ fun HomeScreen(
     // دریافت وضعیت آنلاینی از UserDirectoryEntryPointViewModel یک‌بار در سطح بالا
     val userDirViewModel = hiltViewModel<com.example.veiltalk.feature.user.ui.UserDirectoryEntryPointViewModel>()
     val presenceMap by userDirViewModel.repository.presenceMap.collectAsState()
+    val storyState by storyViewModel.uiState.collectAsState()
 
     val context = LocalContext.current
     var tab by remember { mutableStateOf(HomeTab.ALL) }
     var bottomNavTab by remember { mutableIntStateOf(0) }
+
+    var viewingStoriesUser by remember { mutableStateOf<String?>(null) }
+    
+    val storyPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { storyViewModel.postStory(it) }
+    }
     
     val contactPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -347,6 +361,17 @@ fun HomeScreen(
                     Tab(selected = tab == HomeTab.GROUPS, onClick = { tab = HomeTab.GROUPS }, text = { Text("گروه‌ها") })
                 }
 
+                if (tab != HomeTab.GROUPS) {
+                    StoriesRow(
+                        myUsername = uiState.myUsername,
+                        myProfilePicture = uiState.myProfilePictureUrl,
+                        stories = storyState.stories,
+                        onAddStory = { storyPicker.launch("image/*") },
+                        onViewStory = { viewingStoriesUser = it }
+                    )
+                    HorizontalDivider(thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.3f))
+                }
+
                 if (showNewChatField && tab != HomeTab.GROUPS) {
                     Row(
                         modifier = Modifier
@@ -515,6 +540,21 @@ fun HomeScreen(
                 viewModel.createGroup(name) { groupId -> onOpenGroup(groupId) }
             }
         )
+    }
+
+    if (viewingStoriesUser != null) {
+        val userStories = storyState.stories[viewingStoriesUser].orEmpty()
+        if (userStories.isNotEmpty()) {
+            Dialog(
+                onDismissRequest = { viewingStoriesUser = null },
+                properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                StoryViewerScreen(
+                    stories = userStories,
+                    onClose = { viewingStoriesUser = null }
+                )
+            }
+        }
     }
 }
 

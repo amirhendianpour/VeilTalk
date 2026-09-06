@@ -2,6 +2,7 @@ package com.example.veiltalk.feature.user.data.di
 
 import com.example.veiltalk.feature.user.data.UserApi
 import com.example.veiltalk.feature.user.data.BlockApi
+import com.example.veiltalk.feature.story.data.StoryApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -22,4 +23,9 @@ object UserModule {
     @Singleton
     fun provideBlockApi(retrofit: Retrofit): BlockApi =
         retrofit.create(BlockApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideStoryApi(retrofit: Retrofit): StoryApi =
+        retrofit.create(StoryApi::class.java)
 }
