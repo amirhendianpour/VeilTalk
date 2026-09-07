@@ -22,12 +22,13 @@ fun LocationMessageItem(
     lat: Double,
     lng: Double,
     isMine: Boolean,
+    isDark: Boolean,
     isLive: Boolean = false,
     onStopLive: () -> Unit = {},
     onClick: () -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
-    val contentColor = if (isMine) Color.White else MaterialTheme.colorScheme.onSurface
+    val contentColor = if (isDark) VeilWhite else Color.Black
 
     Surface(
         modifier = Modifier

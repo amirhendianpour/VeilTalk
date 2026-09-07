@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -67,7 +68,7 @@ fun GroupChatScreen(
     var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
     var showLocationSelection by remember { mutableStateOf(false) }
 
-    val isDark = false // TODO: Handle theme
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
     val userDirectory = viewModel.userDirectory
 
@@ -426,6 +427,7 @@ private fun GroupMessageBubble(
                         lat = lat,
                         lng = lng,
                         isMine = mine,
+                        isDark = isDark,
                         isLive = message.messageType == MessageType.LIVE_LOCATION,
                         onStopLive = {
                             com.example.veiltalk.feature.chat.service.LiveLocationService.stop(context)

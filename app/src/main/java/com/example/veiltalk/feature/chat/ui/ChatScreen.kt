@@ -749,6 +749,7 @@ private fun MessageBubble(
                         lat = lat,
                         lng = lng,
                         isMine = mine,
+                        isDark = isDark,
                         isLive = message.messageType == MessageType.LIVE_LOCATION,
                         onStopLive = {
                             com.example.veiltalk.feature.chat.service.LiveLocationService.stop(context)
