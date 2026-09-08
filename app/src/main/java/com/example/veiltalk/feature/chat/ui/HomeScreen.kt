@@ -40,6 +40,7 @@ import com.example.veiltalk.feature.profile.ui.ProfileMode
 import com.example.veiltalk.feature.story.ui.StoryViewModel
 import com.example.veiltalk.feature.story.ui.components.StoriesRow
 import com.example.veiltalk.feature.story.ui.StoryViewerScreen
+import com.example.veiltalk.feature.chat.ui.components.NewChatSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,6 +102,7 @@ fun HomeScreen(
     }
     var newChatInput by remember { mutableStateOf("") }
     var showNewChatField by remember { mutableStateOf(false) }
+    var showNewChatSheet by remember { mutableStateOf(false) }
     var showCreateGroup by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var isSearchMode by remember { mutableStateOf(false) }
@@ -341,17 +343,38 @@ fun HomeScreen(
         floatingActionButton = {
             if (bottomNavTab == 0) {
                 FloatingActionButton(
-                    onClick = {
-                        if (tab == HomeTab.GROUPS) showCreateGroup = true else showNewChatField = true
-                    },
+                    onClick = { showNewChatSheet = true },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = Color.White
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "جدید")
+                    Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "چت جدید")
                 }
             }
         }
     ) { padding ->
+        if (showNewChatSheet) {
+            NewChatSheet(
+                contacts = contacts,
+                onClose = { showNewChatSheet = false },
+                onNewGroup = {
+                    showNewChatSheet = false
+                    showCreateGroup = true
+                },
+                onNewContact = {
+                    showNewChatSheet = false
+                    onOpenQrCode()
+                },
+                onInvite = {
+                    showNewChatSheet = false
+                    bottomNavTab = 2 // برو به تب مخاطبین برای دعوت
+                },
+                onSelectContact = { username ->
+                    showNewChatSheet = false
+                    onOpenChat(username)
+                }
+            )
+        }
+
         Column(modifier = Modifier.padding(padding)) {
             if (bottomNavTab == 0) {
                 PrimaryTabRow(
