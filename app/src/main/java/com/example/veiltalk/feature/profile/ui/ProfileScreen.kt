@@ -17,12 +17,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import coil.compose.AsyncImage
 import com.example.veiltalk.common.ui.components.AvatarView
 import com.example.veiltalk.common.ui.components.FullScreenImageViewer
 import com.example.veiltalk.common.ui.components.ImageCropperDialog
 import android.net.Uri
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

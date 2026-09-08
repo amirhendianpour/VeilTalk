@@ -206,4 +206,19 @@ fun BackupScreen(
             }
         }
     }
+
+    if (uiState.isRestoreSuccess) {
+        AlertDialog(
+            onDismissRequest = { /* Force exit */ },
+            title = { Text("بازیابی موفقیت‌آمیز") },
+            text = { Text("اطلاعات با موفقیت بازیابی شد. برای اعمال تغییرات، اپلیکیشن باید بسته شود. لطفاً دوباره آن را باز کنید.") },
+            confirmButton = {
+                Button(onClick = { 
+                    android.os.Process.killProcess(android.os.Process.myPid())
+                }) {
+                    Text("بستن اپلیکیشن")
+                }
+            }
+        )
+    }
 }

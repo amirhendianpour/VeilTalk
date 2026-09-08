@@ -15,6 +15,7 @@ import javax.inject.Inject
 
 data class BackupUiState(
     val isLoading: Boolean = false,
+    val isRestoreSuccess: Boolean = false,
     val recoveryCode: String? = null,
     val showRecoveryCodeDialog: Boolean = false,
     val error: String? = null
@@ -60,13 +61,11 @@ class BackupViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             backupManager.restoreBackup(sourceUri, recoveryCode)
                 .onSuccess {
-                    _uiEvent.emit("اطلاعات با موفقیت بازیابی شد. اپلیکیشن را دوباره باز کنید.")
-                    // در دنیای واقعی اینجا باید اپلیکیشن را ریستارت کرد
+                    _uiState.value = _uiState.value.copy(isRestoreSuccess = true, isLoading = false)
                 }
                 .onFailure { e ->
-                    _uiState.value = _uiState.value.copy(error = "کد نامعتبر است یا فایل بک‌آپ مشکل دارد.")
+                    _uiState.value = _uiState.value.copy(error = "کد نامعتبر است یا فایل بک‌آپ مشکل دارد.", isLoading = false)
                 }
-            _uiState.value = _uiState.value.copy(isLoading = false)
         }
     }
 }

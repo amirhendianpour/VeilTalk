@@ -43,7 +43,11 @@ class BackupManager @Inject constructor(
             val cleanCode = recoveryCode.replace("-", "")
             val dbFile = context.getDatabasePath(DB_NAME)
             
-            // ۱. بستن موقت دیتابیس برای جلوگیری از خرابی (Corruption)
+            // ۱. اعمال تغییرات معلق (Checkpoint) برای اطمینان از اینکه دیتای WAL در فایل اصلی نوشته شده
+            val db = database.openHelper.writableDatabase
+            db.query("PRAGMA wal_checkpoint(FULL)").close()
+            
+            // ۲. بستن موقت دیتابیس
             database.close()
 
             val salt = ByteArray(16).apply { SecureRandom().nextBytes(this) }
@@ -54,7 +58,6 @@ class BackupManager @Inject constructor(
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
 
             context.contentResolver.openOutputStream(targetUri)?.use { outputStream ->
-                // ذخیره Salt و IV در ابتدای فایل
                 outputStream.write(salt)
                 outputStream.write(iv)
                 
@@ -82,6 +85,11 @@ class BackupManager @Inject constructor(
         try {
             val cleanCode = recoveryCode.replace("-", "")
             val dbFile = context.getDatabasePath(DB_NAME)
+            val shmFile = File(dbFile.path + "-shm")
+            val walFile = File(dbFile.path + "-wal")
+
+            // ایجاد یک فایل موقت برای دکریپت کردن
+            val tempDbFile = File(context.cacheDir, "temp_restore.db")
 
             context.contentResolver.openInputStream(sourceUri)?.use { inputStream ->
                 val salt = ByteArray(16)
@@ -93,9 +101,7 @@ class BackupManager @Inject constructor(
                 val cipher = Cipher.getInstance("AES/GCM/NoPadding")
                 cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
 
-                database.close()
-
-                FileOutputStream(dbFile).use { outputStream ->
+                FileOutputStream(tempDbFile).use { outputStream ->
                     val buffer = ByteArray(8192)
                     var bytesRead: Int
                     while (inputStream.read(buffer).also { bytesRead = it } != -1) {
@@ -106,6 +112,20 @@ class BackupManager @Inject constructor(
                     if (finalOutput != null) outputStream.write(finalOutput)
                 }
             }
+
+            // ۱. بستن دیتابیس فعلی
+            database.close()
+
+            // ۲. حذف فایل‌های WAL و SHM قدیمی (بسیار مهم)
+            if (shmFile.exists()) shmFile.delete()
+            if (walFile.exists()) walFile.delete()
+
+            // ۳. جایگزینی فایل اصلی با فایل دکریپت شده
+            if (tempDbFile.exists()) {
+                tempDbFile.copyTo(dbFile, overwrite = true)
+                tempDbFile.delete()
+            }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
