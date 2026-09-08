@@ -28,6 +28,7 @@ object Routes {
     const val FORGOT_PASSWORD = "forgotPassword"
     const val RESET_PASSWORD = "resetPassword/{identifier}"
     const val BLOCKED_USERS = "blockedUsers"
+    const val BACKUP = "backup"
     const val QR_CODE = "qrCode"
     const val HOME = "home"
     const val CHAT = "chat/{username}"
@@ -86,6 +87,7 @@ fun VeilTalkNavGraph(
                 onOpenProfile = { username -> navController.navigate(Routes.userProfileRoute(username)) },
                 onOpenMyProfile = { navController.navigate(Routes.PROFILE) },
                 onOpenQrCode = { navController.navigate(Routes.QR_CODE) },
+                onOpenBackup = { navController.navigate(Routes.BACKUP) },
                 onChangePassword = { navController.navigate(Routes.CHANGE_PASSWORD) },
                 onOpenBlockedUsers = { navController.navigate(Routes.BLOCKED_USERS) },
                 onLoggedOut = { navController.navigate(Routes.LOGIN) { popUpTo(0) } }
@@ -199,6 +201,12 @@ fun VeilTalkNavGraph(
                         popUpTo(Routes.HOME)
                     }
                 }
+            )
+        }
+
+        composable(Routes.BACKUP) {
+            com.example.veiltalk.feature.profile.ui.BackupScreen(
+                onBack = { navController.popBackStack() }
             )
         }
 

@@ -54,6 +54,7 @@ fun HomeScreen(
     onOpenProfile: (username: String) -> Unit, // تغییر یافته برای پروفایل سایرین
     onOpenMyProfile: () -> Unit, // نام جدید برای پروفایل خود کاربر
     onOpenQrCode: () -> Unit,
+    onOpenBackup: () -> Unit,
     onChangePassword: () -> Unit,
     onOpenBlockedUsers: () -> Unit,
     onLoggedOut: () -> Unit
@@ -553,6 +554,7 @@ fun HomeScreen(
                     onToggleDarkMode = viewModel::toggleDarkMode,
                     onChangePassword = onChangePassword,
                     onOpenBlockedUsers = onOpenBlockedUsers,
+                    onOpenBackup = onOpenBackup,
                     onLogout = { viewModel.logout(onLoggedOut) }
                 )
             } else if (bottomNavTab == 4) {
@@ -683,6 +685,7 @@ private fun SettingsTab(
     onToggleDarkMode: (Boolean) -> Unit,
     onChangePassword: () -> Unit,
     onOpenBlockedUsers: () -> Unit,
+    onOpenBackup: () -> Unit,
     onLogout: () -> Unit
 ) {
     LazyColumn(
@@ -769,6 +772,11 @@ private fun SettingsTab(
                         headlineContent = { Text("لیست مسدودی‌ها") },
                         leadingContent = { Icon(Icons.Default.Block, null) },
                         modifier = Modifier.clickable { onOpenBlockedUsers() }
+                    )
+                    ListItem(
+                        headlineContent = { Text("بک‌آپ و بازیابی") },
+                        leadingContent = { Icon(Icons.Default.Backup, null) },
+                        modifier = Modifier.clickable { onOpenBackup() }
                     )
                 }
             }
