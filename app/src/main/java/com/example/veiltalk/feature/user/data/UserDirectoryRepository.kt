@@ -82,6 +82,24 @@ class UserDirectoryRepository @Inject constructor(
         _directory.value = _directory.value + (key to merged)
         
         _presenceMap.value = _presenceMap.value + (key to if (info.online) Presence.Online else Presence.Offline(info.lastSeen))
+
+        // آپدیت دیتابیس محلی در پس‌زمینه (اگر قبلاً در دیتابیس بوده)
+        scope.launch {
+            val me = sessionManager.usernameFlow.first() ?: return@launch
+            val local = contactDao.getContact(me, key)
+            if (local != null) {
+                contactDao.upsert(
+                    local.copy(
+                        firstName = merged.firstName,
+                        lastName = merged.lastName,
+                        profilePictureUrl = merged.profilePictureUrl,
+                        bio = merged.bio,
+                        email = merged.email,
+                        phoneNumber = merged.phoneNumber
+                    )
+                )
+            }
+        }
     }
 
     suspend fun ensureLoadedSync(usernames: List<String>) {

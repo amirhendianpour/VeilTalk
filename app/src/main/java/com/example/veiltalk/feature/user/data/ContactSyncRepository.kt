@@ -44,7 +44,7 @@ class ContactSyncRepository @Inject constructor(
                     ownerUsername = me,
                     firstName = dto.firstName,
                     lastName = dto.lastName,
-                    profilePictureUrl = null,
+                    profilePictureUrl = dto.profilePictureUrl,
                     phoneNumber = dto.phoneNumber
                 )
                 contactDao.upsert(entity)
@@ -55,7 +55,8 @@ class ContactSyncRepository @Inject constructor(
                         username = dto.username,
                         firstName = dto.firstName,
                         lastName = dto.lastName,
-                        phoneNumber = dto.phoneNumber
+                        phoneNumber = dto.phoneNumber,
+                        profilePictureUrl = dto.profilePictureUrl
                     )
                 )
             }

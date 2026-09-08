@@ -31,5 +31,6 @@ data class ContactSyncResponseDto(
     val username: String,
     val phoneNumber: String,
     val firstName: String,
-    val lastName: String
+    val lastName: String,
+    val profilePictureUrl: String? = null
 )
