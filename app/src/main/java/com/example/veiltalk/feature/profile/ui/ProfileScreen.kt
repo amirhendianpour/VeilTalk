@@ -20,6 +20,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.veiltalk.common.ui.components.AvatarView
 import com.example.veiltalk.common.ui.components.FullScreenImageViewer
+import com.example.veiltalk.common.ui.components.ImageCropperDialog
+import android.net.Uri
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,6 +34,7 @@ fun ProfileScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var imageUriToCrop by remember { mutableStateOf<Uri?>(null) }
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -41,8 +44,19 @@ fun ProfileScreen(
         }
     }
 
+    if (imageUriToCrop != null) {
+        ImageCropperDialog(
+            uri = imageUriToCrop!!,
+            onDismiss = { imageUriToCrop = null },
+            onCropped = { croppedUri ->
+                imageUriToCrop = null
+                viewModel.uploadAvatar(croppedUri)
+            }
+        )
+    }
+
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let { viewModel.uploadAvatar(it) }
+        uri?.let { imageUriToCrop = it }
     }
 
     Scaffold(
