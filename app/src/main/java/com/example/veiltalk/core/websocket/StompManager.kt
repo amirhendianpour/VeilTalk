@@ -61,7 +61,7 @@ class StompManager @Inject constructor(
 
         val wsUrl = ApiConfig.WS_URL
             .replace("https://", "wss://")
-            .replace("http://", "ws://") + "/websocket"
+            .replace("http://", "ws://") // توجه کنید که بک‌اند از آدرس "/ws-chat" استفاده می‌کند اما بدون SockJS باید آدرس اصلی متصل شود.
 
         stompClient.connect(
             url = wsUrl,

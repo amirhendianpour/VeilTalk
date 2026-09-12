@@ -27,7 +27,7 @@ class StompClient(private val okHttpClient: OkHttpClient) {
                     command = "CONNECT",
                     headers = connectHeaders + mapOf(
                         "accept-version" to "1.1,1.2",
-                        "heart-beat" to "0,0"
+                        "heart-beat" to "10000,10000"
                     ),
                     body = ""
                 )
@@ -35,7 +35,7 @@ class StompClient(private val okHttpClient: OkHttpClient) {
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                if (text.isBlank()) return // heartbeat احتمالی
+                if (text.isBlank() || text == "\n" || text == "\r\n") return // heartbeat های ارسالی از سرور
                 val frame = StompFrame.decode(text) ?: return
                 when (frame.command) {
                     "CONNECTED" -> listener.onStompConnected()
