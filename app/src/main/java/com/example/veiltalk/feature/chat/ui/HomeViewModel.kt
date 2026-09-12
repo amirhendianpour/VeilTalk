@@ -236,7 +236,8 @@ class HomeViewModel @Inject constructor(
         if (identifier.isBlank()) return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLookingUp = true, lookupError = null)
-            userDirectory.lookupUser(identifier.trim())
+            val cleanIdentifier = identifier.trim().removePrefix("@")
+            userDirectory.lookupUser(cleanIdentifier)
                 .onSuccess { info ->
                     val me = sessionManager.usernameFlow.first()
                     if (me != null) {
