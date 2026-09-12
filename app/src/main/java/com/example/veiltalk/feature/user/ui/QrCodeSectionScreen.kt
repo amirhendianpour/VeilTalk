@@ -48,8 +48,11 @@ fun QrCodeSectionScreen(
     displayName: String,
     username: String,
     profilePicture: String?,
+    isLookingUp: Boolean = false,
+    lookupError: String? = null,
     onBack: () -> Unit,
-    onScanned: (String) -> Unit
+    onScanned: (String) -> Unit,
+    onSearch: (String) -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val qrBitmap = remember(username) { QrCodeHelper.generateQrCode("veiltalk://user/$username") }
@@ -80,6 +83,11 @@ fun QrCodeSectionScreen(
                     onClick = { selectedTab = 1 },
                     text = { Text("اسکن کد") }
                 )
+                Tab(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
+                    text = { Text("جستجو") }
+                )
             }
 
             Box(modifier = Modifier.fillMaxSize()) {
@@ -94,8 +102,14 @@ fun QrCodeSectionScreen(
                             android.widget.Toast.makeText(context, "نام کاربری کپی شد", android.widget.Toast.LENGTH_SHORT).show()
                         }
                     )
-                } else {
+                } else if (selectedTab == 1) {
                     ScannerTab(onScanned = onScanned)
+                } else {
+                    SearchUserTab(
+                        isLookingUp = isLookingUp,
+                        lookupError = lookupError,
+                        onSearch = onSearch
+                    )
                 }
             }
         }
@@ -181,7 +195,29 @@ private fun MyQrCodeTab(
 @Composable
 private fun ScannerTab(onScanned: (String) -> Unit) {
     val context = LocalContext.current
-    var scanResult by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    
+    val imagePickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+                if (bitmap != null) {
+                    val resultText = QrCodeHelper.decodeQrCode(bitmap)
+                    if (resultText != null && resultText.startsWith("veiltalk://user/")) {
+                        val scannedUsername = resultText.removePrefix("veiltalk://user/")
+                        onScanned(scannedUsername)
+                    } else {
+                        android.widget.Toast.makeText(context, "کد QR معتبری یافت نشد", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(context, "خطا در خواندن تصویر", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
@@ -220,15 +256,96 @@ private fun ScannerTab(onScanned: (String) -> Unit) {
             )
         }
         
-        Text(
-            "کد QR دوست خود را در کادر بالا قرار دهید",
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 64.dp)
-                .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            color = Color.White,
-            fontSize = 13.sp
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Button(
+                onClick = { imagePickerLauncher.launch("image/*") },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
+            ) {
+                Icon(Icons.Default.Share, contentDescription = null) // استفاده از آیکون مناسب‌تر در صورت تمایل مثل آپلود
+                Spacer(Modifier.width(8.dp))
+                Text("آپلود QR کد از گالری")
+            }
+
+            Text(
+                "کد QR دوست خود را در کادر بالا قرار دهید یا تصویر آن را آپلود کنید",
+                modifier = Modifier
+                    .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                color = Color.White,
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchUserTab(
+    isLookingUp: Boolean,
+    lookupError: String?,
+    onSearch: (String) -> Unit
+) {
+    var identifier by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(Modifier.height(32.dp))
+        Text("افزودن مخاطب با شناسه", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "شناسه کاربر (ایمیل، شماره یا آیدی) را وارد کنید:",
+            color = Color.Gray,
+            fontSize = 14.sp,
+            textAlign = TextAlign.Center
         )
+        
+        Spacer(Modifier.height(32.dp))
+        
+        OutlinedTextField(
+            value = identifier,
+            onValueChange = { identifier = it },
+            label = { Text("شناسه") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            isError = lookupError != null
+        )
+        
+        if (lookupError != null) {
+            Text(
+                text = lookupError,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 4.dp).fillMaxWidth(),
+                textAlign = TextAlign.Start
+            )
+        }
+        
+        Spacer(Modifier.height(24.dp))
+        
+        Button(
+            onClick = { onSearch(identifier) },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = identifier.isNotBlank() && !isLookingUp
+        ) {
+            if (isLookingUp) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text("جستجو و شروع چت")
+            }
+        }
     }
 }

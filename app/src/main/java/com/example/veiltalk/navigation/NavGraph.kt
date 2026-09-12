@@ -195,10 +195,19 @@ fun VeilTalkNavGraph(
                 displayName = uiState.myDisplayName,
                 username = uiState.myUsername,
                 profilePicture = uiState.myProfilePictureUrl,
+                isLookingUp = uiState.isLookingUp,
+                lookupError = uiState.lookupError,
                 onBack = { navController.popBackStack() },
                 onScanned = { username ->
                     navController.navigate(Routes.chatRoute(username)) {
                         popUpTo(Routes.HOME)
+                    }
+                },
+                onSearch = { identifier ->
+                    homeViewModel.startNewChat(identifier) { username ->
+                        navController.navigate(Routes.chatRoute(username)) {
+                            popUpTo(Routes.HOME)
+                        }
                     }
                 }
             )

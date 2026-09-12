@@ -238,6 +238,21 @@ class HomeViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLookingUp = true, lookupError = null)
             userDirectory.lookupUser(identifier.trim())
                 .onSuccess { info ->
+                    val me = sessionManager.usernameFlow.first()
+                    if (me != null) {
+                        contactDao.upsert(
+                            com.example.veiltalk.core.database.entity.ContactEntity(
+                                username = info.username,
+                                ownerUsername = me,
+                                firstName = info.firstName,
+                                lastName = info.lastName,
+                                profilePictureUrl = info.profilePictureUrl,
+                                phoneNumber = info.phoneNumber,
+                                email = info.email,
+                                bio = info.bio
+                            )
+                        )
+                    }
                     _uiState.value = _uiState.value.copy(isLookingUp = false)
                     onSuccess(info.username)
                 }

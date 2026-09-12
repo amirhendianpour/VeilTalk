@@ -30,4 +30,19 @@ object QrCodeHelper {
             null
         }
     }
+
+    fun decodeQrCode(bitmap: Bitmap): String? {
+        return try {
+            val intArray = IntArray(bitmap.width * bitmap.height)
+            bitmap.getPixels(intArray, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+            val source = com.google.zxing.RGBLuminanceSource(bitmap.width, bitmap.height, intArray)
+            val binaryBitmap = com.google.zxing.BinaryBitmap(com.google.zxing.common.HybridBinarizer(source))
+            val reader = com.google.zxing.MultiFormatReader()
+            val result = reader.decode(binaryBitmap)
+            result.text
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
 }

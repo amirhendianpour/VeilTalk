@@ -540,6 +540,7 @@ fun HomeScreen(
                         onSync = viewModel::syncContacts,
                         onOpenChat = onOpenChat,
                         onOpenProfile = onOpenProfile,
+                        onOpenQrCode = onOpenQrCode,
                         onInvite = { phoneNumber -> 
                             com.example.veiltalk.common.util.InvitationHelper.inviteViaSms(context, phoneNumber) 
                         }
@@ -600,6 +601,7 @@ private fun ContactsTab(
     onSync: () -> Unit,
     onOpenChat: (String) -> Unit,
     onOpenProfile: (String) -> Unit,
+    onOpenQrCode: () -> Unit,
     onInvite: (String) -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -618,7 +620,7 @@ private fun ContactsTab(
             ListItem(
                 headlineContent = { Text("مخاطب جدید", color = primaryColor) },
                 leadingContent = { Icon(Icons.Default.Add, null, tint = primaryColor) },
-                modifier = Modifier.clickable { /* logic to add contact */ }
+                modifier = Modifier.clickable { onOpenQrCode() }
             )
         }
 
