@@ -37,4 +37,22 @@ class StoryRepository @Inject constructor(
             }
         }
     }
+
+    suspend fun viewStory(storyId: Long): ApiResult<Unit> {
+        return try {
+            val resp = api.viewStory(storyId)
+            if (resp.isSuccessful) ApiResult.Success(Unit) else ApiResult.Error("Error")
+        } catch (e: Exception) { ApiResult.Error(e.message ?: "") }
+    }
+
+    suspend fun reactStory(storyId: Long, emoji: String): ApiResult<Unit> {
+        return try {
+            val resp = api.reactStory(storyId, emoji)
+            if (resp.isSuccessful) ApiResult.Success(Unit) else ApiResult.Error("Error")
+        } catch (e: Exception) { ApiResult.Error(e.message ?: "") }
+    }
+
+    suspend fun getStoryViewers(storyId: Long): ApiResult<List<com.example.veiltalk.feature.story.data.dto.StoryViewerInfoDto>> = safeApiCall(json) {
+        api.getStoryViewers(storyId)
+    }
 }

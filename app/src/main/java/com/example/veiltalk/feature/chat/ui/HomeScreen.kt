@@ -579,6 +579,8 @@ fun HomeScreen(
 
     if (viewingStoriesUser != null) {
         val userStories = storyState.stories[viewingStoriesUser].orEmpty()
+        val homeScope = rememberCoroutineScope()
+        val context = androidx.compose.ui.platform.LocalContext.current
         if (userStories.isNotEmpty()) {
             Dialog(
                 onDismissRequest = { viewingStoriesUser = null },
@@ -586,7 +588,24 @@ fun HomeScreen(
             ) {
                 StoryViewerScreen(
                     stories = userStories,
-                    onClose = { viewingStoriesUser = null }
+                    onClose = { viewingStoriesUser = null },
+                    onUserClick = { username ->
+                        viewingStoriesUser = null
+                        onOpenChat(username)
+                    },
+                    onReplyStory = { username, text ->
+                        homeScope.launch {
+                            viewModel.startNewChat(username) { target -> }
+                            android.widget.Toast.makeText(context, "پاسخ شما ارسال شد", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onReactStory = { storyId, emoji ->
+                        if (emoji == "VIEW_LOG") {
+                            storyViewModel.viewStory(storyId)
+                        } else {
+                            storyViewModel.reactStory(storyId, emoji)
+                        }
+                    }
                 )
             }
         }

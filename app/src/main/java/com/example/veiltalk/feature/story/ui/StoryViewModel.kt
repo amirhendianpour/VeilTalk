@@ -68,4 +68,25 @@ class StoryViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isPosting = false)
         }
     }
+
+    fun viewStory(storyId: Long) {
+        viewModelScope.launch {
+            repository.viewStory(storyId)
+        }
+    }
+
+    fun reactStory(storyId: Long, emoji: String) {
+        viewModelScope.launch {
+            repository.reactStory(storyId, emoji)
+        }
+    }
+
+    fun getStoryViewers(storyId: Long, onResult: (List<com.example.veiltalk.feature.story.data.dto.StoryViewerInfoDto>) -> Unit) {
+        viewModelScope.launch {
+            when (val result = repository.getStoryViewers(storyId)) {
+                is ApiResult.Success -> onResult(result.data)
+                else -> onResult(emptyList())
+            }
+        }
+    }
 }
