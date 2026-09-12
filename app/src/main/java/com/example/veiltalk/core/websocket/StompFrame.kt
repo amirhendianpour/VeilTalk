@@ -19,7 +19,10 @@ data class StompFrame(
         fun decode(raw: String): StompFrame? {
             val content = raw.trimEnd('\u0000')
             if (content.isBlank()) return null
-            val lines = content.split('\n')
+            
+            // اصلاح ریشه ای: حذف تمامی \r ها برای جلوگیری از باگ های پردازش هدر در پلتفرم های مختلف
+            val cleanContent = content.replace("\r", "")
+            val lines = cleanContent.split('\n')
             val command = lines.getOrNull(0) ?: return null
 
             val headers = mutableMapOf<String, String>()
@@ -27,7 +30,7 @@ data class StompFrame(
             while (i < lines.size && lines[i].isNotEmpty()) {
                 val idx = lines[i].indexOf(':')
                 if (idx > 0) {
-                    headers[lines[i].substring(0, idx)] = lines[i].substring(idx + 1)
+                    headers[lines[i].substring(0, idx).trim()] = lines[i].substring(idx + 1).trim()
                 }
                 i++
             }
