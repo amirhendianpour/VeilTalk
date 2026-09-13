@@ -26,6 +26,8 @@ class AppLifecycleObserver @Inject constructor(
         // اپلیکیشن به Foreground آمد
         isAppInForeground = true
         updatePresence(true)
+        // واکشی پیام‌هایی که احتمالاً در زمان حضور در پس‌زمینه ارسال شده‌اند
+        chatRepository.fetchHistory()
     }
 
     override fun onStop(owner: LifecycleOwner) {

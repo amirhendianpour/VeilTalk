@@ -71,7 +71,8 @@ class StompManager @Inject constructor(
                     reconnectAttempt = 0
                     _connectionState.value = ConnectionState.CONNECTED
                     subscribeToFixedDestinations()
-                    // معادل client.publish({destination:"/app/group/history"}) در وب
+                    // واکشی تاریخچه پیام‌های زمان آفلاینی (خصوصی و گروهی) بلافاصله پس از اتصال
+                    publish("/app/chat/history", "{}")
                     publish("/app/group/history", "{}")
                 }
 

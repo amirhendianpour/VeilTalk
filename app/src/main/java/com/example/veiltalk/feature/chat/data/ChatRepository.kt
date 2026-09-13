@@ -429,6 +429,15 @@ class ChatRepository @Inject constructor(
         stompManager.publish("/app/chat/presence", json.encodeToString(dto))
     }
 
+    /**
+     * واکشی صریح تاریخچه پیام‌های آفلاین (خصوصی و گروهی) از سرور.
+     * این متد معمولاً هنگام بازگشت اپلیکیشن به Foreground فراخوانی می‌شود.
+     */
+    fun fetchHistory() {
+        stompManager.publish("/app/chat/history", "{}")
+        stompManager.publish("/app/group/history", "{}")
+    }
+
     suspend fun ensureUsernameLoaded() {
         if (currentUsername == null) currentUsername = sessionManager.usernameFlow.first()
     }

@@ -46,6 +46,7 @@ fun GroupChatScreen(
     onOpenProfile: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val inputText by viewModel.inputText.collectAsState()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -57,7 +58,6 @@ fun GroupChatScreen(
         }
     }
     
-    var inputText by remember { mutableStateOf("") }
     var selectedMessages by remember { mutableStateOf(setOf<String>()) }
     var showMessageMenu by remember { mutableStateOf<GroupMessage?>(null) }
     var viewingImage by remember { mutableStateOf<GroupMessage?>(null) }
@@ -174,11 +174,8 @@ fun GroupChatScreen(
             if (!isSelectionMode) {
                 ChatInputBar(
                     value = inputText,
-                    onValueChange = { inputText = it },
-                    onSendMessage = {
-                        viewModel.sendMessage()
-                        inputText = ""
-                    },
+                    onValueChange = viewModel::onInputChange,
+                    onSendMessage = viewModel::sendMessage,
                     onAttachImage = { imagePicker.launch("image/*") },
                     onAttachFile = { filePicker.launch("*/*") },
                     onSendContact = {
