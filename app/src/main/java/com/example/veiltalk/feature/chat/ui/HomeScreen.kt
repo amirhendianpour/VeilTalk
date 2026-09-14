@@ -87,17 +87,32 @@ fun HomeScreen(
         }
     }
 
+    val callPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { /* دسترسی‌ها برای تاریخچه تماس صِرفاً جهت اطمینان از آمادگی برای تماس‌های بعدی است */ }
+
     LaunchedEffect(bottomNavTab) {
-        if (bottomNavTab == 1) { // تب مخاطبین
-            val hasPermission = ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.READ_CONTACTS
-            ) == PackageManager.PERMISSION_GRANTED
-            
-            if (hasPermission) {
-                viewModel.syncContacts()
-            } else {
-                contactPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+        when (bottomNavTab) {
+            1 -> { // تب تماس‌ها
+                val permissions = arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA)
+                val allGranted = permissions.all {
+                    ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+                }
+                if (!allGranted) {
+                    callPermissionLauncher.launch(permissions)
+                }
+            }
+            2 -> { // تب مخاطبین
+                val hasPermission = ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.READ_CONTACTS
+                ) == PackageManager.PERMISSION_GRANTED
+                
+                if (hasPermission) {
+                    viewModel.syncContacts()
+                } else {
+                    contactPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+                }
             }
         }
     }
