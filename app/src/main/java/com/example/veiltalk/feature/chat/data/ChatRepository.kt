@@ -94,11 +94,14 @@ class ChatRepository @Inject constructor(
         val dto = runCatching { json.decodeFromString<ChatMessageDto>(rawBody) }.getOrNull() ?: return
         val me = currentUsername ?: return
         
-        // چک کن آیا این یک ویرایش روی پیام موجود است؟
+        // چک کن آیا این پیام قبلاً در دیتابیس وجود دارد؟ (مثلاً از طریق نوتیفیکیشن یا وب‌سوکت موازی)
         val existing = messageDao.getMessageById(dto.id, me)
         if (existing != null) {
-            // اگر پیام از قبل وجود دارد، فقط محتوایش را آپدیت کن تا عکس و مدیا پاک نشود
-            messageDao.updateMessageContent(dto.id, me, dto.content)
+            // اگر پیام وجود دارد و وضعیتش قبلاً READ یا DELIVERED شده، کاری نکنیم
+            // اما اگر محتوا تغییر کرده (ویرایش)، آپدیت کنیم
+            if (existing.content != dto.content) {
+                messageDao.updateMessageContent(dto.id, me, dto.content)
+            }
             return
         }
 

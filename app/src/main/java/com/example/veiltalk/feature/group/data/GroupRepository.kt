@@ -95,10 +95,12 @@ class GroupRepository @Inject constructor(
         val dto = runCatching { json.decodeFromString<GroupChatMessageDto>(rawBody) }.getOrNull() ?: return
         val me = currentUsername ?: return
         
-        // چک کن آیا این یک ویرایش روی پیام موجود در گروه است؟
+        // چک کن آیا این پیام قبلاً در دیتابیس وجود دارد؟
         val existing = groupMessageDao.getMessageById(dto.id, me)
         if (existing != null) {
-            groupMessageDao.updateMessageContent(dto.id, me, dto.content)
+            if (existing.content != dto.content) {
+                groupMessageDao.updateMessageContent(dto.id, me, dto.content)
+            }
             return
         }
 

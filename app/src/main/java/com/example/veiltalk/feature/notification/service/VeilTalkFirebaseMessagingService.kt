@@ -8,7 +8,10 @@ import androidx.annotation.RequiresPermission
 import coil.ImageLoader
 import coil.request.ImageRequest
 import coil.request.SuccessResult
+import com.example.veiltalk.core.database.dao.GroupMessageDao
+import com.example.veiltalk.core.database.dao.MessageDao
 import com.example.veiltalk.core.service.NotificationHelper
+import com.example.veiltalk.core.session.SessionManager
 import com.example.veiltalk.feature.notification.data.FcmTokenRepository
 import com.example.veiltalk.feature.user.data.UserDirectoryRepository
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -25,6 +28,9 @@ class VeilTalkFirebaseMessagingService : FirebaseMessagingService() {
 
     @Inject lateinit var fcmTokenRepository: FcmTokenRepository
     @Inject lateinit var userDirectory: UserDirectoryRepository
+    @Inject lateinit var messageDao: MessageDao
+    @Inject lateinit var groupMessageDao: GroupMessageDao
+    @Inject lateinit var sessionManager: SessionManager
 
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -38,12 +44,25 @@ class VeilTalkFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
 
+        val messageId = remoteMessage.data["id"] ?: return
         val senderUsername = remoteMessage.data["senderUsername"] ?: return
         val content = remoteMessage.data["content"] ?: remoteMessage.notification?.body ?: "پیام جدید"
         val type = remoteMessage.data["type"] // PRIVATE_MESSAGE یا GROUP_MESSAGE
         val groupName = remoteMessage.data["groupName"]
+        val groupId = remoteMessage.data["groupId"]?.toLongOrNull()
 
         scope.launch {
+            val me = sessionManager.currentUsername ?: return@launch
+            
+            // چک کردن اینکه آیا پیام قبلاً توسط وب‌سوکت دریافت شده است یا خیر
+            val alreadyExists = if (type == "GROUP_MESSAGE" && groupId != null) {
+                groupMessageDao.getMessageById(messageId, me) != null
+            } else {
+                messageDao.getMessageById(messageId, me) != null
+            }
+
+            if (alreadyExists) return@launch
+
             // اطمینان از لود شدن اطلاعات کاربر
             userDirectory.ensureLoaded(listOf(senderUsername))
             val displayName = userDirectory.getDisplayName(senderUsername)
@@ -52,8 +71,6 @@ class VeilTalkFirebaseMessagingService : FirebaseMessagingService() {
             val bitmap = avatarUrl?.let { loadAvatar(it) }
 
             withContext(Dispatchers.Main) {
-                // برای سادگی در FCM، فعلاً همان یک پیام دریافتی را در قالب لیست می‌فرستیم
-                // اگر بخواهیم تاریخچه کامل را نشان دهیم، باید اینجا هم از دیتابیس کوئری بزنیم
                 val messages = listOf(
                     NotificationHelper.NotificationMessage(
                         senderUsername = senderUsername,
@@ -70,7 +87,7 @@ class VeilTalkFirebaseMessagingService : FirebaseMessagingService() {
                     messages = messages,
                     avatarBitmap = bitmap,
                     isGroup = type == "GROUP_MESSAGE",
-                    groupId = remoteMessage.data["groupId"]?.toLongOrNull(),
+                    groupId = groupId,
                     groupName = groupName
                 )
             }
