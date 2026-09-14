@@ -236,6 +236,12 @@ class GroupChatViewModel @Inject constructor(
     }
 
     fun sendCurrentLocation() {
+        if (!locationHelper.isLocationEnabled()) {
+            viewModelScope.launch {
+                _uiEvent.emit("OPEN_LOCATION_SETTINGS")
+            }
+            return
+        }
         viewModelScope.launch {
             val loc = locationHelper.getCurrentLocation()
             if (loc != null) {

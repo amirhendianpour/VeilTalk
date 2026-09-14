@@ -54,7 +54,12 @@ fun GroupChatScreen(
 
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { message ->
-            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+            if (message == "OPEN_LOCATION_SETTINGS") {
+                val intent = Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                context.startActivity(intent)
+            } else {
+                android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
     }
     

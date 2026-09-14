@@ -21,6 +21,11 @@ class LocationHelper @Inject constructor(
 
     private val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
+    fun isLocationEnabled(): Boolean {
+        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+    }
+
     @SuppressLint("MissingPermission")
     suspend fun getCurrentLocation(): Location? {
         return suspendCancellableCoroutine { continuation ->
