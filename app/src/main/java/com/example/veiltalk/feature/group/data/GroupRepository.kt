@@ -293,6 +293,15 @@ class GroupRepository @Inject constructor(
         }
     }
 
+    /**
+     * فوروارد پیام‌های گروهی به صورت غیرمنتظره در اسکوپ اپلیکیشن.
+     */
+    fun forwardGroupMessagesToGroupAsync(targetGroupId: Long, messages: List<GroupMessage>) {
+        scope.launch {
+            forwardGroupMessagesToGroup(targetGroupId, messages)
+        }
+    }
+
     suspend fun deleteMessages(messageIds: List<String>) {
         val me = currentUsername ?: return
         groupMessageDao.deleteMessages(messageIds, me)

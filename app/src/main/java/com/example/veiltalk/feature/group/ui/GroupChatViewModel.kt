@@ -263,22 +263,20 @@ class GroupChatViewModel @Inject constructor(
     }
 
     fun forwardMessages(targetUsername: String, messageIds: List<String>) {
-        viewModelScope.launch {
-            val msgs = uiState.value.messages.filter { it.id in messageIds }
-            chatRepository.forwardMessages(targetUsername, msgs.map { 
-                com.example.veiltalk.common.model.ChatMessage(
-                    id = it.id, sender = it.sender ?: "", recipient = targetUsername, content = it.content,
-                    messageType = it.messageType, fileUrl = it.fileUrl, timestamp = it.timestamp, status = com.example.veiltalk.common.model.MessageStatus.SENT
-                )
-            })
-        }
+        val msgs = uiState.value.messages.filter { it.id in messageIds }
+        chatRepository.forwardMessagesAsync(targetUsername, msgs.map { 
+            com.example.veiltalk.common.model.ChatMessage(
+                id = it.id, sender = it.sender ?: "", recipient = targetUsername, content = it.content,
+                messageType = it.messageType, fileUrl = it.fileUrl, timestamp = it.timestamp, 
+                status = com.example.veiltalk.common.model.MessageStatus.SENT,
+                mediaKey = it.mediaKey
+            )
+        })
     }
 
     fun forwardMessagesToGroup(targetGroupId: Long, messageIds: List<String>) {
-        viewModelScope.launch {
-            val msgs = uiState.value.messages.filter { it.id in messageIds }
-            groupRepository.forwardGroupMessagesToGroup(targetGroupId, msgs)
-        }
+        val msgs = uiState.value.messages.filter { it.id in messageIds }
+        groupRepository.forwardGroupMessagesToGroupAsync(targetGroupId, msgs)
     }
 
     fun togglePin(messageId: String, currentPinned: Boolean, forEveryone: Boolean) {

@@ -1,8 +1,8 @@
-/* ... (previous code remains same) ... */
 package com.example.veiltalk.feature.group.ui
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -78,7 +78,7 @@ fun GroupChatScreen(
     val uploadError by viewModel.uploadError.collectAsState()
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let { viewModel.sendFile(it) }
+        uri?.let { viewModel.sendImage(it) }
     }
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { viewModel.sendFile(it) }
@@ -87,7 +87,7 @@ fun GroupChatScreen(
         // uri?.let { viewModel.sendContact(it) } // Fixed below
     }
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        if (success) tempCameraUri?.let { viewModel.sendFile(it) }
+        if (success) tempCameraUri?.let { viewModel.sendImage(it) }
     }
     val videoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CaptureVideo()) { success ->
         if (success) tempCameraUri?.let { viewModel.sendFile(it) }
@@ -101,6 +101,10 @@ fun GroupChatScreen(
     }
     val locationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         if (granted.values.all { it }) showLocationSelection = true
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) showCameraOptions = true
     }
 
     val isSelectionMode = selectedMessages.isNotEmpty()
@@ -129,6 +133,12 @@ fun GroupChatScreen(
         topBar = {
             if (isSelectionMode) {
                 TopAppBar(
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                        actionIconContentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                     title = { Text(selectedMessages.size.toString()) },
                     navigationIcon = {
                         IconButton(onClick = { selectedMessages = emptySet() }) {
@@ -189,7 +199,13 @@ fun GroupChatScreen(
                             locationPermissionLauncher.launch(needed)
                         }
                     },
-                    onOpenCamera = { showCameraOptions = true },
+                    onOpenCamera = {
+                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                            showCameraOptions = true
+                        } else {
+                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                        }
+                    },
                     onSendSticker = viewModel::sendSticker,
                     onSendGif = viewModel::sendGif,
                     isEditing = uiState.editingMessage != null,
@@ -309,7 +325,109 @@ fun GroupChatScreen(
         )
     }
 
-    // Camera, Delete, Forward, Image, Pin dialogs remain same...
+    if (showCameraOptions) {
+        AlertDialog(
+            onDismissRequest = { showCameraOptions = false },
+            title = { Text("ارسال رسانه") },
+            text = { Text("لطفاً نوع رسانه را انتخاب کنید:") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showCameraOptions = false
+                    val uri = com.example.veiltalk.common.util.CameraCaptureManager.createTempImageUri(context)
+                    tempCameraUri = uri
+                    cameraLauncher.launch(uri)
+                }) {
+                    Text("عکس")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showCameraOptions = false
+                    val uri = com.example.veiltalk.common.util.CameraCaptureManager.createTempVideoUri(context)
+                    tempCameraUri = uri
+                    videoLauncher.launch(uri)
+                }) {
+                    Text("ویدیو")
+                }
+            }
+        )
+    }
+
+    if (showDeleteDialog != null) {
+        val ids = showDeleteDialog!!
+        val allMine = uiState.messages.filter { it.id in ids }.all { it.sender == uiState.myUsername }
+
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = null },
+            title = { Text("حذف پیام") },
+            text = { Text("آیا مایل به حذف این پیام هستید؟") },
+            confirmButton = {
+                if (allMine) {
+                    TextButton(onClick = {
+                        viewModel.deleteMessagesForEveryone(ids)
+                        selectedMessages = emptySet()
+                        showDeleteDialog = null
+                    }) {
+                        Text("حذف برای همه", color = Color.Red)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.deleteMessages(ids)
+                    selectedMessages = emptySet()
+                    showDeleteDialog = null
+                }) {
+                    Text("حذف برای من")
+                }
+            }
+        )
+    }
+
+    if (showForwardDialog != null) {
+        val ids = showForwardDialog!!
+        ForwardDestinationDialog(
+            destinations = uiState.allDestinations,
+            onDismiss = { showForwardDialog = null },
+            onForwardToChat = { target ->
+                viewModel.forwardMessages(target, ids)
+                showForwardDialog = null
+                selectedMessages = emptySet()
+                onOpenChat(target)
+            },
+            onForwardToGroup = { targetId ->
+                viewModel.forwardMessagesToGroup(targetId, ids)
+                showForwardDialog = null
+                selectedMessages = emptySet()
+                onOpenGroup(targetId)
+            }
+        )
+    }
+
+    viewingImage?.let { msg ->
+        msg.fileUrl?.let { url ->
+            FullScreenImageViewer(
+                url = url,
+                mediaKey = msg.mediaKey,
+                thumbnailBase64 = msg.content,
+                onDismiss = { viewingImage = null },
+                onSave = { viewModel.saveMedia(msg) }
+            )
+        }
+    }
+
+    if (showPinDialog != null) {
+        val msg = showPinDialog!!
+        PinActionDialog(
+            isUnpinning = msg.isPinned,
+            isGroup = true,
+            onConfirm = { forEveryone ->
+                viewModel.togglePin(msg.id, msg.isPinned, forEveryone)
+                showPinDialog = null
+            },
+            onDismiss = { showPinDialog = null }
+        )
+    }
 }
 
 @Composable

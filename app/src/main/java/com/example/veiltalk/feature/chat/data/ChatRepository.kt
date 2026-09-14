@@ -379,6 +379,16 @@ class ChatRepository @Inject constructor(
         }
     }
 
+    /**
+     * فوروارد پیام‌ها به صورت غیرمنتظره در اسکوپ اپلیکیشن.
+     * این متد تضمین می‌کند که حتی با بسته شدن صفحه چت، پیام‌ها ارسال می‌شوند.
+     */
+    fun forwardMessagesAsync(targetRecipient: String, messages: List<ChatMessage>) {
+        scope.launch {
+            forwardMessages(targetRecipient, messages)
+        }
+    }
+
     suspend fun deleteMessages(messageIds: List<String>) {
         val me = currentUsername ?: return
         messageDao.deleteMessages(messageIds, me)
