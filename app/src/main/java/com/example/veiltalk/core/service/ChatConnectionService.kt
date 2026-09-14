@@ -4,6 +4,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
+import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.example.veiltalk.core.session.SessionManager
 import com.example.veiltalk.core.websocket.StompManager
@@ -38,7 +39,18 @@ class ChatConnectionService : Service() {
         }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val showNotification = intent?.getBooleanExtra(EXTRA_SHOW_NOTIFICATION, true) ?: true
+        
+        if (showNotification) {
+            startForeground(NotificationHelper.CONNECTION_NOTIFICATION_ID, NotificationHelper.buildConnectionNotification(this))
+        } else {
+            // مخفی کردن نوتیفیکیشن بدون متوقف کردن سرویس
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH)
+        }
+        
+        return START_STICKY
+    }
 
     override fun onDestroy() {
         stompManager.disconnect()
@@ -49,9 +61,21 @@ class ChatConnectionService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
+        private const val EXTRA_SHOW_NOTIFICATION = "extra_show_notification"
+
         fun start(context: Context) {
-            val intent = Intent(context, ChatConnectionService::class.java)
+            val intent = Intent(context, ChatConnectionService::class.java).apply {
+                putExtra(EXTRA_SHOW_NOTIFICATION, true)
+            }
             ContextCompat.startForegroundService(context, intent)
+        }
+
+        fun updateNotificationVisibility(context: Context, isVisible: Boolean) {
+            val intent = Intent(context, ChatConnectionService::class.java).apply {
+                putExtra(EXTRA_SHOW_NOTIFICATION, isVisible)
+            }
+            // چون سرویس از قبل شروع شده، فقط استارت معمولی می‌زنیم تا onStartCommand اجرا شود
+            context.startService(intent)
         }
 
         fun stop(context: Context) {

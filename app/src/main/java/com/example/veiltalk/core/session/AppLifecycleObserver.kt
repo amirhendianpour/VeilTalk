@@ -3,7 +3,10 @@ package com.example.veiltalk.core.session
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import android.content.Context
+import com.example.veiltalk.core.service.ChatConnectionService
 import com.example.veiltalk.feature.chat.data.ChatRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.MainScope
@@ -12,6 +15,7 @@ import javax.inject.Singleton
 
 @Singleton
 class AppLifecycleObserver @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val chatRepository: ChatRepository,
     private val sessionManager: SessionManager
 ) : DefaultLifecycleObserver {
@@ -26,6 +30,10 @@ class AppLifecycleObserver @Inject constructor(
         // اپلیکیشن به Foreground آمد
         isAppInForeground = true
         updatePresence(true)
+        
+        // مخفی کردن نوتیفیکیشن ثابت (چون کاربر داخل اپ است)
+        ChatConnectionService.updateNotificationVisibility(context, false)
+        
         // واکشی پیام‌هایی که احتمالاً در زمان حضور در پس‌زمینه ارسال شده‌اند
         chatRepository.fetchHistory()
     }
@@ -38,6 +46,8 @@ class AppLifecycleObserver @Inject constructor(
             kotlinx.coroutines.delay(1000)
             if (!isAppInForeground) {
                 updatePresence(false)
+                // نمایش مجدد نوتیفیکیشن (برای جلوگیری از بسته شدن سرویس توسط اندروید)
+                ChatConnectionService.updateNotificationVisibility(context, true)
             }
         }
     }

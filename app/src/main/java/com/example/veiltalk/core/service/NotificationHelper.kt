@@ -34,13 +34,13 @@ object NotificationHelper {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = context.getSystemService(NotificationManager::class.java)
 
-            // کانال اتصال (Low importance)
+            // کانال اتصال (Minimum importance - No sound, no icon in status bar)
             val connectionChannel = NotificationChannel(
                 CONNECTION_CHANNEL_ID,
                 "وضعیت اتصال",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_MIN
             ).apply {
-                description = "نمایش زنده بودن برنامه در پس‌زمینه"
+                description = "زنده نگه داشتن برنامه در پس‌زمینه"
                 setShowBadge(false)
             }
             manager.createNotificationChannel(connectionChannel)
@@ -88,9 +88,9 @@ object NotificationHelper {
     fun buildConnectionNotification(context: Context): Notification {
         return NotificationCompat.Builder(context, CONNECTION_CHANNEL_ID)
             .setContentTitle("VeilTalk")
-            .setContentText("در حال دریافت پیام‌ها...")
+            .setContentText("اتصال امن فعال است")
             .setSmallIcon(com.example.veiltalk.R.mipmap.ic_launcher)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)
             .build()
     }
