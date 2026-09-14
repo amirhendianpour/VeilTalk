@@ -48,7 +48,23 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
     val isVideo = uiState.callType == CallKind.VIDEO
     var duration by remember { mutableStateOf(0) }
 
+    // درخواست دسترسی پیش‌دستانه در لحظه زنگ خوردن برای سرعت بخشیدن به پاسخگویی
+    val silentPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { /* فقط برای گرفتن اجازه، بدون عملیات اضافی */ }
+
     LaunchedEffect(uiState.status) {
+        if (uiState.status == CallStatus.RINGING) {
+            val needed = mutableListOf(Manifest.permission.RECORD_AUDIO)
+            if (isVideo) needed.add(Manifest.permission.CAMERA)
+            val missing = needed.filter {
+                ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+            }
+            if (missing.isNotEmpty()) {
+                silentPermissionLauncher.launch(missing.toTypedArray())
+            }
+        }
+        
         if (uiState.status == CallStatus.CONNECTED) {
             duration = 0
             while (true) {
