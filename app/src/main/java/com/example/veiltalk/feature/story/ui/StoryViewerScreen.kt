@@ -48,6 +48,7 @@ fun StoryViewerScreen(
     var isLiked by remember(currentStory.id) { mutableStateOf(currentStory.liked) }
     var replyText by remember { mutableStateOf("") }
     var isPaused by remember { mutableStateOf(false) }
+    var isTextFieldFocused by remember { mutableStateOf(false) }
     var showQuickReactions by remember { mutableStateOf(false) }
     var showViewersBottomSheet by remember { mutableStateOf(false) }
     var viewersList by remember { mutableStateOf<List<StoryViewerInfoDto>>(emptyList()) }
@@ -56,6 +57,8 @@ fun StoryViewerScreen(
 
     LaunchedEffect(currentStory.id) {
         onReactStory(currentStory.id, "VIEW_LOG")
+        // Reset progress smoothly on story change
+        progress.snapTo(0f)
     }
 
     LaunchedEffect(showViewersBottomSheet, currentStory.id) {
@@ -64,13 +67,14 @@ fun StoryViewerScreen(
             onGetViewers(currentStory.id) { list ->
                 viewersList = list
             }
-        } else {
-            isPaused = false
         }
     }
 
-    LaunchedEffect(currentIndex, isPaused) {
-        if (isPaused) {
+    // Effectively manage overall pause state combining textfield focus or sheet open
+    val effectivePause = isPaused || isTextFieldFocused || showViewersBottomSheet
+
+    LaunchedEffect(currentIndex, effectivePause) {
+        if (effectivePause) {
             progress.stop()
         } else {
             val remainingTime = ((1f - progress.value) * 5000).toInt()
@@ -84,6 +88,13 @@ fun StoryViewerScreen(
                 } else {
                     onClose()
                 }
+            } else {
+                // If remaining time is 0 or less, move forward
+                if (currentIndex < stories.size - 1) {
+                    currentIndex++
+                } else {
+                    onClose()
+                }
             }
         }
     }
@@ -92,24 +103,26 @@ fun StoryViewerScreen(
         .fillMaxSize()
         .background(Color.Black)
     ) {
+        // Main Interaction and Image View Area
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(currentIndex) {
                     detectTapGestures(
                         onPress = {
-                            try {
-                                isPaused = true
-                                awaitRelease()
-                            } finally {
-                                if (!showViewersBottomSheet) isPaused = false
-                            }
+                            isPaused = true
+                            val success = tryAwaitRelease()
+                            // Only unpause if we didn't open a sheet or text box
+                            isPaused = false
                         },
                         onTap = { offset ->
-                            if (offset.x < size.width / 3) {
-                                if (currentIndex > 0) currentIndex-- else onClose()
-                            } else {
-                                if (currentIndex < stories.size - 1) currentIndex++ else onClose()
+                            // Don't change story if user is typing a reply
+                            if (!isTextFieldFocused) {
+                                if (offset.x < size.width / 3) {
+                                    if (currentIndex > 0) currentIndex-- else onClose()
+                                } else {
+                                    if (currentIndex < stories.size - 1) currentIndex++ else onClose()
+                                }
                             }
                         }
                     )
@@ -123,7 +136,7 @@ fun StoryViewerScreen(
             )
         }
 
-        // Overlay UI
+        // Overlay UI Content Layers
         Column(modifier = Modifier.fillMaxSize()) {
             // Progress Indicators
             Row(
@@ -204,9 +217,9 @@ fun StoryViewerScreen(
                 }
             }
 
-            // نوار تعاملی پایین صفحه
+            // Interactive Bottom Bar Layer
             if (currentStory.creatorUsername == myUsername) {
-                // استوری خود کاربر: دکمه آمار بازدیدکنندگان
+                // Own story: Viewers analytics layout
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -223,7 +236,7 @@ fun StoryViewerScreen(
                     }
                 }
             } else {
-                // استوری دیگران: ریپلای، ری‌اکشن و لایک
+                // Peer story: Replies, reactions, and likes layout
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -242,10 +255,7 @@ fun StoryViewerScreen(
                         placeholder = { Text("ارسال پیام...", color = Color.LightGray, fontSize = 14.sp) },
                         modifier = Modifier
                             .weight(1f)
-                            .background(Color.White.copy(alpha = 0.15f), CircleShape)
-                            .pointerInput(Unit) {
-                                detectTapGestures(onTap = { isPaused = true })
-                            },
+                            .background(Color.White.copy(alpha = 0.15f), CircleShape),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Color.Transparent,
                             unfocusedBorderColor = Color.Transparent,
@@ -257,11 +267,26 @@ fun StoryViewerScreen(
                         trailingIcon = {
                             if (replyText.isNotBlank()) {
                                 IconButton(onClick = {
-                                    onReplyStory(currentStory.creatorUsername, replyText)
+                                    val formattedReply = "💬 پاسخ به استوری شما:\n\"$replyText\""
+                                    onReplyStory(currentStory.creatorUsername, formattedReply)
                                     replyText = ""
-                                    isPaused = false
+                                    isTextFieldFocused = false
                                 }) {
                                     Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color.White)
+                                }
+                            }
+                        },
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }.also { interactionSource ->
+                            LaunchedEffect(interactionSource) {
+                                interactionSource.interactions.collect { interaction ->
+                                    when (interaction) {
+                                        is androidx.compose.foundation.interaction.FocusInteraction.Focus -> {
+                                            isTextFieldFocused = true
+                                        }
+                                        is androidx.compose.foundation.interaction.FocusInteraction.Unfocus -> {
+                                            isTextFieldFocused = false
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -285,6 +310,7 @@ fun StoryViewerScreen(
             }
         }
 
+        // Quick Reactions Overlay Panel
         if (showQuickReactions) {
             Box(
                 modifier = Modifier
@@ -312,7 +338,8 @@ fun StoryViewerScreen(
                                     .clickable {
                                         onReactStory(currentStory.id, emoji)
                                         showQuickReactions = false
-                                        onReplyStory(currentStory.creatorUsername, "واکنش $emoji به استوری شما")
+                                        val quickReactionMessage = "📊 واکنش $emoji به استوری شما"
+                                        onReplyStory(currentStory.creatorUsername, quickReactionMessage)
                                     }
                                     .padding(4.dp)
                             )
@@ -322,6 +349,7 @@ fun StoryViewerScreen(
             }
         }
 
+        // Viewers Bottom Sheet Content Layout
         if (showViewersBottomSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showViewersBottomSheet = false },
