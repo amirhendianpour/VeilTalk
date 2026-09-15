@@ -622,6 +622,16 @@ fun HomeScreen(
                     },
                     onGetViewers = { storyId, callback ->
                         storyViewModel.getStoryViewers(storyId, callback)
+                    },
+                    onNextUserStories = {
+                        // Find the next user who has active stories and automatically switch to them
+                        val activeUsers = storyState.stories.keys.toList()
+                        val currentPos = activeUsers.indexOf(viewingStoriesUser)
+                        if (currentPos != -1 && currentPos < activeUsers.size - 1) {
+                            viewingStoriesUser = activeUsers[currentPos + 1]
+                        } else {
+                            viewingStoriesUser = null
+                        }
                     }
                 )
             }

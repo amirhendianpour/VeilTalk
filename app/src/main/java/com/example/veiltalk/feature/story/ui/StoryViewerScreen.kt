@@ -40,14 +40,19 @@ fun StoryViewerScreen(
     onUserClick: (String) -> Unit = {},
     onReplyStory: (String, String) -> Unit = { _, _ -> },
     onReactStory: (Long, String) -> Unit = { _, _ -> },
-    onGetViewers: (Long, (List<StoryViewerInfoDto>) -> Unit) -> Unit = { _, _ -> }
+    onGetViewers: (Long, (List<StoryViewerInfoDto>) -> Unit) -> Unit = { _, _ -> },
+    onNextUserStories: () -> Unit = {}
 ) {
     var currentIndex by remember { mutableIntStateOf(0) }
     val currentStory = stories[currentIndex]
     
     var isLiked by remember(currentStory.id, currentStory.liked) { mutableStateOf(currentStory.liked) }
     var replyText by remember { mutableStateOf("") }
-    var isPaused by remember { mutableStateOf(false) }
+    
+    // Explicit manual pause and finger holding separate state to completely prevent skip-on-release bugs
+    var isHolding by remember { mutableStateOf(false) }
+    var isPausedInternal by remember { mutableStateOf(false) }
+    
     var isTextFieldFocused by remember { mutableStateOf(false) }
     var showQuickReactions by remember { mutableStateOf(false) }
     var showViewersBottomSheet by remember { mutableStateOf(false) }
@@ -62,14 +67,14 @@ fun StoryViewerScreen(
 
     LaunchedEffect(showViewersBottomSheet, currentStory.id) {
         if (showViewersBottomSheet) {
-            isPaused = true
+            isPausedInternal = true
             onGetViewers(currentStory.id) { list ->
                 viewersList = list
             }
         }
     }
 
-    val effectivePause = isPaused || isTextFieldFocused || showViewersBottomSheet
+    val effectivePause = isHolding || isPausedInternal || isTextFieldFocused || showViewersBottomSheet
 
     LaunchedEffect(currentIndex, effectivePause) {
         if (effectivePause) {
@@ -81,19 +86,20 @@ fun StoryViewerScreen(
                     targetValue = 1f,
                     animationSpec = tween(durationMillis = remainingTime, easing = LinearEasing)
                 )
-                // If it successfully finished animating to 1f, step to next story
+                // If it successfully finished animating to 1f organically, step to next story
                 if (animationResult.endState.value >= 1f) {
                     if (currentIndex < stories.size - 1) {
                         currentIndex++
                     } else {
-                        onClose()
+                        // All stories of current user finished -> proceed to next user stories if applicable
+                        onNextUserStories()
                     }
                 }
             } else {
                 if (currentIndex < stories.size - 1) {
                     currentIndex++
                 } else {
-                    onClose()
+                    onNextUserStories()
                 }
             }
         }
@@ -106,19 +112,29 @@ fun StoryViewerScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(currentIndex) {
+                .pointerInput(currentIndex, isTextFieldFocused) {
                     detectTapGestures(
                         onPress = {
-                            isPaused = true
-                            tryAwaitRelease()
-                            isPaused = false
+                            isHolding = true
+                            try {
+                                awaitRelease()
+                            } finally {
+                                isHolding = false
+                            }
                         },
                         onTap = { offset ->
                             if (!isTextFieldFocused) {
-                                if (offset.x < size.width / 3) {
-                                    if (currentIndex > 0) currentIndex-- else onClose()
+                                // RTL Support (Persian): Tap on right side goes backwards, tap on left side goes forward!
+                                if (offset.x > size.width * 0.66f) {
+                                    // Tap right -> Previous story
+                                    if (currentIndex > 0) currentIndex--
                                 } else {
-                                    if (currentIndex < stories.size - 1) currentIndex++ else onClose()
+                                    // Tap left -> Next story
+                                    if (currentIndex < stories.size - 1) {
+                                        currentIndex++
+                                    } else {
+                                        onNextUserStories()
+                                    }
                                 }
                             }
                         }
