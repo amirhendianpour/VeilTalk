@@ -85,7 +85,6 @@ fun StoryViewerScreen(
                     targetValue = 1f,
                     animationSpec = tween(durationMillis = remainingTime, easing = LinearEasing)
                 )
-                // If it organically reaches 1f, then increment index
                 if (progress.value >= 1f) {
                     if (currentIndex < stories.size - 1) {
                         currentIndex++
@@ -119,11 +118,13 @@ fun StoryViewerScreen(
                             try {
                                 awaitRelease()
                             } finally {
+                                // Add a tiny delay to prevent the release event trigger from being captured as a Tap event
+                                kotlinx.coroutines.delay(100)
                                 isHolding = false
                             }
                         },
                         onTap = { offset ->
-                            if (!isTextFieldFocused) {
+                            if (!isTextFieldFocused && !isHolding) {
                                 if (offset.x > size.width * 0.66f) {
                                     if (currentIndex > 0) currentIndex--
                                 } else {
