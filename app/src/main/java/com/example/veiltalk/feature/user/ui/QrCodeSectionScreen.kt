@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.veiltalk.common.ui.components.AvatarView
 import com.example.veiltalk.common.util.QrCodeHelper
+import com.example.veiltalk.common.util.SharingHelper
 import com.journeyapps.barcodescanner.CaptureManager
 import com.journeyapps.barcodescanner.CompoundBarcodeView
 
@@ -58,6 +60,7 @@ fun QrCodeSectionScreen(
     val qrBitmap = remember(username) { QrCodeHelper.generateQrCode("veiltalk://user/$username") }
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -100,6 +103,35 @@ fun QrCodeSectionScreen(
                         onCopy = {
                             clipboardManager.setText(AnnotatedString("@$username"))
                             android.widget.Toast.makeText(context, "نام کاربری کپی شد", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        onShare = {
+                            scope.launch {
+                                if (qrBitmap != null) {
+                                    val avatarBitmap = if (!profilePicture.isNullOrBlank()) {
+                                        val loader = coil.ImageLoader(context)
+                                        val request = coil.request.ImageRequest.Builder(context)
+                                            .data(profilePicture)
+                                            .allowHardware(false)
+                                            .build()
+                                        val result = loader.execute(request)
+                                        (result.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                                    } else null
+
+                                    val cardBitmap = QrCodeHelper.createShareCard(
+                                        displayName = displayName,
+                                        username = username,
+                                        qrBitmap = qrBitmap,
+                                        avatarBitmap = avatarBitmap
+                                    )
+
+                                    SharingHelper.shareBitmap(
+                                        context = context,
+                                        bitmap = cardBitmap,
+                                        fileName = "veiltalk_qr_$username",
+                                        text = "کد QR من در VeilTalk. با اسکن این کد می‌توانید با من در ارتباط باشید.\n@$username"
+                                    )
+                                }
+                            }
                         }
                     )
                 } else if (selectedTab == 1) {
@@ -122,7 +154,8 @@ private fun MyQrCodeTab(
     username: String,
     profilePicture: String?,
     qrBitmap: Bitmap?,
-    onCopy: () -> Unit
+    onCopy: () -> Unit,
+    onShare: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -183,7 +216,7 @@ private fun MyQrCodeTab(
                 Spacer(Modifier.width(8.dp))
                 Text("کپی آیدی")
             }
-            OutlinedButton(onClick = { /* Share Logic */ }) {
+            OutlinedButton(onClick = onShare) {
                 Icon(Icons.Default.Share, null)
                 Spacer(Modifier.width(8.dp))
                 Text("اشتراک‌گذاری")
