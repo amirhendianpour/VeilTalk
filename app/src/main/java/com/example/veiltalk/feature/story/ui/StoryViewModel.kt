@@ -79,6 +79,8 @@ class StoryViewModel @Inject constructor(
     fun reactStory(storyId: Long, emoji: String) {
         viewModelScope.launch {
             repository.reactStory(storyId, emoji)
+            // Refresh stories after interaction to keep state synchronized
+            loadStories()
         }
     }
 

@@ -45,7 +45,7 @@ fun StoryViewerScreen(
     var currentIndex by remember { mutableIntStateOf(0) }
     val currentStory = stories[currentIndex]
     
-    var isLiked by remember(currentStory.id) { mutableStateOf(currentStory.liked) }
+    var isLiked by remember(currentStory.id, currentStory.liked) { mutableStateOf(currentStory.liked) }
     var replyText by remember { mutableStateOf("") }
     var isPaused by remember { mutableStateOf(false) }
     var isTextFieldFocused by remember { mutableStateOf(false) }
