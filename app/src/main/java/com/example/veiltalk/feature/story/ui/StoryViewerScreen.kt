@@ -7,6 +7,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,28 +29,44 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.veiltalk.common.ui.components.AvatarView
 import com.example.veiltalk.feature.story.data.dto.StoryResponseDto
+import com.example.veiltalk.feature.story.data.dto.StoryViewerInfoDto
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StoryViewerScreen(
     stories: List<StoryResponseDto>,
+    myUsername: String,
     onClose: () -> Unit,
     onUserClick: (String) -> Unit = {},
     onReplyStory: (String, String) -> Unit = { _, _ -> },
-    onReactStory: (Long, String) -> Unit = { _, _ -> }
+    onReactStory: (Long, String) -> Unit = { _, _ -> },
+    onGetViewers: (Long, (List<StoryViewerInfoDto>) -> Unit) -> Unit = { _, _ -> }
 ) {
     var currentIndex by remember { mutableIntStateOf(0) }
     val currentStory = stories[currentIndex]
     
-    var isLiked by remember(currentStory.id) { mutableStateOf(false) }
+    var isLiked by remember(currentStory.id) { mutableStateOf(currentStory.liked) }
     var replyText by remember { mutableStateOf("") }
     var isPaused by remember { mutableStateOf(false) }
     var showQuickReactions by remember { mutableStateOf(false) }
+    var showViewersBottomSheet by remember { mutableStateOf(false) }
+    var viewersList by remember { mutableStateOf<List<StoryViewerInfoDto>>(emptyList()) }
 
     val progress = remember { Animatable(0f) }
 
     LaunchedEffect(currentStory.id) {
         onReactStory(currentStory.id, "VIEW_LOG")
+    }
+
+    LaunchedEffect(showViewersBottomSheet, currentStory.id) {
+        if (showViewersBottomSheet) {
+            isPaused = true
+            onGetViewers(currentStory.id) { list ->
+                viewersList = list
+            }
+        } else {
+            isPaused = false
+        }
     }
 
     LaunchedEffect(currentIndex, isPaused) {
@@ -84,7 +102,7 @@ fun StoryViewerScreen(
                                 isPaused = true
                                 awaitRelease()
                             } finally {
-                                isPaused = false
+                                if (!showViewersBottomSheet) isPaused = false
                             }
                         },
                         onTap = { offset ->
@@ -186,63 +204,83 @@ fun StoryViewerScreen(
                 }
             }
 
-            // نوار تعاملی پایین صفحه (ریپلای، ری‌اکشن و لایک)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .imePadding()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedTextField(
-                    value = replyText,
-                    onValueChange = { 
-                        replyText = it
-                        showQuickReactions = it.isEmpty()
-                    },
-                    placeholder = { Text("ارسال پیام...", color = Color.LightGray, fontSize = 14.sp) },
+            // نوار تعاملی پایین صفحه
+            if (currentStory.creatorUsername == myUsername) {
+                // استوری خود کاربر: دکمه آمار بازدیدکنندگان
+                Row(
                     modifier = Modifier
-                        .weight(1f)
-                        .background(Color.White.copy(alpha = 0.15f), CircleShape)
-                        .pointerInput(Unit) {
-                            detectTapGestures(onTap = { isPaused = true })
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Button(
+                        onClick = { showViewersBottomSheet = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.25f)),
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Text("👁️ مشاهده بازدیدکنندگان", color = Color.White, fontSize = 14.sp)
+                    }
+                }
+            } else {
+                // استوری دیگران: ریپلای، ری‌اکشن و لایک
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .imePadding()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedTextField(
+                        value = replyText,
+                        onValueChange = { 
+                            replyText = it
+                            showQuickReactions = it.isEmpty()
                         },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    shape = CircleShape,
-                    singleLine = true,
-                    trailingIcon = {
-                        if (replyText.isNotBlank()) {
-                            IconButton(onClick = {
-                                onReplyStory(currentStory.creatorUsername, replyText)
-                                replyText = ""
-                                isPaused = false
-                            }) {
-                                Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color.White)
+                        placeholder = { Text("ارسال پیام...", color = Color.LightGray, fontSize = 14.sp) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(Color.White.copy(alpha = 0.15f), CircleShape)
+                            .pointerInput(Unit) {
+                                detectTapGestures(onTap = { isPaused = true })
+                            },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        shape = CircleShape,
+                        singleLine = true,
+                        trailingIcon = {
+                            if (replyText.isNotBlank()) {
+                                IconButton(onClick = {
+                                    onReplyStory(currentStory.creatorUsername, replyText)
+                                    replyText = ""
+                                    isPaused = false
+                                }) {
+                                    Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color.White)
+                                }
                             }
                         }
-                    }
-                )
-
-                IconButton(onClick = { showQuickReactions = !showQuickReactions }) {
-                    Text("😊", fontSize = 22.sp)
-                }
-
-                IconButton(onClick = { 
-                    isLiked = !isLiked
-                    if (isLiked) onReactStory(currentStory.id, "❤️")
-                }) {
-                    Icon(
-                        imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = null,
-                        tint = if (isLiked) Color.Red else Color.White
                     )
+
+                    IconButton(onClick = { showQuickReactions = !showQuickReactions }) {
+                        Text("😊", fontSize = 22.sp)
+                    }
+
+                    IconButton(onClick = { 
+                        isLiked = !isLiked
+                        onReactStory(currentStory.id, if (isLiked) "❤️" else "UNLIKE")
+                    }) {
+                        Icon(
+                            imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = null,
+                            tint = if (isLiked) Color.Red else Color.White
+                        )
+                    }
                 }
             }
         }
@@ -278,6 +316,73 @@ fun StoryViewerScreen(
                                     }
                                     .padding(4.dp)
                             )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (showViewersBottomSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showViewersBottomSheet = false },
+                containerColor = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 32.dp)
+                ) {
+                    Text(
+                        text = "آمار بازدیدکنندگان (${viewersList.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    
+                    if (viewersList.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("هنوز کسی این استوری را ندیده است.", color = Color.Gray, fontSize = 14.sp)
+                        }
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(viewersList) { viewer ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    AvatarView(
+                                        name = viewer.displayName,
+                                        imageUrl = viewer.profilePictureUrl,
+                                        size = 40.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(text = viewer.displayName, fontSize = 14.sp)
+                                        Text(text = "@${viewer.username}", fontSize = 11.sp, color = Color.Gray)
+                                    }
+                                    
+                                    if (viewer.reactionEmoji != null && viewer.reactionEmoji != "VIEW_LOG") {
+                                        Text(text = viewer.reactionEmoji, fontSize = 20.sp, modifier = Modifier.padding(end = 8.dp))
+                                    }
+                                    
+                                    if (viewer.liked) {
+                                        Icon(
+                                            imageVector = Icons.Default.Favorite,
+                                            contentDescription = null,
+                                            tint = Color.Red,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }

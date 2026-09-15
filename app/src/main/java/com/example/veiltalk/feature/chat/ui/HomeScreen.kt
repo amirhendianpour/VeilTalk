@@ -603,16 +603,15 @@ fun HomeScreen(
             ) {
                 StoryViewerScreen(
                     stories = userStories,
+                    myUsername = uiState.myUsername,
                     onClose = { viewingStoriesUser = null },
                     onUserClick = { username ->
                         viewingStoriesUser = null
                         onOpenChat(username)
                     },
                     onReplyStory = { username, text ->
-                        homeScope.launch {
-                            viewModel.startNewChat(username) { target -> }
-                            android.widget.Toast.makeText(context, "پاسخ شما ارسال شد", android.widget.Toast.LENGTH_SHORT).show()
-                        }
+                        storyViewModel.sendStoryReply(username, text)
+                        android.widget.Toast.makeText(context, "پاسخ شما ارسال شد", android.widget.Toast.LENGTH_SHORT).show()
                     },
                     onReactStory = { storyId, emoji ->
                         if (emoji == "VIEW_LOG") {
@@ -620,6 +619,9 @@ fun HomeScreen(
                         } else {
                             storyViewModel.reactStory(storyId, emoji)
                         }
+                    },
+                    onGetViewers = { storyId, callback ->
+                        storyViewModel.getStoryViewers(storyId, callback)
                     }
                 )
             }

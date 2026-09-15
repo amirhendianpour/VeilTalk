@@ -11,7 +11,9 @@ data class StoryResponseDto(
     val mediaUrl: String,
     val caption: String?,
     val mediaType: String,
-    val createdAt: String
+    val createdAt: String,
+    val liked: Boolean = false,
+    val reactionEmoji: String? = null
 )
 
 @Serializable

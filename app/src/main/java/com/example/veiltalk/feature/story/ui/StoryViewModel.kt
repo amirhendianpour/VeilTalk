@@ -24,7 +24,8 @@ data class StoryUiState(
 
 @HiltViewModel
 class StoryViewModel @Inject constructor(
-    private val repository: StoryRepository
+    private val repository: StoryRepository,
+    private val chatRepository: com.example.veiltalk.feature.chat.data.ChatRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StoryUiState())
@@ -78,6 +79,12 @@ class StoryViewModel @Inject constructor(
     fun reactStory(storyId: Long, emoji: String) {
         viewModelScope.launch {
             repository.reactStory(storyId, emoji)
+        }
+    }
+
+    fun sendStoryReply(recipient: String, text: String) {
+        viewModelScope.launch {
+            chatRepository.sendMessage(recipient, text)
         }
     }
 
