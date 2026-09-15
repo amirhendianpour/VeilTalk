@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -112,6 +113,7 @@ fun ChatScreen(
     var showForwardDialog by remember { mutableStateOf<List<String>?>(null) }
     var isSearchMode by remember { mutableStateOf(false) }
     var viewingImage by remember { mutableStateOf<ChatMessage?>(null) }
+    var showMenu by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { message ->
@@ -125,6 +127,11 @@ fun ChatScreen(
     }
 
     val isSelectionMode = selectedMessages.isNotEmpty()
+
+    BackHandler(enabled = isSearchMode) {
+        isSearchMode = false
+        viewModel.onSearchQueryChange("")
+    }
 
     val callPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -301,9 +308,6 @@ fun ChatScreen(
                                 singleLine = true
                             )
                         } else {
-                            IconButton(onClick = { isSearchMode = true }) {
-                                Icon(Icons.Default.Search, contentDescription = "جستجو")
-                            }
                             val isSavedMessages = viewModel.partner == uiState.myUsername
                             if (!isSavedMessages) {
                                 IconButton(onClick = { requestCallStart(CallKind.VIDEO) }) {
@@ -319,11 +323,28 @@ fun ChatScreen(
                                     )
                                 }
                             }
-                            IconButton(onClick = { /* Menu */ }) {
-                                Icon(
-                                    imageVector = Icons.Default.MoreVert,
-                                    contentDescription = "More"
-                                )
+                            
+                            Box {
+                                IconButton(onClick = { showMenu = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.MoreVert,
+                                        contentDescription = "More"
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = showMenu,
+                                    onDismissRequest = { showMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("جستجو") },
+                                        leadingIcon = { Icon(Icons.Default.Search, null) },
+                                        onClick = {
+                                            showMenu = false
+                                            isSearchMode = true
+                                        }
+                                    )
+                                    // سایر گزینه‌های منو در صورت نیاز اینجا اضافه شوند
+                                }
                             }
                         }
                     }
