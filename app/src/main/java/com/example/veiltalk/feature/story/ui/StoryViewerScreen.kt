@@ -118,13 +118,11 @@ fun StoryViewerScreen(
                             try {
                                 awaitRelease()
                             } finally {
-                                // Add a tiny delay to prevent the release event trigger from being captured as a Tap event
-                                kotlinx.coroutines.delay(100)
                                 isHolding = false
                             }
                         },
                         onTap = { offset ->
-                            if (!isTextFieldFocused && !isHolding) {
+                            if (!isTextFieldFocused) {
                                 if (offset.x > size.width * 0.66f) {
                                     if (currentIndex > 0) currentIndex--
                                 } else {
