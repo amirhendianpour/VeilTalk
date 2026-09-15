@@ -49,7 +49,6 @@ fun StoryViewerScreen(
     var isLiked by remember(currentStory.id, currentStory.liked) { mutableStateOf(currentStory.liked) }
     var replyText by remember { mutableStateOf("") }
     
-    // Explicit manual pause and finger holding separate state to completely prevent skip-on-release bugs
     var isHolding by remember { mutableStateOf(false) }
     var isPausedInternal by remember { mutableStateOf(false) }
     
@@ -82,24 +81,25 @@ fun StoryViewerScreen(
         } else {
             val remainingTime = ((1f - progress.value) * 5000).toInt()
             if (remainingTime > 10) {
-                val animationResult = progress.animateTo(
+                progress.animateTo(
                     targetValue = 1f,
                     animationSpec = tween(durationMillis = remainingTime, easing = LinearEasing)
                 )
-                // If it successfully finished animating to 1f organically, step to next story
-                if (animationResult.endState.value >= 1f) {
+                // If it organically reaches 1f, then increment index
+                if (progress.value >= 1f) {
                     if (currentIndex < stories.size - 1) {
                         currentIndex++
                     } else {
-                        // All stories of current user finished -> proceed to next user stories if applicable
                         onNextUserStories()
                     }
                 }
             } else {
-                if (currentIndex < stories.size - 1) {
-                    currentIndex++
-                } else {
-                    onNextUserStories()
+                if (progress.value >= 1f) {
+                    if (currentIndex < stories.size - 1) {
+                        currentIndex++
+                    } else {
+                        onNextUserStories()
+                    }
                 }
             }
         }
@@ -124,12 +124,9 @@ fun StoryViewerScreen(
                         },
                         onTap = { offset ->
                             if (!isTextFieldFocused) {
-                                // RTL Support (Persian): Tap on right side goes backwards, tap on left side goes forward!
                                 if (offset.x > size.width * 0.66f) {
-                                    // Tap right -> Previous story
                                     if (currentIndex > 0) currentIndex--
                                 } else {
-                                    // Tap left -> Next story
                                     if (currentIndex < stories.size - 1) {
                                         currentIndex++
                                     } else {
