@@ -57,7 +57,6 @@ fun StoryViewerScreen(
 
     LaunchedEffect(currentStory.id) {
         onReactStory(currentStory.id, "VIEW_LOG")
-        // Reset progress smoothly on story change
         progress.snapTo(0f)
     }
 
@@ -70,7 +69,6 @@ fun StoryViewerScreen(
         }
     }
 
-    // Effectively manage overall pause state combining textfield focus or sheet open
     val effectivePause = isPaused || isTextFieldFocused || showViewersBottomSheet
 
     LaunchedEffect(currentIndex, effectivePause) {
@@ -78,18 +76,20 @@ fun StoryViewerScreen(
             progress.stop()
         } else {
             val remainingTime = ((1f - progress.value) * 5000).toInt()
-            if (remainingTime > 0) {
-                progress.animateTo(
+            if (remainingTime > 10) {
+                val animationResult = progress.animateTo(
                     targetValue = 1f,
                     animationSpec = tween(durationMillis = remainingTime, easing = LinearEasing)
                 )
-                if (currentIndex < stories.size - 1) {
-                    currentIndex++
-                } else {
-                    onClose()
+                // If it successfully finished animating to 1f, step to next story
+                if (animationResult.endState.value >= 1f) {
+                    if (currentIndex < stories.size - 1) {
+                        currentIndex++
+                    } else {
+                        onClose()
+                    }
                 }
             } else {
-                // If remaining time is 0 or less, move forward
                 if (currentIndex < stories.size - 1) {
                     currentIndex++
                 } else {
@@ -103,7 +103,6 @@ fun StoryViewerScreen(
         .fillMaxSize()
         .background(Color.Black)
     ) {
-        // Main Interaction and Image View Area
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -111,12 +110,10 @@ fun StoryViewerScreen(
                     detectTapGestures(
                         onPress = {
                             isPaused = true
-                            val success = tryAwaitRelease()
-                            // Only unpause if we didn't open a sheet or text box
+                            tryAwaitRelease()
                             isPaused = false
                         },
                         onTap = { offset ->
-                            // Don't change story if user is typing a reply
                             if (!isTextFieldFocused) {
                                 if (offset.x < size.width / 3) {
                                     if (currentIndex > 0) currentIndex-- else onClose()
@@ -136,9 +133,7 @@ fun StoryViewerScreen(
             )
         }
 
-        // Overlay UI Content Layers
         Column(modifier = Modifier.fillMaxSize()) {
-            // Progress Indicators
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -164,7 +159,6 @@ fun StoryViewerScreen(
                 }
             }
 
-            // Header (Avatar, Name, Close)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -199,7 +193,6 @@ fun StoryViewerScreen(
 
             Spacer(Modifier.weight(1f))
 
-            // Caption
             if (!currentStory.caption.isNullOrBlank()) {
                 Surface(
                     color = Color.Black.copy(alpha = 0.4f),
@@ -217,9 +210,7 @@ fun StoryViewerScreen(
                 }
             }
 
-            // Interactive Bottom Bar Layer
             if (currentStory.creatorUsername == myUsername) {
-                // Own story: Viewers analytics layout
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -236,7 +227,6 @@ fun StoryViewerScreen(
                     }
                 }
             } else {
-                // Peer story: Replies, reactions, and likes layout
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -310,7 +300,6 @@ fun StoryViewerScreen(
             }
         }
 
-        // Quick Reactions Overlay Panel
         if (showQuickReactions) {
             Box(
                 modifier = Modifier
@@ -349,7 +338,6 @@ fun StoryViewerScreen(
             }
         }
 
-        // Viewers Bottom Sheet Content Layout
         if (showViewersBottomSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showViewersBottomSheet = false },
