@@ -24,6 +24,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -148,30 +150,52 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
         val primaryTrack = if (uiState.isLocalVideoPrimary) localTrack else remoteTrack
         val secondaryTrack = if (uiState.isLocalVideoPrimary) remoteTrack else localTrack
 
-        val showPrimary = isVideo && uiState.status == CallStatus.CONNECTED && primaryTrack != null
+        val showPrimary = isVideo && (uiState.status == CallStatus.CONNECTED || uiState.status == CallStatus.RINGING || uiState.status == CallStatus.CALLING) && primaryTrack != null
         val showSecondary = isVideo && uiState.status == CallStatus.CONNECTED && secondaryTrack != null
 
         // تصویر اصلی (تمام صفحه)
-        if (isVideo && showPrimary) {
+        if (isVideo && (uiState.status == CallStatus.CONNECTED || uiState.status == CallStatus.RINGING || uiState.status == CallStatus.CALLING) && localTrack != null && !showPrimary) {
+            // در حالت زنگ خوردن یا تماس قبل اتصال، دوربین خودمان را تمام‌صفحه نشان می‌دهیم (مانند واتساپ)
+            VideoRendererView(
+                track = localTrack,
+                eglContext = viewModel.callRepository.eglBaseContext,
+                mirror = true,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else if (isVideo && showPrimary) {
             VideoRendererView(
                 track = primaryTrack,
                 eglContext = viewModel.callRepository.eglBaseContext,
+                mirror = uiState.isLocalVideoPrimary,
                 modifier = Modifier.fillMaxSize()
             )
         }
 
-        // تصویر ثانویه (کوچک)
+        // ردیابی موقعیت مکانی تصویر ثانویه (کوچک) با قابلیت درگ/کشیدن
+        var offsetX by remember { mutableStateOf(0f) }
+        var offsetY by remember { mutableStateOf(0f) }
+
+        // تصویر ثانویه (کوچک) با قابلیت جابجایی (Drag)
         if (isVideo && showSecondary && !(uiState.isLocalVideoPrimary && uiState.isCameraOff)) {
             val isSecondaryLocal = !uiState.isLocalVideoPrimary
             if (!(isSecondaryLocal && uiState.isCameraOff)) {
                 VideoRendererView(
                     track = secondaryTrack,
                     eglContext = viewModel.callRepository.eglBaseContext,
+                    mirror = !uiState.isLocalVideoPrimary,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
+                        .offset { androidx.compose.ui.unit.IntOffset(offsetX.toInt(), offsetY.toInt()) }
                         .padding(top = 84.dp, end = 16.dp)
                         .size(width = 110.dp, height = 160.dp)
                         .clip(RoundedCornerShape(16.dp))
+                        .pointerInput(Unit) {
+                            detectDragGestures { change, dragAmount ->
+                                change.consume()
+                                offsetX += dragAmount.x
+                                offsetY += dragAmount.y
+                            }
+                        }
                         .clickable { viewModel.swapVideoViews() }
                 )
             }
@@ -195,7 +219,8 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
                 .padding(top = 100.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (!showPrimary || uiState.isLocalVideoPrimary) {
+            val isRingingOrCallingVideo = isVideo && (uiState.status == CallStatus.RINGING || uiState.status == CallStatus.CALLING)
+            if ((!showPrimary || uiState.isLocalVideoPrimary) && !isRingingOrCallingVideo) {
                 Box(modifier = Modifier.scale(scale)) {
                     AvatarView(
                         name = viewModel.remoteDisplayName().ifBlank { "?" },
@@ -214,14 +239,14 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
             )
             
             Surface(
-                color = Color.White.copy(alpha = 0.1f),
+                color = if (isRingingOrCallingVideo) Color.Black.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.1f),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.padding(top = 8.dp)
             ) {
                 Text(
                     text = when (uiState.status) {
-                        CallStatus.CALLING -> "در حال تماس..."
-                        CallStatus.RINGING -> "تماس ورودی..."
+                        CallStatus.CALLING -> if (isVideo) "در حال برقراری تماس تصویری..." else "در حال تماس صوتی..."
+                        CallStatus.RINGING -> if (isVideo) "تماس تصویری ورودی..." else "تماس صوتی ورودی..."
                         CallStatus.CONNECTED -> formatDuration(duration)
                         else -> ""
                     },
@@ -377,14 +402,16 @@ private fun CallButton(
 private fun VideoRendererView(
     track: org.webrtc.VideoTrack?,
     eglContext: org.webrtc.EglBase.Context,
+    mirror: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val renderer = remember { SurfaceViewRenderer(context) }
     
-    DisposableEffect(track) {
+    DisposableEffect(track, mirror) {
         renderer.init(eglContext, null)
         renderer.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
+        renderer.setMirror(mirror)
         track?.addSink(renderer)
         
         onDispose {

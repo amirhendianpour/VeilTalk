@@ -132,6 +132,17 @@ class CallRepository @Inject constructor(
                     remoteUser = signal.from
                 )
                 
+                // WhatsApp Style: Initialize factory and start local camera for preview if video call
+                if (signal.callType == CallKind.VIDEO) {
+                    try {
+                        webRtcClient.initFactory()
+                        webRtcClient.attachLocalMedia(withVideo = true)
+                        _localVideoTrack.value = webRtcClient.localVideoTrack
+                    } catch (e: Exception) {
+                        Log.e("CallRepo", "Failed to init preview camera: ${e.message}")
+                    }
+                }
+                
                 signal.from?.let { from ->
                     CallForegroundService.start(appContext, from, "RINGING", signal.callType == CallKind.VIDEO)
                 }
@@ -298,6 +309,7 @@ class CallRepository @Inject constructor(
         setSpeakerphone(withVideo)
         _uiState.value = _uiState.value.copy(isSpeakerOn = withVideo)
 
+        // If it was already initialized during preview, avoid re-attaching, but ensure peerConnection is ready
         webRtcClient.initFactory()
         webRtcClient.createPeerConnection()
 
@@ -340,7 +352,10 @@ class CallRepository @Inject constructor(
             }
         }
 
-        webRtcClient.attachLocalMedia(withVideo)
+        // Only attach media if not already attached during preview
+        if (webRtcClient.localVideoTrack == null) {
+            webRtcClient.attachLocalMedia(withVideo)
+        }
         _localVideoTrack.value = webRtcClient.localVideoTrack
     }
 
