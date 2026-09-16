@@ -34,6 +34,8 @@ import kotlinx.coroutines.launch
 import coil.compose.AsyncImage
 import com.example.veiltalk.common.ui.components.AvatarView
 import com.example.veiltalk.common.ui.components.FullScreenImageViewer
+import com.example.veiltalk.common.ui.components.ImageCropperDialog
+import android.net.Uri
 import com.example.veiltalk.feature.group.ui.CreateGroupDialog
 import com.example.veiltalk.feature.profile.ui.ProfileViewModel
 import com.example.veiltalk.feature.profile.ui.ProfileMode
@@ -887,6 +889,7 @@ private fun ProfileTab(
     onChangePassword: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var imageUriToCrop by remember { mutableStateOf<Uri?>(null) }
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -896,9 +899,20 @@ private fun ProfileTab(
         }
     }
 
+    if (imageUriToCrop != null) {
+        ImageCropperDialog(
+            uri = imageUriToCrop!!,
+            onDismiss = { imageUriToCrop = null },
+            onCropped = { croppedUri ->
+                imageUriToCrop = null
+                viewModel.uploadAvatar(croppedUri)
+            }
+        )
+    }
+
     val imagePicker = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.GetContent()
-    ) { uri -> uri?.let { viewModel.uploadAvatar(it) } }
+    ) { uri -> uri?.let { imageUriToCrop = it } }
 
     if (uiState.isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
