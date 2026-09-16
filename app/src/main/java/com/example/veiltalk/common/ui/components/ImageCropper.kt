@@ -31,6 +31,13 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
+import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.toSize
+
 @Composable
 fun ImageCropperDialog(
     uri: Uri,
@@ -38,13 +45,17 @@ fun ImageCropperDialog(
     onCropped: (Uri) -> Unit
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     
     LaunchedEffect(uri) {
         withContext(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val inputStream = context.contentResolver.openInputStream(uri)
-                bitmap = BitmapFactory.decodeStream(inputStream)
+                val options = BitmapFactory.Options().apply {
+                    inJustDecodeBounds = false
+                }
+                bitmap = BitmapFactory.decodeStream(inputStream, null, options)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -54,7 +65,11 @@ fun ImageCropperDialog(
     if (bitmap != null) {
         Dialog(
             onDismissRequest = onDismiss,
-            properties = DialogProperties(usePlatformDefaultWidth = false)
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false
+            )
         ) {
             Surface(
                 modifier = Modifier.fillMaxSize(),
@@ -62,87 +77,157 @@ fun ImageCropperDialog(
             ) {
                 var scale by remember { mutableStateOf(1f) }
                 var offset by remember { mutableStateOf(Offset.Zero) }
+                var canvasSize by remember { mutableStateOf(androidx.compose.ui.geometry.Size.Zero) }
+                val cropBoxSize = with(density) { 300.dp.toPx() }
 
-                Column(modifier = Modifier.fillMaxSize()) {
-                    // Top Bar
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = onDismiss) {
-                            Icon(Icons.Default.Close, null, tint = Color.White)
-                        }
-                        Text("تنظیم تصویر", color = Color.White)
-                        IconButton(onClick = {
-                            val cropped = cropBitmap(bitmap!!, scale, offset)
-                            val file = File(context.cacheDir, "cropped_avatar.jpg")
-                            FileOutputStream(file).use { out ->
-                                cropped.compress(Bitmap.CompressFormat.JPEG, 90, out)
-                            }
-                            onCropped(Uri.fromFile(file))
-                        }) {
-                            Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-
-                    // Cropping Area
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // Image and Mask Layer
                     Box(
                         modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
+                            .fillMaxSize()
+                            .onGloballyPositioned { canvasSize = it.size.toSize() }
                             .pointerInput(Unit) {
                                 detectTransformGestures { _, pan, zoom, _ ->
-                                    scale *= zoom
+                                    scale = (scale * zoom).coerceIn(0.5f, 5f)
                                     offset += pan
                                 }
-                            },
-                        contentAlignment = Alignment.Center
+                            }
                     ) {
-                        Canvas(modifier = Modifier.size(300.dp)) {
-                            val canvasSize = size
+                        Canvas(modifier = Modifier.fillMaxSize()) {
                             val imgWidth = bitmap!!.width.toFloat()
                             val imgHeight = bitmap!!.height.toFloat()
                             
-                            val baseScale = Math.min(canvasSize.width / imgWidth, canvasSize.height / imgHeight)
+                            // Fit image to screen initially
+                            val baseScale = Math.min(size.width / imgWidth, size.height / imgHeight)
+                            val finalScale = baseScale * scale
                             
-                            val drawWidth = imgWidth * baseScale * scale
-                            val drawHeight = imgHeight * baseScale * scale
+                            val drawWidth = imgWidth * finalScale
+                            val drawHeight = imgHeight * finalScale
                             
                             val drawOffset = Offset(
-                                (canvasSize.width - drawWidth) / 2 + offset.x,
-                                (canvasSize.height - drawHeight) / 2 + offset.y
+                                (size.width - drawWidth) / 2 + offset.x,
+                                (size.height - drawHeight) / 2 + offset.y
                             )
 
+                            // 1. Draw Image
                             drawImage(
                                 image = bitmap!!.asImageBitmap(),
                                 dstOffset = IntOffset(drawOffset.x.toInt(), drawOffset.y.toInt()),
                                 dstSize = IntSize(drawWidth.toInt(), drawHeight.toInt())
                             )
+
+                            // 2. Draw Dim Mask with square hole
+                            val holePath = Path().apply {
+                                addRect(
+                                    androidx.compose.ui.geometry.Rect(
+                                        left = (size.width - cropBoxSize) / 2,
+                                        top = (size.height - cropBoxSize) / 2,
+                                        right = (size.width + cropBoxSize) / 2,
+                                        bottom = (size.height + cropBoxSize) / 2
+                                    )
+                                )
+                            }
+                            
+                            clipPath(holePath, clipOp = ClipOp.Difference) {
+                                drawRect(Color.Black.copy(alpha = 0.7f))
+                            }
                         }
-                        
-                        // Border window
+
+                        // White Border for the crop area
                         Box(
                             modifier = Modifier
                                 .size(300.dp)
-                                .border(2.dp, Color.White, RectangleShape)
+                                .align(Alignment.Center)
+                                .border(1.dp, Color.White.copy(alpha = 0.8f), RectangleShape)
                         )
                     }
-                    
-                    Text(
-                        "با دو انگشت زوم کنید و تصویر را جابجا کنید",
-                        color = Color.Gray,
-                        modifier = Modifier.padding(16.dp).align(Alignment.CenterHorizontally),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Spacer(Modifier.height(32.dp))
+
+                    // Bottom controls
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .background(Color.Black.copy(alpha = 0.5f))
+                            .padding(bottom = 32.dp, top = 16.dp, start = 24.dp, end = 24.dp)
+                    ) {
+                        Text(
+                            "برای تنظیم تصویر زوم کنید و آن را جابجا کنید",
+                            color = Color.LightGray,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 24.dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = onDismiss) {
+                                Text("انصراف", color = Color.White)
+                            }
+                            
+                            Button(
+                                onClick = {
+                                    val cropped = cropBitmap(bitmap!!, scale, offset, canvasSize, cropBoxSize)
+                                    val file = File(context.cacheDir, "cropped_avatar_${System.currentTimeMillis()}.jpg")
+                                    FileOutputStream(file).use { out ->
+                                        cropped.compress(Bitmap.CompressFormat.JPEG, 95, out)
+                                    }
+                                    onCropped(Uri.fromFile(file))
+                                },
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+                            ) {
+                                Text("انتخاب عکس")
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-private fun cropBitmap(source: Bitmap, scale: Float, offset: Offset): Bitmap {
-    val size = Math.min(source.width, source.height)
-    return Bitmap.createBitmap(source, (source.width - size) / 2, (source.height - size) / 2, size, size)
+private fun cropBitmap(
+    source: Bitmap,
+    userScale: Float,
+    pan: Offset,
+    canvasSize: androidx.compose.ui.geometry.Size,
+    cropBoxSize: Float
+): Bitmap {
+    val imgWidth = source.width.toFloat()
+    val imgHeight = source.height.toFloat()
+
+    // Same logic as in Canvas
+    val baseScale = Math.min(canvasSize.width / imgWidth, canvasSize.height / imgHeight)
+    val totalScale = baseScale * userScale
+
+    val drawWidth = imgWidth * totalScale
+    val drawHeight = imgHeight * totalScale
+
+    val drawOffset = Offset(
+        (canvasSize.width - drawWidth) / 2 + pan.x,
+        (canvasSize.height - drawHeight) / 2 + pan.y
+    )
+
+    // Crop box coordinates in UI
+    val cropLeft = (canvasSize.width - cropBoxSize) / 2
+    val cropTop = (canvasSize.height - cropBoxSize) / 2
+
+    // Map UI crop box to Bitmap coordinates
+    val bitmapStartX = ((cropLeft - drawOffset.x) / totalScale).toInt().coerceIn(0, source.width - 1)
+    val bitmapStartY = ((cropTop - drawOffset.y) / totalScale).toInt().coerceIn(0, source.height - 1)
+    
+    val bitmapCropSize = (cropBoxSize / totalScale).toInt().coerceAtLeast(10)
+    
+    // Ensure we don't exceed bitmap bounds
+    val finalWidth = Math.min(bitmapCropSize, source.width - bitmapStartX).coerceAtLeast(1)
+    val finalHeight = Math.min(bitmapCropSize, source.height - bitmapStartY).coerceAtLeast(1)
+
+    return try {
+        Bitmap.createBitmap(source, bitmapStartX, bitmapStartY, finalWidth, finalHeight)
+    } catch (e: Exception) {
+        e.printStackTrace()
+        // Fallback to center crop if something goes wrong
+        val size = Math.min(source.width, source.height)
+        Bitmap.createBitmap(source, (source.width - size) / 2, (source.height - size) / 2, size, size)
+    }
 }
