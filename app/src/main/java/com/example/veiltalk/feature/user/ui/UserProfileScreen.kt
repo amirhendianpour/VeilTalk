@@ -281,7 +281,7 @@ fun UserProfileScreen(
                 url = user.profilePictureUrl,
                 mediaKey = null,
                 onDismiss = { showFullScreenImage = false },
-                onSave = viewModel::saveProfilePicture
+                onSave = null
             )
         }
     }
