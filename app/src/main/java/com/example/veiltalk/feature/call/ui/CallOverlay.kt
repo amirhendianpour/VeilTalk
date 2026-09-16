@@ -175,34 +175,56 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
         var offsetX by remember { mutableStateOf(0f) }
         var offsetY by remember { mutableStateOf(0f) }
 
-        // تصویر ثانویه (کوچک) با قابلیت جابجایی (Drag)
+        // تصویر ثانویه (کوچک) با قابلیت جابجایی (Drag) و محدودیت به مرزهای صفحه (Bounding/Clamping)
         if (isVideo && showSecondary && !(uiState.isLocalVideoPrimary && uiState.isCameraOff)) {
             val isSecondaryLocal = !uiState.isLocalVideoPrimary
             if (!(isSecondaryLocal && uiState.isCameraOff)) {
-                VideoRendererView(
-                    track = secondaryTrack,
-                    eglContext = viewModel.callRepository.eglBaseContext,
-                    mirror = !uiState.isLocalVideoPrimary,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .offset { 
-                            androidx.compose.ui.unit.IntOffset(offsetX.toInt(), offsetY.toInt()) 
-                        }
-                        .padding(top = 84.dp, end = 16.dp)
-                        .size(width = 110.dp, height = 160.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .pointerInput(Unit) {
-                            detectDragGestures { change, dragAmount ->
-                                change.consume()
-                                // اگر رندرر آینه‌ای (Mirror) شده باشد، جهت درگ محور افقی برعکس احساس می‌شود.
-                                // برای ایجاد حس درگ طبیعی و هم‌راستا با حرکت انگشت، مقدار x را با توجه به آینه‌ای بودن تنظیم می‌کنیم.
-                                val factorX = if (!uiState.isLocalVideoPrimary) -1f else 1f
-                                offsetX += dragAmount.x * factorX
-                                offsetY += dragAmount.y
+                // استفاده از BoxWithConstraints برای به دست آوردن ابعاد دقیق کادر مادر جهت مهار کردن تصویر کوچک
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val containerWidth = constraints.maxWidth.toFloat()
+                    val containerHeight = constraints.maxHeight.toFloat()
+                    
+                    val density = androidx.compose.ui.platform.LocalDensity.current
+                    val viewWidthPx = with(density) { 110.dp.toPx() }
+                    val viewHeightPx = with(density) { 160.dp.toPx() }
+                    val paddingEndPx = with(density) { 16.dp.toPx() }
+                    val paddingTopPx = with(density) { 84.dp.toPx() }
+
+                    // موقعیت اولیه کادر با توجه به Alignment.TopEnd و پدینگ‌ها
+                    val initialLeft = containerWidth - viewWidthPx - paddingEndPx
+                    val initialTop = paddingTopPx
+
+                    // مهار کردن محدوده جابجایی به طوری که کادر به خارج از صفحه منتقل نشود
+                    val minX = -initialLeft + with(density) { 16.dp.toPx() }
+                    val maxX = containerWidth - initialLeft - viewWidthPx - with(density) { 16.dp.toPx() }
+                    val minY = -initialTop + with(density) { 48.dp.toPx() } // فاصله امن از بالا
+                    val maxY = containerHeight - initialTop - viewHeightPx - with(density) { 48.dp.toPx() } // فاصله امن از پایین صفحه
+
+                    VideoRendererView(
+                        track = secondaryTrack,
+                        eglContext = viewModel.callRepository.eglBaseContext,
+                        mirror = !uiState.isLocalVideoPrimary,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .offset { 
+                                androidx.compose.ui.unit.IntOffset(offsetX.toInt(), offsetY.toInt()) 
                             }
-                        }
-                        .clickable { viewModel.swapVideoViews() }
-                )
+                            .padding(top = 84.dp, end = 16.dp)
+                            .size(width = 110.dp, height = 160.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .pointerInput(Unit) {
+                                detectDragGestures { change, dragAmount ->
+                                    change.consume()
+                                    val factorX = if (!uiState.isLocalVideoPrimary) -1f else 1f
+                                    
+                                    // اعمال جابجایی با رعایت دقیق مرزهای مجاز صفحه کلاینت
+                                    offsetX = (offsetX + dragAmount.x * factorX).coerceIn(minX, maxX)
+                                    offsetY = (offsetY + dragAmount.y).coerceIn(minY, maxY)
+                                }
+                            }
+                            .clickable { viewModel.swapVideoViews() }
+                    )
+                }
             }
         }
 
