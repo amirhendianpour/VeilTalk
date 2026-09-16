@@ -18,7 +18,7 @@ import com.example.veiltalk.feature.call.data.entity.CallLogEntity
         ContactEntity::class,
         CallLogEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
