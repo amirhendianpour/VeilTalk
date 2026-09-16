@@ -247,7 +247,8 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             val isRingingOrCallingVideo = isVideo && (uiState.status == CallStatus.RINGING || uiState.status == CallStatus.CALLING)
-            if ((!showPrimary || uiState.isLocalVideoPrimary) && !isRingingOrCallingVideo) {
+            // WhatsApp style: در تماس تصویری متصل شده (CONNECTED) اصلاً آواتار دایره‌ای را نشان نده، فقط برای تماس صوتی یا وضعیت‌های قبل اتصال صوتی مجاز است
+            if ((!showPrimary || uiState.isLocalVideoPrimary) && !isRingingOrCallingVideo && !isVideo) {
                 Box(modifier = Modifier.scale(scale)) {
                     AvatarView(
                         name = viewModel.remoteDisplayName().ifBlank { "?" },
