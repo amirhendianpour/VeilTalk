@@ -185,14 +185,19 @@ fun CallOverlay(viewModel: CallViewModel = hiltViewModel()) {
                     mirror = !uiState.isLocalVideoPrimary,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .offset { androidx.compose.ui.unit.IntOffset(offsetX.toInt(), offsetY.toInt()) }
+                        .offset { 
+                            androidx.compose.ui.unit.IntOffset(offsetX.toInt(), offsetY.toInt()) 
+                        }
                         .padding(top = 84.dp, end = 16.dp)
                         .size(width = 110.dp, height = 160.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .pointerInput(Unit) {
                             detectDragGestures { change, dragAmount ->
                                 change.consume()
-                                offsetX += dragAmount.x
+                                // اگر رندرر آینه‌ای (Mirror) شده باشد، جهت درگ محور افقی برعکس احساس می‌شود.
+                                // برای ایجاد حس درگ طبیعی و هم‌راستا با حرکت انگشت، مقدار x را با توجه به آینه‌ای بودن تنظیم می‌کنیم.
+                                val factorX = if (!uiState.isLocalVideoPrimary) -1f else 1f
+                                offsetX += dragAmount.x * factorX
                                 offsetY += dragAmount.y
                             }
                         }
