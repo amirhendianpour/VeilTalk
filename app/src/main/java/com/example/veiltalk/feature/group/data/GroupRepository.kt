@@ -98,8 +98,8 @@ class GroupRepository @Inject constructor(
         // چک کن آیا این پیام قبلاً در دیتابیس وجود دارد؟
         val existing = groupMessageDao.getMessageById(dto.id, me)
         if (existing != null) {
-            if (existing.content != dto.content) {
-                groupMessageDao.updateMessageContent(dto.id, me, dto.content)
+            if (existing.content != dto.content || existing.isEdited != dto.isEdited) {
+                groupMessageDao.updateMessageContent(dto.id, me, dto.content, dto.isEdited)
             }
             return
         }
@@ -173,7 +173,7 @@ class GroupRepository @Inject constructor(
         val dto = runCatching { json.decodeFromString<GroupChatMessageDto>(rawBody) }.getOrNull() ?: return
         val me = currentUsername ?: return
         // آپدیت فقط محتوای پیام در گروه
-        groupMessageDao.updateMessageContent(dto.id, me, dto.content)
+        groupMessageDao.updateMessageContent(dto.id, me, dto.content, true)
     }
 
     private suspend fun handleGroupReaction(rawBody: String) {
@@ -275,7 +275,8 @@ class GroupRepository @Inject constructor(
                 messageType = msg.messageType,
                 fileUrl = msg.fileUrl,
                 mediaKey = msg.mediaKey,
-                isForwarded = true
+                isForwarded = true,
+                isEdited = msg.isEdited
             )
         }
     }
@@ -288,7 +289,8 @@ class GroupRepository @Inject constructor(
                 messageType = msg.messageType,
                 fileUrl = msg.fileUrl,
                 mediaKey = msg.mediaKey,
-                isForwarded = true
+                isForwarded = true,
+                isEdited = msg.isEdited
             )
         }
     }
@@ -362,7 +364,7 @@ class GroupRepository @Inject constructor(
 
     data class GroupSummary(val lastMessage: String, val timestamp: String?, val unreadCount: Int)
 
-    suspend fun sendGroupMessage(groupId: Long, content: String, messageType: MessageType = MessageType.TEXT, fileUrl: String? = null, replyToId: String? = null, mediaKey: String? = null, isForwarded: Boolean = false) {
+    suspend fun sendGroupMessage(groupId: Long, content: String, messageType: MessageType = MessageType.TEXT, fileUrl: String? = null, replyToId: String? = null, mediaKey: String? = null, isForwarded: Boolean = false, isEdited: Boolean = false) {
         val me = currentUsername ?: return
         val id = generateId()
         val nowIso = Instant.now().toString()
@@ -379,6 +381,7 @@ class GroupRepository @Inject constructor(
                 fileUrl = fileUrl,
                 status = "SENT",
                 isForwarded = isForwarded,
+                isEdited = isEdited,
                 replyToId = replyToId,
                 mediaKey = mediaKey
             )
@@ -394,7 +397,8 @@ class GroupRepository @Inject constructor(
             timestamp = null,
             replyToId = replyToId,
             mediaKey = mediaKey,
-            isForwarded = isForwarded
+            isForwarded = isForwarded,
+            isEdited = isEdited
         )
         stompManager.publish("/app/group/chat", json.encodeToString(dto))
     }
@@ -443,10 +447,11 @@ class GroupRepository @Inject constructor(
             content = newContent, 
             messageType = MessageType.TEXT.name, 
             fileUrl = null, 
-            timestamp = Instant.now().toString()
+            timestamp = Instant.now().toString(),
+            isEdited = true
         )
         stompManager.publish("/app/group/edit", json.encodeToString(dto))
-        groupMessageDao.updateMessageContent(messageId, me, newContent)
+        groupMessageDao.updateMessageContent(messageId, me, newContent, true)
     }
 
     suspend fun markGroupAsRead(groupId: Long) {
@@ -601,6 +606,7 @@ class GroupRepository @Inject constructor(
             replyToId = replyToId,
             mediaKey = mediaKey,
             isForwarded = isForwarded,
+            isEdited = isEdited,
             reactions = reactionsMap
         )
     }

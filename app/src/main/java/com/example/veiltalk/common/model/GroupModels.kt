@@ -20,6 +20,7 @@ data class GroupMessage(
     val replyToId: String? = null,
     override val mediaKey: String? = null,
     val isForwarded: Boolean = false,
+    val isEdited: Boolean = false,
     val reactions: Map<String, String> = emptyMap()
 ) : BaseMessage
 

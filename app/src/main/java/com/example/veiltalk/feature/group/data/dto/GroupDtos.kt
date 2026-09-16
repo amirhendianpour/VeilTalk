@@ -52,7 +52,8 @@ data class GroupChatMessageDto(
     val timestamp: String? = null,
     val replyToId: String? = null,
     val mediaKey: String? = null,
-    val isForwarded: Boolean = false
+    val isForwarded: Boolean = false,
+    val isEdited: Boolean = false
 )
 
 @Serializable

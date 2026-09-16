@@ -99,8 +99,8 @@ class ChatRepository @Inject constructor(
         if (existing != null) {
             // اگر پیام وجود دارد و وضعیتش قبلاً READ یا DELIVERED شده، کاری نکنیم
             // اما اگر محتوا تغییر کرده (ویرایش)، آپدیت کنیم
-            if (existing.content != dto.content) {
-                messageDao.updateMessageContent(dto.id, me, dto.content)
+            if (existing.content != dto.content || existing.isEdited != dto.isEdited) {
+                messageDao.updateMessageContent(dto.id, me, dto.content, dto.isEdited)
             }
             return
         }
@@ -218,7 +218,7 @@ class ChatRepository @Inject constructor(
         val dto = runCatching { json.decodeFromString<ChatMessageDto>(rawBody) }.getOrNull() ?: return
         val me = currentUsername ?: return
         // آپدیت فقط محتوای پیام (بدون دستکاری فرستنده و نوع پیام)
-        messageDao.updateMessageContent(dto.id, me, dto.content)
+        messageDao.updateMessageContent(dto.id, me, dto.content, true)
     }
 
     private suspend fun handleReaction(rawBody: String) {
@@ -288,7 +288,7 @@ class ChatRepository @Inject constructor(
 
     data class ConversationSummary(val partner: String, val lastMessage: String, val timestamp: String?, val unreadCount: Int)
 
-    suspend fun sendMessage(recipient: String, content: String, messageType: MessageType = MessageType.TEXT, fileUrl: String? = null, replyToId: String? = null, mediaKey: String? = null, isForwarded: Boolean = false) {
+    suspend fun sendMessage(recipient: String, content: String, messageType: MessageType = MessageType.TEXT, fileUrl: String? = null, replyToId: String? = null, mediaKey: String? = null, isForwarded: Boolean = false, isEdited: Boolean = false) {
         val me = currentUsername ?: return
         val id = generateId()
         val nowIso = Instant.now().toString()
@@ -306,12 +306,13 @@ class ChatRepository @Inject constructor(
                 fileUrl = fileUrl,
                 status = if (isMessageToSelf) "READ" else "SENT",
                 isForwarded = isForwarded,
+                isEdited = isEdited,
                 replyToId = replyToId,
                 mediaKey = mediaKey
             )
         )
 
-        val dto = ChatMessageDto(id, me, recipient, content, messageType.name, fileUrl, nowIso, replyToId, mediaKey, isForwarded)
+        val dto = ChatMessageDto(id, me, recipient, content, messageType.name, fileUrl, nowIso, replyToId, mediaKey, isForwarded, isEdited)
         stompManager.publish("/app/chat", json.encodeToString(dto))
     }
 
@@ -322,10 +323,11 @@ class ChatRepository @Inject constructor(
             recipient = recipient, 
             content = newContent, 
             messageType = MessageType.TEXT.name,
-            timestamp = Instant.now().toString()
+            timestamp = Instant.now().toString(),
+            isEdited = true
         )
         stompManager.publish("/app/chat/edit", json.encodeToString(dto))
-        messageDao.updateMessageContent(messageId, me, newContent)
+        messageDao.updateMessageContent(messageId, me, newContent, true)
     }
 
     suspend fun sendTyping(recipient: String, typing: Boolean) {
@@ -375,7 +377,7 @@ class ChatRepository @Inject constructor(
 
     suspend fun forwardMessages(targetRecipient: String, messages: List<ChatMessage>) {
         messages.forEach { msg ->
-            sendMessage(targetRecipient, msg.content, msg.messageType, msg.fileUrl, mediaKey = msg.mediaKey, isForwarded = true)
+            sendMessage(targetRecipient, msg.content, msg.messageType, msg.fileUrl, mediaKey = msg.mediaKey, isForwarded = true, isEdited = msg.isEdited)
         }
     }
 
@@ -474,6 +476,7 @@ private fun PrivateMessageEntity.toDomain(json: Json): ChatMessage {
         replyToId = replyToId,
         mediaKey = mediaKey,
         isForwarded = isForwarded,
+        isEdited = isEdited,
         reactions = reactionsMap
     )
 }

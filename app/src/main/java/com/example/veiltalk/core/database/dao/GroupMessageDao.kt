@@ -50,8 +50,8 @@ interface GroupMessageDao {
     @Query("UPDATE group_messages SET reactionsJson = :reactionsJson WHERE id = :messageId AND ownerUsername = :owner")
     suspend fun updateReactions(messageId: String, owner: String, reactionsJson: String?)
 
-    @Query("UPDATE group_messages SET content = :newContent WHERE id = :messageId AND ownerUsername = :owner")
-    suspend fun updateMessageContent(messageId: String, owner: String, newContent: String)
+    @Query("UPDATE group_messages SET content = :newContent, isEdited = :isEdited WHERE id = :messageId AND ownerUsername = :owner")
+    suspend fun updateMessageContent(messageId: String, owner: String, newContent: String, isEdited: Boolean = true)
 
     @Query("""
         UPDATE group_messages

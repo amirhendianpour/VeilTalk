@@ -73,8 +73,8 @@ interface MessageDao {
     @Query("UPDATE private_messages SET reactionsJson = :reactionsJson WHERE id = :messageId AND ownerUsername = :owner")
     suspend fun updateReactions(messageId: String, owner: String, reactionsJson: String?)
 
-    @Query("UPDATE private_messages SET content = :newContent WHERE id = :messageId AND ownerUsername = :owner")
-    suspend fun updateMessageContent(messageId: String, owner: String, newContent: String)
+    @Query("UPDATE private_messages SET content = :newContent, isEdited = :isEdited WHERE id = :messageId AND ownerUsername = :owner")
+    suspend fun updateMessageContent(messageId: String, owner: String, newContent: String, isEdited: Boolean = true)
 
     @Query("DELETE FROM private_messages WHERE ownerUsername = :owner AND (sender = :partner OR recipient = :partner)")
     suspend fun deleteConversation(owner: String, partner: String)

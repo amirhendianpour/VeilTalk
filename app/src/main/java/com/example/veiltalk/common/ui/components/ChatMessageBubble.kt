@@ -34,6 +34,7 @@ fun ChatMessageBubble(
     isPinned: Boolean = false,
     isSelected: Boolean = false,
     isForwarded: Boolean = false,
+    isEdited: Boolean = false,
     onLongClick: () -> Unit = {},
     onClick: () -> Unit = {},
     onSenderClick: () -> Unit = {},

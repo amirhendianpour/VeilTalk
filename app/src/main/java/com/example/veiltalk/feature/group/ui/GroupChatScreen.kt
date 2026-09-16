@@ -512,6 +512,7 @@ private fun GroupMessageBubble(
         isPinned = message.isPinned,
         isSelected = isSelected,
         isForwarded = message.isForwarded,
+        isEdited = message.isEdited,
         replyToName = replyToName,
         replyToContent = replyToContent,
         onReplyClick = onReplyClick,

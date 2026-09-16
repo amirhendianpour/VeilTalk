@@ -17,5 +17,6 @@ data class PrivateMessageEntity(
     val replyToId: String? = null,
     val mediaKey: String? = null,
     val isForwarded: Boolean = false,
+    val isEdited: Boolean = false,
     val reactionsJson: String? = null
 )
