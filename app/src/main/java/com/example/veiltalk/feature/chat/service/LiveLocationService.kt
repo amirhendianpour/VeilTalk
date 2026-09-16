@@ -18,6 +18,8 @@ import com.example.veiltalk.feature.chat.data.ChatRepository
 import com.example.veiltalk.feature.group.data.GroupRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.GlobalScope
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -31,6 +33,7 @@ class LiveLocationService : Service() {
     
     private var chatId: String? = null
     private var isGroup: Boolean = false
+    private var currentMessageId: String? = null
 
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
@@ -79,10 +82,18 @@ class LiveLocationService : Service() {
             val content = "${location.latitude},${location.longitude}"
             if (isGroup) {
                 target.toLongOrNull()?.let { gid ->
-                    groupRepository.sendGroupMessage(gid, content, MessageType.LIVE_LOCATION)
+                    if (currentMessageId == null) {
+                        currentMessageId = groupRepository.sendGroupMessage(gid, content, MessageType.LIVE_LOCATION)
+                    } else {
+                        groupRepository.editGroupMessage(gid, currentMessageId!!, content, MessageType.LIVE_LOCATION)
+                    }
                 }
             } else {
-                chatRepository.sendMessage(target, content, MessageType.LIVE_LOCATION)
+                if (currentMessageId == null) {
+                    currentMessageId = chatRepository.sendMessage(target, content, MessageType.LIVE_LOCATION)
+                } else {
+                    chatRepository.editMessage(currentMessageId!!, target, content, MessageType.LIVE_LOCATION)
+                }
             }
         }
     }
@@ -106,7 +117,7 @@ class LiveLocationService : Service() {
 
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("VeilTalk")
-            .setContentText("Sharing live location...")
+            .setContentText("در حال اشتراک‌گذاری مکان زنده...")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
@@ -116,9 +127,30 @@ class LiveLocationService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        super.onDestroy()
+        val mid = currentMessageId
+        val target = chatId
+        if (mid != null && target != null) {
+            // استفاده از GlobalScope برای اطمینان از ارسال پیام نهایی قبل از بسته شدن کامل
+            @OptIn(DelicateCoroutinesApi::class)
+            GlobalScope.launch(Dispatchers.IO) {
+                try {
+                    if (isGroup) {
+                        target.toLongOrNull()?.let { gid ->
+                            groupRepository.editGroupMessage(gid, mid, "اشتراک‌گذاری متوقف شد", MessageType.LOCATION)
+                        }
+                    } else {
+                        chatRepository.editMessage(mid, target, "اشتراک‌گذاری متوقف شد", MessageType.LOCATION)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            android.widget.Toast.makeText(applicationContext, "اشتراک‌گذاری مکان متوقف شد", android.widget.Toast.LENGTH_SHORT).show()
+        }
+        
         locationManager?.removeUpdates(locationListener)
         serviceScope.cancel()
+        super.onDestroy()
     }
 
     companion object {

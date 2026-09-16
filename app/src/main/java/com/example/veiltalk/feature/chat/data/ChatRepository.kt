@@ -288,8 +288,8 @@ class ChatRepository @Inject constructor(
 
     data class ConversationSummary(val partner: String, val lastMessage: String, val timestamp: String?, val unreadCount: Int)
 
-    suspend fun sendMessage(recipient: String, content: String, messageType: MessageType = MessageType.TEXT, fileUrl: String? = null, replyToId: String? = null, mediaKey: String? = null, isForwarded: Boolean = false, isEdited: Boolean = false) {
-        val me = currentUsername ?: return
+    suspend fun sendMessage(recipient: String, content: String, messageType: MessageType = MessageType.TEXT, fileUrl: String? = null, replyToId: String? = null, mediaKey: String? = null, isForwarded: Boolean = false, isEdited: Boolean = false): String {
+        val me = currentUsername ?: return ""
         val id = generateId()
         val nowIso = Instant.now().toString()
         val isMessageToSelf = me == recipient
@@ -314,15 +314,16 @@ class ChatRepository @Inject constructor(
 
         val dto = ChatMessageDto(id, me, recipient, content, messageType.name, fileUrl, nowIso, replyToId, mediaKey, isForwarded, isEdited)
         stompManager.publish("/app/chat", json.encodeToString(dto))
+        return id
     }
 
-    suspend fun editMessage(messageId: String, recipient: String, newContent: String) {
+    suspend fun editMessage(messageId: String, recipient: String, newContent: String, messageType: MessageType = MessageType.TEXT) {
         val me = currentUsername ?: return
         val dto = ChatMessageDto(
             id = messageId, 
             recipient = recipient, 
             content = newContent, 
-            messageType = MessageType.TEXT.name,
+            messageType = messageType.name,
             timestamp = Instant.now().toString(),
             isEdited = true
         )

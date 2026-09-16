@@ -364,8 +364,8 @@ class GroupRepository @Inject constructor(
 
     data class GroupSummary(val lastMessage: String, val timestamp: String?, val unreadCount: Int)
 
-    suspend fun sendGroupMessage(groupId: Long, content: String, messageType: MessageType = MessageType.TEXT, fileUrl: String? = null, replyToId: String? = null, mediaKey: String? = null, isForwarded: Boolean = false, isEdited: Boolean = false) {
-        val me = currentUsername ?: return
+    suspend fun sendGroupMessage(groupId: Long, content: String, messageType: MessageType = MessageType.TEXT, fileUrl: String? = null, replyToId: String? = null, mediaKey: String? = null, isForwarded: Boolean = false, isEdited: Boolean = false): String {
+        val me = currentUsername ?: return ""
         val id = generateId()
         val nowIso = Instant.now().toString()
         
@@ -394,13 +394,14 @@ class GroupRepository @Inject constructor(
             content = content, 
             messageType = messageType.name, 
             fileUrl = fileUrl, 
-            timestamp = null,
+            timestamp = nowIso,
             replyToId = replyToId,
             mediaKey = mediaKey,
             isForwarded = isForwarded,
             isEdited = isEdited
         )
         stompManager.publish("/app/group/chat", json.encodeToString(dto))
+        return id
     }
 
     suspend fun sendImageMessage(groupId: Long, uri: android.net.Uri): Result<Unit> {
@@ -438,14 +439,14 @@ class GroupRepository @Inject constructor(
         groupMessageDao.updateReactions(messageId, me, json.encodeToString(newReactions))
     }
 
-    suspend fun editGroupMessage(groupId: Long, messageId: String, newContent: String) {
+    suspend fun editGroupMessage(groupId: Long, messageId: String, newContent: String, messageType: MessageType = MessageType.TEXT) {
         val me = currentUsername ?: return
         val dto = GroupChatMessageDto(
             id = messageId, 
             groupId = groupId, 
             sender = me, 
             content = newContent, 
-            messageType = MessageType.TEXT.name, 
+            messageType = messageType.name, 
             fileUrl = null, 
             timestamp = Instant.now().toString(),
             isEdited = true
