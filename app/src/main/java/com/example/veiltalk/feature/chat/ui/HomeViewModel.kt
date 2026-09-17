@@ -69,11 +69,14 @@ class HomeViewModel @Inject constructor(
     private val contactSyncRepository: ContactSyncRepository,
     private val contactDao: com.example.veiltalk.core.database.dao.ContactDao,
     private val sessionManager: SessionManager,
-    private val fcmTokenRepository: FcmTokenRepository
+    private val fcmTokenRepository: FcmTokenRepository,
+    stompManager: com.example.veiltalk.core.websocket.StompManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    val connectionState = stompManager.connectionState
 
     private val _contacts = MutableStateFlow<List<HomeListItem.ChatItem>>(emptyList())
     val contacts: StateFlow<List<HomeListItem.ChatItem>> = _contacts.asStateFlow()

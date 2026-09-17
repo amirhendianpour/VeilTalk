@@ -41,14 +41,17 @@ data class ChatUiState(
 class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val chatRepository: ChatRepository,
-    private val groupRepository: GroupRepository, // اضافه شد
+    private val groupRepository: GroupRepository,
     private val userDirectory: UserDirectoryRepository,
     private val mediaRepository: MediaRepository,
     private val locationHelper: com.example.veiltalk.core.location.LocationHelper,
-    private val blockRepository: BlockRepository
+    private val blockRepository: BlockRepository,
+    stompManager: com.example.veiltalk.core.websocket.StompManager
 ) : ViewModel() {
 
     val partner: String = checkNotNull(savedStateHandle["username"])
+    
+    val connectionState = stompManager.connectionState
 
     private val _inputText = MutableStateFlow("")
     val inputText: StateFlow<String> = _inputText.asStateFlow()

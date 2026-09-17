@@ -127,6 +127,7 @@ fun ChatScreen(
     }
 
     val isSelectionMode = selectedMessages.isNotEmpty()
+    val connState by viewModel.connectionState.collectAsState()
 
     BackHandler(enabled = isSearchMode) {
         isSearchMode = false
@@ -412,6 +413,20 @@ fun ChatScreen(
             Canvas(modifier = Modifier.fillMaxSize()) { }
             
             Column(modifier = Modifier.fillMaxSize()) {
+                // نمایش وضعیت اتصال سوکت
+                if (connState != com.example.veiltalk.core.websocket.ConnectionState.CONNECTED) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f))
+                            .padding(vertical = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val text = if (connState == com.example.veiltalk.core.websocket.ConnectionState.CONNECTING) "در حال اتصال..." else "در انتظار اتصال..."
+                        Text(text, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                    }
+                }
+
                 if (uiState.isBlockedByMe) {
                     Surface(
                         color = Color.Red.copy(alpha = 0.1f),

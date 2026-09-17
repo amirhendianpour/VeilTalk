@@ -126,6 +126,7 @@ fun HomeScreen(
     var isSearchMode by remember { mutableStateOf(false) }
 
     val isSelectionMode = uiState.selectedKeys.isNotEmpty()
+    val connState by viewModel.connectionState.collectAsState()
 
     Scaffold(
         topBar = {
@@ -394,6 +395,20 @@ fun HomeScreen(
         }
 
         Column(modifier = Modifier.padding(padding)) {
+            // نمایش وضعیت اتصال سوکت
+            if (connState != com.example.veiltalk.core.websocket.ConnectionState.CONNECTED) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f))
+                        .padding(vertical = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val text = if (connState == com.example.veiltalk.core.websocket.ConnectionState.CONNECTING) "در حال اتصال..." else "در انتظار اتصال..."
+                    Text(text, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                }
+            }
+
             if (bottomNavTab == 0) {
                 PrimaryTabRow(
                     selectedTabIndex = tab.ordinal,

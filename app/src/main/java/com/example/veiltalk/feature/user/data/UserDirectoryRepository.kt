@@ -81,7 +81,14 @@ class UserDirectoryRepository @Inject constructor(
         }
         _directory.value = _directory.value + (key to merged)
         
-        _presenceMap.value = _presenceMap.value + (key to if (info.online) Presence.Online else Presence.Offline(info.lastSeen))
+        // به‌روزرسانی وضعیت حضور: فقط اگر وضعیت فعلی Unknown باشد یا وضعیت جدید Online باشد، 
+        // یا اگر وضعیت جدید Offline است، وضعیت فعلی Online نباشد (برای جلوگیری از پرش وضعیت بر اثر داده‌های قدیمی API).
+        val currentPresence = _presenceMap.value[key]
+        val newPresence = if (info.online) Presence.Online else Presence.Offline(info.lastSeen)
+        
+        if (currentPresence == null || currentPresence is Presence.Unknown || info.online || currentPresence !is Presence.Online) {
+            _presenceMap.value = _presenceMap.value + (key to newPresence)
+        }
 
         // آپدیت دیتابیس محلی در پس‌زمینه (اگر قبلاً در دیتابیس بوده)
         scope.launch {
