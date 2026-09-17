@@ -269,7 +269,7 @@ fun StoryViewerScreen(
                         trailingIcon = {
                             if (replyText.isNotBlank()) {
                                 IconButton(onClick = {
-                                    val formattedReply = "💬 پاسخ به استوری شما:\n\"$replyText\""
+                                    val formattedReply = "[STORY_MEDIA:${currentStory.mediaUrl}]🎬 پاسخ به استوری شما\n\n💬 $replyText"
                                     onReplyStory(currentStory.creatorUsername, formattedReply)
                                     replyText = ""
                                     isTextFieldFocused = false
@@ -300,7 +300,7 @@ fun StoryViewerScreen(
 
                     IconButton(onClick = { 
                         isLiked = !isLiked
-                        onReactStory(currentStory.id, if (isLiked) "❤️" else "UNLIKE")
+                        onReactStory(currentStory.id, if (isLiked) "LIKE" else "UNLIKE")
                     }) {
                         Icon(
                             imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -339,7 +339,7 @@ fun StoryViewerScreen(
                                     .clickable {
                                         onReactStory(currentStory.id, emoji)
                                         showQuickReactions = false
-                                        val quickReactionMessage = "📊 واکنش $emoji به استوری شما"
+                                        val quickReactionMessage = "[STORY_MEDIA:${currentStory.mediaUrl}]✨ واکنش به استوری شما\n\nامتیاز حس: $emoji"
                                         onReplyStory(currentStory.creatorUsername, quickReactionMessage)
                                     }
                                     .padding(4.dp)

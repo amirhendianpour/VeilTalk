@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -133,6 +134,7 @@ fun ChatMessageBubble(
                 }
 
                 if (replyToContent != null) {
+                    val isStoryReply = replyToContent.startsWith("[STORY_MEDIA:")
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -145,23 +147,39 @@ fun ChatMessageBubble(
                             Box(
                                 modifier = Modifier
                                     .width(2.dp)
-                                    .height(32.dp)
+                                    .height(if (isStoryReply) 42.dp else 32.dp)
                                     .background(primaryColor)
                             )
                             Spacer(Modifier.width(8.dp))
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = replyToName ?: "پیام",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = primaryColor
                                 )
+                                val cleanContent = if (isStoryReply) {
+                                    val index = replyToContent.indexOf("]")
+                                    if (index != -1) replyToContent.substring(index + 1) else replyToContent
+                                } else replyToContent
+                                
                                 Text(
-                                    text = replyToContent,
+                                    text = cleanContent,
                                     fontSize = 11.sp,
                                     color = contentColor.copy(alpha = 0.7f),
                                     maxLines = 1,
                                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                            }
+                            if (isStoryReply) {
+                                val mediaUrl = replyToContent.substringAfter("[STORY_MEDIA:").substringBefore("]")
+                                coil.compose.AsyncImage(
+                                    model = mediaUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(RoundedCornerShape(4.dp)),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
                                 )
                             }
                         }
