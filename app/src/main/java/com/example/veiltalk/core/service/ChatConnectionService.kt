@@ -52,6 +52,26 @@ class ChatConnectionService : Service() {
         return START_STICKY
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        // وقتی کاربر اپلیکیشن را از لیست Recent به بیرون می‌کشد (Swipe)
+        // در واتساپ این کار باعث بستن کامل سرویس نمی‌شود.
+        // ما اینجا تلاش می‌کنیم سرویس را زنده نگه داریم یا دوباره لانچ کنیم.
+        val restartServiceIntent = Intent(applicationContext, this.javaClass).apply {
+            setPackage(packageName)
+            putExtra(EXTRA_SHOW_NOTIFICATION, true)
+        }
+        
+        // اگر سیستم اجازه دهد، سرویس را ری‌استارت می‌کنیم
+        val pendingIntent = android.app.PendingIntent.getService(
+            this, 1, restartServiceIntent,
+            android.app.PendingIntent.FLAG_ONE_SHOT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+        alarmManager.set(android.app.AlarmManager.RTC, System.currentTimeMillis() + 1000, pendingIntent)
+        
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onDestroy() {
         stompManager.disconnect()
         serviceScope.cancel()

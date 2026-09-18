@@ -31,6 +31,7 @@ class VeilTalkFirebaseMessagingService : FirebaseMessagingService() {
     @Inject lateinit var messageDao: MessageDao
     @Inject lateinit var groupMessageDao: GroupMessageDao
     @Inject lateinit var sessionManager: SessionManager
+    @Inject lateinit var messageApi: com.example.veiltalk.feature.chat.data.MessageApi
 
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -46,15 +47,33 @@ class VeilTalkFirebaseMessagingService : FirebaseMessagingService() {
 
         val messageId = remoteMessage.data["id"] ?: return
         val senderUsername = remoteMessage.data["senderUsername"] ?: return
-        val content = remoteMessage.data["content"] ?: remoteMessage.notification?.body ?: "پیام جدید"
         val type = remoteMessage.data["type"] // PRIVATE_MESSAGE یا GROUP_MESSAGE
         val groupName = remoteMessage.data["groupName"]
         val groupId = remoteMessage.data["groupId"]?.toLongOrNull()
+        
+        // استخراج عنوان و متن از دیتا (برای Data-only messages اولویت بالا)
+        val title = remoteMessage.data["title"] ?: "VeilTalk"
+        val content = remoteMessage.data["body"] ?: remoteMessage.data["content"] ?: "پیام جدید"
 
         scope.launch {
             val me = sessionManager.currentUsername ?: return@launch
             
-            // چک کردن اینکه آیا پیام قبلاً توسط وب‌سوکت دریافت شده است یا خیر
+            // ۱. ارسال رسید تحویل بلافاصله (Delivery Receipt) مشابه واتساپ
+            // این کار باعث می‌شود فرستنده متوجه شود پیام به گوشی رسیده حتی اگر اپ بسته باشد
+            try {
+                messageApi.postReceipt(
+                    com.example.veiltalk.feature.chat.data.dto.ReceiptDto(
+                        messageId = messageId,
+                        recipient = senderUsername,
+                        status = "DELIVERED",
+                        groupId = groupId
+                    )
+                )
+            } catch (e: Exception) {
+                // Ignore network errors for receipts
+            }
+
+            // ۲. چک کردن اینکه آیا پیام قبلاً توسط وب‌سوکت دریافت شده است یا خیر
             val alreadyExists = if (type == "GROUP_MESSAGE" && groupId != null) {
                 groupMessageDao.getMessageById(messageId, me) != null
             } else {
@@ -63,7 +82,7 @@ class VeilTalkFirebaseMessagingService : FirebaseMessagingService() {
 
             if (alreadyExists) return@launch
 
-            // اطمینان از لود شدن اطلاعات کاربر
+            // ۳. نمایش نوتیفیکیشن
             userDirectory.ensureLoaded(listOf(senderUsername))
             val displayName = userDirectory.getDisplayName(senderUsername)
             val avatarUrl = userDirectory.getProfilePicture(senderUsername)
@@ -83,7 +102,7 @@ class VeilTalkFirebaseMessagingService : FirebaseMessagingService() {
                 NotificationHelper.showMessageNotification(
                     context = this@VeilTalkFirebaseMessagingService,
                     partnerUsername = senderUsername,
-                    partnerDisplayName = displayName,
+                    partnerDisplayName = if (type == "GROUP_MESSAGE") groupName ?: title else displayName,
                     messages = messages,
                     avatarBitmap = bitmap,
                     isGroup = type == "GROUP_MESSAGE",
