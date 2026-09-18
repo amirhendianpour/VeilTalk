@@ -32,6 +32,7 @@ class VeilTalkFirebaseMessagingService : FirebaseMessagingService() {
     @Inject lateinit var groupMessageDao: GroupMessageDao
     @Inject lateinit var sessionManager: SessionManager
     @Inject lateinit var messageApi: com.example.veiltalk.feature.chat.data.MessageApi
+    @Inject lateinit var callRepository: com.example.veiltalk.feature.call.data.CallRepository
 
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -54,6 +55,11 @@ class VeilTalkFirebaseMessagingService : FirebaseMessagingService() {
         // استخراج عنوان و متن از دیتا (برای Data-only messages اولویت بالا)
         val title = remoteMessage.data["title"] ?: "VeilTalk"
         val content = remoteMessage.data["body"] ?: remoteMessage.data["content"] ?: "پیام جدید"
+
+        if (type == "CALL") {
+            handleCallPush(remoteMessage.data)
+            return
+        }
 
         scope.launch {
             val me = sessionManager.currentUsername ?: return@launch
@@ -123,6 +129,36 @@ class VeilTalkFirebaseMessagingService : FirebaseMessagingService() {
         return when (val result = loader.execute(request)) {
             is SuccessResult -> (result.drawable as? BitmapDrawable)?.bitmap
             else -> null
+        }
+    }
+
+    private fun handleCallPush(data: Map<String, String>) {
+        val from = data["senderUsername"] ?: return
+        val callId = data["callId"] ?: return
+        val callType = data["callType"] ?: "AUDIO"
+        val sdp = data["sdp"]
+
+        scope.launch {
+            val me = sessionManager.getUsername() ?: return@launch
+            
+            // شبیه‌سازی سیگنال OFFER برای CallRepository
+            val signalJson = """
+                {
+                    "type": "OFFER",
+                    "from": "$from",
+                    "to": "$me",
+                    "sdp": ${if (sdp.isNullOrBlank()) "null" else "\"$sdp\""},
+                    "callId": "$callId",
+                    "callType": "$callType"
+                }
+            """.trimIndent()
+
+            // اطمینان از اینکه سرویس اتصال در پس‌زمینه در حال اجراست تا وب‌سوکت وصل شود
+            com.example.veiltalk.core.service.ChatConnectionService.start(this@VeilTalkFirebaseMessagingService)
+            
+            withContext(Dispatchers.Main) {
+                callRepository.handleSignalFromPush(signalJson)
+            }
         }
     }
 }

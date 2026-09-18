@@ -88,6 +88,13 @@ class CallRepository @Inject constructor(
             .launchIn(scope)
     }
 
+    /**
+     * مدیریت سیگنال‌های دریافتی از طریق پوش‌نوتیفیکیشن (زمانی که اپ بسته بوده است)
+     */
+    fun handleSignalFromPush(rawBody: String) {
+        handleSignal(rawBody)
+    }
+
     private fun handleSignal(rawBody: String) {
         val dto = runCatching { json.decodeFromString<CallSignalDto>(rawBody) }.getOrNull() ?: return
         val signal = dto.toDomain() ?: return
