@@ -109,19 +109,31 @@ class WebRtcClient(private val context: Context) {
     fun attachLocalMedia(withVideo: Boolean) {
         val factory = peerConnectionFactory ?: return
 
-        val audioConstraints = MediaConstraints()
-        localAudioSource = factory.createAudioSource(audioConstraints)
-        localAudioTrack = factory.createAudioTrack("audio_track", localAudioSource)
-        peerConnection?.addTrack(localAudioTrack)
+        if (localAudioTrack == null) {
+            val audioConstraints = MediaConstraints()
+            localAudioSource = factory.createAudioSource(audioConstraints)
+            localAudioTrack = factory.createAudioTrack("audio_track", localAudioSource)
+        }
+        
+        // همواره ترک صوتی را به PeerConnection اضافه کن (اگر هنوز اضافه نشده)
+        if (peerConnection?.senders?.none { it.track()?.id() == localAudioTrack?.id() } == true) {
+            peerConnection?.addTrack(localAudioTrack)
+        }
 
         if (withVideo) {
-            videoCapturer = createCameraCapturer()
-            val surfaceHelper = SurfaceTextureHelper.create("CaptureThread", eglBaseContext)
-            localVideoSource = factory.createVideoSource(false)
-            videoCapturer?.initialize(surfaceHelper, context, localVideoSource!!.capturerObserver)
-            videoCapturer?.startCapture(640, 480, 30)
-            localVideoTrack = factory.createVideoTrack("video_track", localVideoSource)
-            peerConnection?.addTrack(localVideoTrack)
+            if (localVideoTrack == null) {
+                videoCapturer = createCameraCapturer()
+                val surfaceHelper = SurfaceTextureHelper.create("CaptureThread", eglBaseContext)
+                localVideoSource = factory.createVideoSource(false)
+                videoCapturer?.initialize(surfaceHelper, context, localVideoSource!!.capturerObserver)
+                videoCapturer?.startCapture(640, 480, 30)
+                localVideoTrack = factory.createVideoTrack("video_track", localVideoSource)
+            }
+            
+            // همواره ترک ویدئویی را به PeerConnection اضافه کن (اگر هنوز اضافه نشده)
+            if (peerConnection?.senders?.none { it.track()?.id() == localVideoTrack?.id() } == true) {
+                peerConnection?.addTrack(localVideoTrack)
+            }
         }
     }
 

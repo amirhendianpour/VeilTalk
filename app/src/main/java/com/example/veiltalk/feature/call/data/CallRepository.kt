@@ -359,10 +359,10 @@ class CallRepository @Inject constructor(
             }
         }
 
-        // Only attach media if not already attached during preview
-        if (webRtcClient.localVideoTrack == null) {
-            webRtcClient.attachLocalMedia(withVideo)
-        }
+        // همواره متد attachLocalMedia را صدا بزنیم؛ 
+        // در پیاده‌سازی جدید، این متد ترک‌های موجود (از مرحله Preview) را شناسایی کرده 
+        // و آن‌ها را به PeerConnection جدید متصل می‌کند.
+        webRtcClient.attachLocalMedia(withVideo)
         _localVideoTrack.value = webRtcClient.localVideoTrack
     }
 

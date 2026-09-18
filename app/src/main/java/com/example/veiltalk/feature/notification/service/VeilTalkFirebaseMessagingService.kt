@@ -163,13 +163,17 @@ class VeilTalkFirebaseMessagingService : FirebaseMessagingService() {
         scope.launch {
             val me = sessionManager.getUsername() ?: return@launch
             
+            // فرار از کاراکترهای کوتیشن برای جلوگیری از خرابی ساختار JSON
+            val escapedSdp = sdp?.replace("\"", "\\\"") ?: "null"
+            val sdpValue = if (sdp.isNullOrBlank()) "null" else "\"$escapedSdp\""
+
             // شبیه‌سازی سیگنال OFFER برای CallRepository
             val signalJson = """
                 {
                     "type": "OFFER",
                     "from": "$from",
                     "to": "$me",
-                    "sdp": ${if (sdp.isNullOrBlank()) "null" else "\"$sdp\""},
+                    "sdp": $sdpValue,
                     "callId": "$callId",
                     "callType": "$callType"
                 }
