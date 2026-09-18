@@ -270,6 +270,15 @@ fun ChatMessageBubble(
                     modifier = Modifier.align(Alignment.End),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    if (isEdited) {
+                        Text(
+                            "ویرایش شده",
+                            fontSize = 9.sp,
+                            color = contentColor.copy(alpha = 0.5f),
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                            modifier = Modifier.padding(end = 4.dp)
+                        )
+                    }
                     Text(
                         formatMessageTime(timestamp),
                         fontSize = 10.sp,
