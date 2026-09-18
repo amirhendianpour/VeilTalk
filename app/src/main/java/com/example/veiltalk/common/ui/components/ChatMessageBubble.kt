@@ -188,9 +188,72 @@ fun ChatMessageBubble(
                 
                 mediaContent?.invoke()
                 
-                if (content.isNotBlank()) {
+                val isInlineStoryReply = content.startsWith("[STORY_MEDIA:")
+                val (storyMediaUrl, displayContent) = if (isInlineStoryReply) {
+                    val closeBracketIndex = content.indexOf("]")
+                    if (closeBracketIndex != -1) {
+                        val url = content.substring("[STORY_MEDIA:".length, closeBracketIndex)
+                        val rawText = content.substring(closeBracketIndex + 1)
+                        val cleanText = rawText
+                            .replace("🎬 پاسخ به استوری شما", "")
+                            .replace("✨ واکنش به استوری شما", "")
+                            .replace("💬", "")
+                            .trim()
+                        url to cleanText
+                    } else {
+                        null to content
+                    }
+                } else {
+                    null to content
+                }
+
+                if (isInlineStoryReply && storyMediaUrl != null) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 6.dp),
+                        color = contentColor.copy(alpha = 0.08f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(3.dp)
+                                    .height(40.dp)
+                                    .background(primaryColor, RoundedCornerShape(1.5.dp))
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (content.contains("واکنش")) "✨ واکنش به استوری" else "🎬 پاسخ به استوری",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = primaryColor
+                                )
+                                Text(
+                                    text = "استوری مخاطب",
+                                    fontSize = 10.sp,
+                                    color = contentColor.copy(alpha = 0.5f)
+                                )
+                            }
+                            coil.compose.AsyncImage(
+                                model = storyMediaUrl,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(6.dp)),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        }
+                    }
+                }
+                
+                if (displayContent.isNotBlank()) {
                     Text(
-                        content, 
+                        displayContent, 
                         style = MaterialTheme.typography.bodyLarge,
                         color = contentColor
                     )

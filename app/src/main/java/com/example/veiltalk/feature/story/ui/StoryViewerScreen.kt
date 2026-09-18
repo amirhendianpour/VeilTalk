@@ -254,15 +254,16 @@ fun StoryViewerScreen(
                             replyText = it
                             showQuickReactions = it.isEmpty()
                         },
-                        placeholder = { Text("ارسال پیام...", color = Color.LightGray, fontSize = 14.sp) },
+                        placeholder = { Text("ارسال پیام...", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp) },
                         modifier = Modifier
                             .weight(1f)
-                            .background(Color.White.copy(alpha = 0.15f), CircleShape),
+                            .background(Color.Black.copy(alpha = 0.4f), CircleShape), // استفاده از رنگ تیره نیمه‌شفاف ثابت برای خوانایی فوق‌العاده متن سفید در هر دو تم و انواع عکس‌های روشن/تاریک استوری
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Color.Transparent,
                             unfocusedBorderColor = Color.Transparent,
                             focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            unfocusedTextColor = Color.White,
+                            cursorColor = Color.White
                         ),
                         shape = CircleShape,
                         singleLine = true,

@@ -282,7 +282,24 @@ class ChatRepository @Inject constructor(
             "STICKER" -> "🏷️ استیکر"
             "GIF" -> "🎬 گیف"
             "CONTACT" -> "👤 مخاطب"
-            else -> content
+            else -> {
+                if (content.startsWith("[STORY_MEDIA:")) {
+                    val closeBracketIndex = content.indexOf("]")
+                    if (closeBracketIndex != -1) {
+                        val rawText = content.substring(closeBracketIndex + 1)
+                        val cleanText = rawText
+                            .replace("🎬 پاسخ به استوری شما", "")
+                            .replace("✨ واکنش به استوری شما", "")
+                            .replace("💬", "")
+                            .trim()
+                        if (content.contains("واکنش")) "✨ واکنش به استوری: $cleanText" else "🎬 پاسخ به استوری: $cleanText"
+                    } else {
+                        content
+                    }
+                } else {
+                    content
+                }
+            }
         }
     }
 

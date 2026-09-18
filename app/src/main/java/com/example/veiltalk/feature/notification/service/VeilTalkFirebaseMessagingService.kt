@@ -96,11 +96,33 @@ class VeilTalkFirebaseMessagingService : FirebaseMessagingService() {
             val bitmap = avatarUrl?.let { loadAvatar(it) }
 
             withContext(Dispatchers.Main) {
+                // پارسر گرافیکی نوتیفیکیشن برای مدیریت پیام‌های تصویر، فایل و ریپلای‌های پیشرفته استوری کلاینت
+                val displayContent = when {
+                    content.startsWith("[STORY_MEDIA:") -> {
+                        val closeIndex = content.indexOf("]")
+                        if (closeIndex != -1) {
+                            val rawText = content.substring(closeIndex + 1)
+                            val cleanText = rawText
+                                .replace("🎬 پاسخ به استوری شما", "")
+                                .replace("✨ واکنش به استوری شما", "")
+                                .replace("💬", "")
+                                .trim()
+                            if (content.contains("واکنش")) "✨ واکنش به استوری: $cleanText" else "🎬 پاسخ به استوری: $cleanText"
+                        } else "🎬 پاسخ به استوری"
+                    }
+                    remoteMessage.data["messageType"] == "IMAGE" -> "📷 تصویر"
+                    remoteMessage.data["messageType"] == "FILE" -> "📁 فایل"
+                    remoteMessage.data["messageType"] == "VOICE" -> "🎤 پیام صوتی"
+                    remoteMessage.data["messageType"] == "STICKER" -> "🏷️ استیکر"
+                    remoteMessage.data["messageType"] == "GIF" -> "🎬 گیف"
+                    else -> content
+                }
+
                 val messages = listOf(
                     NotificationHelper.NotificationMessage(
                         senderUsername = senderUsername,
                         senderName = displayName,
-                        content = content,
+                        content = displayContent,
                         timestamp = System.currentTimeMillis()
                     )
                 )
