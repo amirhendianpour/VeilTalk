@@ -35,6 +35,7 @@ object Routes {
     const val GROUP_CHAT = "groupChat/{groupId}"
     const val GROUP_INFO = "groupInfo/{groupId}"
     const val USER_PROFILE = "userProfile/{username}"
+    const val ACTIVE_SESSIONS = "activeSessions"
 
     fun otpRoute(identifier: String) = "otp/$identifier"
     fun resetPasswordRoute(identifier: String) = "resetPassword/$identifier"
@@ -179,11 +180,18 @@ fun VeilTalkNavGraph(
             com.example.veiltalk.feature.profile.ui.ProfileScreen(
                 onBack = { navController.popBackStack() },
                 onChangePassword = { navController.navigate(Routes.CHANGE_PASSWORD) },
+                onOpenActiveSessions = { navController.navigate(Routes.ACTIVE_SESSIONS) },
                 onLoggedOut = {
                     navController.navigate(Routes.LOGIN) {
                         popUpTo(0) { inclusive = true }
                     }
                 }
+            )
+        }
+
+        composable(Routes.ACTIVE_SESSIONS) {
+            com.example.veiltalk.feature.profile.ui.ActiveSessionsScreen(
+                onBack = { navController.popBackStack() }
             )
         }
 

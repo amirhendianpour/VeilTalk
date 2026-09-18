@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +29,7 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
     onBack: () -> Unit,
     onChangePassword: () -> Unit,
+    onOpenActiveSessions: () -> Unit,
     onLoggedOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -156,6 +158,19 @@ fun ProfileScreen(
                     }
 
                     Spacer(Modifier.height(16.dp))
+                    TextButton(
+                        onClick = onOpenActiveSessions,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PhoneAndroid,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("دستگاه‌های متصل (سشن‌های فعال)")
+                    }
+
                     TextButton(
                         onClick = onChangePassword,
                         modifier = Modifier.fillMaxWidth()
