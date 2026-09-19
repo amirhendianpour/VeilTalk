@@ -59,6 +59,7 @@ fun HomeScreen(
     onOpenBackup: () -> Unit,
     onChangePassword: () -> Unit,
     onOpenBlockedUsers: () -> Unit,
+    onOpenActiveSessions: () -> Unit,
     onLoggedOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -588,12 +589,14 @@ fun HomeScreen(
                     onChangePassword = onChangePassword,
                     onOpenBlockedUsers = onOpenBlockedUsers,
                     onOpenBackup = onOpenBackup,
+                    onOpenActiveSessions = onOpenActiveSessions,
                     onLogout = { viewModel.logout(onLoggedOut) }
                 )
             } else if (bottomNavTab == 4) {
                 ProfileTab(
                     viewModel = profileViewModel,
-                    onChangePassword = onChangePassword
+                    onChangePassword = onChangePassword,
+                    onOpenActiveSessions = onOpenActiveSessions
                 )
             }
         }
@@ -751,6 +754,7 @@ private fun SettingsTab(
     onChangePassword: () -> Unit,
     onOpenBlockedUsers: () -> Unit,
     onOpenBackup: () -> Unit,
+    onOpenActiveSessions: () -> Unit,
     onLogout: () -> Unit
 ) {
     LazyColumn(
@@ -839,6 +843,11 @@ private fun SettingsTab(
                         modifier = Modifier.clickable { onOpenBlockedUsers() }
                     )
                     ListItem(
+                        headlineContent = { Text("دستگاه‌های متصل (سشن‌ها)") },
+                        leadingContent = { Icon(Icons.Default.PhoneAndroid, null) },
+                        modifier = Modifier.clickable { onOpenActiveSessions() }
+                    )
+                    ListItem(
                         headlineContent = { Text("بک‌آپ و بازیابی") },
                         leadingContent = { Icon(Icons.Default.Backup, null) },
                         modifier = Modifier.clickable { onOpenBackup() }
@@ -901,7 +910,8 @@ private fun SettingsSection(title: String, items: List<SettingsItemData>) {
 @Composable
 private fun ProfileTab(
     viewModel: ProfileViewModel,
-    onChangePassword: () -> Unit
+    onChangePassword: () -> Unit,
+    onOpenActiveSessions: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var imageUriToCrop by remember { mutableStateOf<Uri?>(null) }
@@ -1106,12 +1116,21 @@ private fun ProfileTab(
         item {
             Spacer(Modifier.height(12.dp))
             Surface(color = MaterialTheme.colorScheme.surface) {
-                ListItem(
-                    headlineContent = { Text("تنظیمات امنیت") },
-                    supportingContent = { Text("تغییر رمز عبور حساب کاربری") },
-                    leadingContent = { Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.primary) },
-                    modifier = Modifier.clickable { onChangePassword() }
-                )
+                Column {
+                    ListItem(
+                        headlineContent = { Text("تنظیمات امنیت") },
+                        supportingContent = { Text("تغییر رمز عبور حساب کاربری") },
+                        leadingContent = { Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.primary) },
+                        modifier = Modifier.clickable { onChangePassword() }
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(start = 56.dp), thickness = 0.5.dp)
+                    ListItem(
+                        headlineContent = { Text("دستگاه‌های متصل (سشن‌ها)") },
+                        supportingContent = { Text("مدیریت سشن‌های فعال و دستگاه‌های دیگر") },
+                        leadingContent = { Icon(Icons.Default.PhoneAndroid, null, tint = MaterialTheme.colorScheme.primary) },
+                        modifier = Modifier.clickable { onOpenActiveSessions() }
+                    )
+                }
             }
         }
     }

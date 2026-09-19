@@ -91,6 +91,7 @@ fun VeilTalkNavGraph(
                 onOpenBackup = { navController.navigate(Routes.BACKUP) },
                 onChangePassword = { navController.navigate(Routes.CHANGE_PASSWORD) },
                 onOpenBlockedUsers = { navController.navigate(Routes.BLOCKED_USERS) },
+                onOpenActiveSessions = { navController.navigate(Routes.ACTIVE_SESSIONS) },
                 onLoggedOut = { navController.navigate(Routes.LOGIN) { popUpTo(0) } }
             )
         }
