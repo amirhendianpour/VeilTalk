@@ -10,6 +10,8 @@ import retrofit2.http.GET
 import retrofit2.http.Path
 import retrofit2.http.Query
 
+import kotlinx.serialization.SerialName
+
 @Serializable
 data class FcmTokenRequestDto(
     val token: String,
@@ -26,7 +28,7 @@ data class ActiveSessionDto(
     val osVersion: String,
     val ipAddress: String,
     val lastActive: String? = null,
-    val isCurrent: Boolean
+    @SerialName("current") val isCurrent: Boolean
 )
 
 interface FcmApi {

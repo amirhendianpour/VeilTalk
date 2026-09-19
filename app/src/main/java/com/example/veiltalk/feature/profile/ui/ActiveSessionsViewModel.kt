@@ -31,18 +31,31 @@ class ActiveSessionsViewModel @Inject constructor(
     val uiEvent = _uiEvent.asSharedFlow()
 
     init {
-        loadSessions()
+        refreshAndLoadSessions()
     }
 
-    fun loadSessions() {
+    fun refreshAndLoadSessions() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            // ابتدا توکن دستگاه فعلی را ثبت/به‌روزرسانی می‌کنیم تا مشخصات واقعی آن در لیست بیاید
+            tokenRepository.registerCurrentDeviceToken()
+            
+            // سپس لیست سشن‌ها را لود می‌کنیم
             tokenRepository.getActiveSessions()
                 .onSuccess { list ->
                     _uiState.value = _uiState.value.copy(sessions = list, isLoading = false)
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
+                }
+        }
+    }
+
+    fun loadSessions() {
+        viewModelScope.launch {
+            tokenRepository.getActiveSessions()
+                .onSuccess { list ->
+                    _uiState.value = _uiState.value.copy(sessions = list)
                 }
         }
     }
