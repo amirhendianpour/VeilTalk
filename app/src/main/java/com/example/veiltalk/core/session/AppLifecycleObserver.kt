@@ -5,6 +5,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import android.content.Context
 import com.example.veiltalk.core.service.ChatConnectionService
+import com.example.veiltalk.core.service.ReconnectScheduler
 import com.example.veiltalk.feature.chat.data.ChatRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.launch
@@ -24,6 +25,7 @@ class AppLifecycleObserver @Inject constructor(
 
     fun start() {
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
+        ReconnectScheduler.schedule(context)
     }
 
     override fun onStart(owner: LifecycleOwner) {

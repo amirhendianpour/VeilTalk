@@ -66,6 +66,9 @@ class VeilTalkFirebaseMessagingService : FirebaseMessagingService() {
             
             // ۱. ارسال رسید تحویل بلافاصله (Delivery Receipt) مشابه واتساپ
             // این کار باعث می‌شود فرستنده متوجه شود پیام به گوشی رسیده حتی اگر اپ بسته باشد
+            // بیدار کردن سرویس اتصال برای دریافت پیام از وب‌سوکت
+            com.example.veiltalk.core.service.ChatConnectionService.start(this@VeilTalkFirebaseMessagingService)
+
             try {
                 messageApi.postReceipt(
                     com.example.veiltalk.feature.chat.data.dto.ReceiptDto(

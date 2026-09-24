@@ -91,6 +91,7 @@ dependencies {
     implementation(libs.stream.webrtc)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    implementation(libs.work.runtime.ktx)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.runner)
