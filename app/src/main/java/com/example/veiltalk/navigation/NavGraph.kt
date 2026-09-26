@@ -86,7 +86,6 @@ fun VeilTalkNavGraph(
                 onOpenChat = { username -> navController.navigate(Routes.chatRoute(username)) },
                 onOpenGroup = { groupId -> navController.navigate(Routes.groupChatRoute(groupId)) },
                 onOpenProfile = { username -> navController.navigate(Routes.userProfileRoute(username)) },
-                onOpenMyProfile = { navController.navigate(Routes.PROFILE) },
                 onOpenQrCode = { navController.navigate(Routes.QR_CODE) },
                 onOpenBackup = { navController.navigate(Routes.BACKUP) },
                 onChangePassword = { navController.navigate(Routes.CHANGE_PASSWORD) },
@@ -173,19 +172,6 @@ fun VeilTalkNavGraph(
                 onBack = { navController.popBackStack() },
                 onGroupDeleted = {
                     navController.popBackStack(Routes.HOME, inclusive = false)
-                }
-            )
-        }
-
-        composable(Routes.PROFILE) {
-            com.example.veiltalk.feature.profile.ui.ProfileScreen(
-                onBack = { navController.popBackStack() },
-                onChangePassword = { navController.navigate(Routes.CHANGE_PASSWORD) },
-                onOpenActiveSessions = { navController.navigate(Routes.ACTIVE_SESSIONS) },
-                onLoggedOut = {
-                    navController.navigate(Routes.LOGIN) {
-                        popUpTo(0) { inclusive = true }
-                    }
                 }
             )
         }

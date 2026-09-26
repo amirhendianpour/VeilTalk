@@ -53,8 +53,7 @@ fun HomeScreen(
     callViewModel: com.example.veiltalk.feature.call.ui.CallViewModel = hiltViewModel(),
     onOpenChat: (username: String) -> Unit,
     onOpenGroup: (groupId: Long) -> Unit,
-    onOpenProfile: (username: String) -> Unit, // تغییر یافته برای پروفایل سایرین
-    onOpenMyProfile: () -> Unit, // نام جدید برای پروفایل خود کاربر
+    onOpenProfile: (username: String) -> Unit,
     onOpenQrCode: () -> Unit,
     onOpenBackup: () -> Unit,
     onChangePassword: () -> Unit,
@@ -239,7 +238,7 @@ fun HomeScreen(
                                 },
                                 onClick = { 
                                     showMenu = false
-                                    onOpenMyProfile()
+                                    bottomNavTab = 3
                                 }
                             )
                             HorizontalDivider()
@@ -1129,6 +1128,13 @@ private fun ProfileTab(
                         supportingContent = { Text("مدیریت سشن‌های فعال و دستگاه‌های دیگر") },
                         leadingContent = { Icon(Icons.Default.PhoneAndroid, null, tint = MaterialTheme.colorScheme.primary) },
                         modifier = Modifier.clickable { onOpenActiveSessions() }
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(start = 56.dp), thickness = 0.5.dp)
+                    ListItem(
+                        headlineContent = { Text("بهینه‌سازی باتری (دریافت فوری پیام‌ها)") },
+                        supportingContent = { Text("درخواست استثنا شدن از محدودیت‌های پس‌زمینه") },
+                        leadingContent = { Icon(Icons.Default.PhoneAndroid, null, tint = MaterialTheme.colorScheme.primary) },
+                        modifier = Modifier.clickable { com.example.veiltalk.common.util.BatteryHelper.requestIgnoreBatteryOptimizations(context) }
                     )
                 }
             }
