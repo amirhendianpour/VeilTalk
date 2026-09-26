@@ -172,6 +172,19 @@ fun ProfileScreen(
                     }
 
                     TextButton(
+                        onClick = { com.example.veiltalk.common.util.BatteryHelper.requestIgnoreBatteryOptimizations(context) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PhoneAndroid,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("بهینه‌سازی باتری (دریافت فوری پیام‌ها)")
+                    }
+
+                    TextButton(
                         onClick = onChangePassword,
                         modifier = Modifier.fillMaxWidth()
                     ) {
