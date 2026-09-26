@@ -73,6 +73,7 @@ fun PinnedMessagesBar(
                         MessageType.GIF -> "گیف"
                         MessageType.CONTACT -> "مخاطب"
                         MessageType.LOCATION, MessageType.LIVE_LOCATION -> "مکان"
+                        MessageType.CALL -> "تماس"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,

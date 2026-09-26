@@ -48,6 +48,7 @@ class CallRepository @Inject constructor(
     private val stompManager: StompManager,
     private val json: Json,
     private val callLogDao: com.example.veiltalk.feature.call.data.dao.CallLogDao,
+    private val messageDao: com.example.veiltalk.core.database.dao.MessageDao,
     private val sessionManager: com.example.veiltalk.core.session.SessionManager,
     @ApplicationContext private val appContext: Context,
     @ApplicationScope private val scope: CoroutineScope,
@@ -400,6 +401,27 @@ class CallRepository @Inject constructor(
                         status = status,
                         startTime = startTime,
                         duration = duration
+                    )
+                )
+
+                // درج لاگ تماس به عنوان یک پیام در دیتابیس چت
+                val callMessageId = com.example.veiltalk.common.util.generateId()
+                val nowIso = java.time.Instant.ofEpochMilli(startTime).toString()
+                val sender = if (direction == "OUTGOING") owner else remote
+                val recipient = if (direction == "OUTGOING") remote else owner
+                val callContent = "${type.name}|$direction|$status|$duration"
+
+                messageDao.upsert(
+                    com.example.veiltalk.core.database.entity.PrivateMessageEntity(
+                        id = callMessageId,
+                        ownerUsername = owner,
+                        sender = sender,
+                        recipient = recipient,
+                        content = callContent,
+                        messageType = "CALL",
+                        fileUrl = null,
+                        timestamp = nowIso,
+                        status = "READ"
                     )
                 )
             }

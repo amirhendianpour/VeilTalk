@@ -282,6 +282,17 @@ class ChatRepository @Inject constructor(
             "STICKER" -> "🏷️ استیکر"
             "GIF" -> "🎬 گیف"
             "CONTACT" -> "👤 مخاطب"
+            "CALL" -> {
+                val parts = content.split("|")
+                val isVideo = parts.getOrNull(0) == "VIDEO"
+                val status = parts.getOrNull(2) ?: "CONNECTED"
+                val isMissed = status in listOf("MISSED", "REJECTED", "BUSY", "NO_ANSWER")
+                if (isMissed) {
+                    if (isVideo) "📹 تماس تصویری از دست رفته" else "📞 تماس صوتی از دست رفته"
+                } else {
+                    if (isVideo) "📹 تماس تصویری" else "📞 تماس صوتی"
+                }
+            }
             else -> {
                 if (content.startsWith("[STORY_MEDIA:")) {
                     val closeBracketIndex = content.indexOf("]")

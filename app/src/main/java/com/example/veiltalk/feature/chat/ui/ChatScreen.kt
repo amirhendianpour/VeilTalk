@@ -518,6 +518,10 @@ fun ChatScreen(
                             },
                             onSenderClick = {
                                 onOpenProfile(viewModel.partner)
+                            },
+                            onCallBack = { isVideo ->
+                                val kind = if (isVideo) CallKind.VIDEO else CallKind.AUDIO
+                                callViewModel.startCall(viewModel.partner, kind)
                             }
                         )
                     }
@@ -688,7 +692,8 @@ private fun MessageBubble(
     onViewImage: (ChatMessage) -> Unit,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    onSenderClick: () -> Unit
+    onSenderClick: () -> Unit,
+    onCallBack: (isVideo: Boolean) -> Unit
 ) {
     val mine = message.recipient == partner
     val context = LocalContext.current
@@ -801,6 +806,14 @@ private fun MessageBubble(
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
                             context.startActivity(intent)
                         }
+                    )
+                    Spacer(Modifier.height(4.dp))
+                }
+                MessageType.CALL -> {
+                    com.example.veiltalk.common.ui.components.CallMessageItem(
+                        content = message.content,
+                        isMine = mine,
+                        onCallBack = onCallBack
                     )
                     Spacer(Modifier.height(4.dp))
                 }
