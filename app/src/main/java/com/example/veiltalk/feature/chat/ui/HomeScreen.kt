@@ -2,6 +2,7 @@ package com.example.veiltalk.feature.chat.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.Manifest
@@ -127,6 +128,17 @@ fun HomeScreen(
 
     val isSelectionMode = uiState.selectedKeys.isNotEmpty()
     val connState by viewModel.connectionState.collectAsState()
+
+    BackHandler(enabled = bottomNavTab != 0 || isSearchMode || isSelectionMode) {
+        when {
+            isSelectionMode -> viewModel.clearSelection()
+            isSearchMode -> {
+                isSearchMode = false
+                viewModel.onSearchQueryChange("")
+            }
+            bottomNavTab != 0 -> bottomNavTab = 0
+        }
+    }
 
     Scaffold(
         topBar = {
