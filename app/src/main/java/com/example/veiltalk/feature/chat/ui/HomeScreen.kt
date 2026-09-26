@@ -250,7 +250,7 @@ fun HomeScreen(
                                 },
                                 onClick = { 
                                     showMenu = false
-                                    bottomNavTab = 3
+                                    bottomNavTab = 4
                                 }
                             )
                             HorizontalDivider()
