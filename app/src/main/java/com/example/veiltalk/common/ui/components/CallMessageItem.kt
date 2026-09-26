@@ -44,26 +44,18 @@ fun CallMessageItem(
 
     val title = when {
         isVideo -> {
-            if (direction == "OUTGOING") {
-                if (isMissed) "تماس تصویری بی‌پاسخ" else "تماس تصویری خروجی"
-            } else {
-                if (isMissed) "تماس تصویری از دست رفته" else "تماس تصویری ورودی"
-            }
+            if (direction == "OUTGOING") "تماس تصویری خروجی" else if (isMissed) "تماس تصویری از دست رفته" else "تماس تصویری ورودی"
         }
         else -> {
-            if (direction == "OUTGOING") {
-                if (isMissed) "تماس صوتی بی‌پاسخ" else "تماس صوتی خروجی"
-            } else {
-                if (isMissed) "تماس صوتی از دست رفته" else "تماس صوتی ورودی"
-            }
+            if (direction == "OUTGOING") "تماس صوتی خروجی" else if (isMissed) "تماس صوتی از دست رفته" else "تماس صوتی ورودی"
         }
     }
 
     val subtitle = when {
         durationSec > 0 -> formatCallDuration(durationSec)
-        status == "REJECTED" -> "رد تماس"
-        status == "BUSY" -> "مشغول"
-        isMissed -> "پاسخ داده نشده"
+        status == "REJECTED" -> "رد تماس توسط مخاطب"
+        status == "BUSY" -> "خط مخاطب مشغول بود"
+        isMissed -> if (direction == "OUTGOING") "پاسخ داده نشد" else "تماس از دست رفته"
         else -> ""
     }
 

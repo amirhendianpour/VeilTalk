@@ -714,7 +714,7 @@ private fun MessageBubble(
         onLongClick = onLongClick,
         onSenderClick = onSenderClick,
         status = {
-            if (mine) {
+            if (mine && message.messageType != MessageType.CALL) {
                 Text(
                     text = if (message.status == MessageStatus.DELIVERED || message.status == MessageStatus.READ) "✓✓" else "✓",
                     fontSize = 10.sp,
