@@ -3,8 +3,12 @@ package com.example.veiltalk.core.service
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.os.Build
 import android.os.IBinder
-import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.example.veiltalk.core.session.SessionManager
 import com.example.veiltalk.core.websocket.StompManager
@@ -23,11 +27,14 @@ class ChatConnectionService : Service() {
     @Inject lateinit var sessionManager: SessionManager
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     override fun onCreate() {
         super.onCreate()
         NotificationHelper.createChannels(this)
         startForeground(NotificationHelper.CONNECTION_NOTIFICATION_ID, NotificationHelper.buildConnectionNotification(this))
+
+        registerNetworkCallback()
 
         serviceScope.launch {
             val token = sessionManager.getToken()
@@ -40,28 +47,56 @@ class ChatConnectionService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val showNotification = intent?.getBooleanExtra(EXTRA_SHOW_NOTIFICATION, true) ?: true
+        // همواره سرویس را در حالت Foreground نگه می‌داریم تا سیستم‌عامل در پس‌زمینه آن را متوقف نکند
+        startForeground(NotificationHelper.CONNECTION_NOTIFICATION_ID, NotificationHelper.buildConnectionNotification(this))
         
-        if (showNotification) {
-            startForeground(NotificationHelper.CONNECTION_NOTIFICATION_ID, NotificationHelper.buildConnectionNotification(this))
-        } else {
-            // مخفی کردن نوتیفیکیشن بدون متوقف کردن سرویس
-            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH)
+        serviceScope.launch {
+            val token = sessionManager.getToken()
+            if (token != null) {
+                stompManager.reconnectIfDisconnected()
+            }
         }
         
         return START_STICKY
     }
 
+    private fun registerNetworkCallback() {
+        try {
+            val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+            val networkRequest = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+
+            val callback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    serviceScope.launch {
+                        val token = sessionManager.getToken()
+                        if (token != null) {
+                            stompManager.reconnectIfDisconnected()
+                        }
+                    }
+                }
+            }
+            networkCallback = callback
+            connectivityManager.registerNetworkCallback(networkRequest, callback)
+        } catch (_: Exception) {}
+    }
+
+    private fun unregisterNetworkCallback() {
+        try {
+            networkCallback?.let {
+                val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                connectivityManager?.unregisterNetworkCallback(it)
+            }
+        } catch (_: Exception) {}
+        networkCallback = null
+    }
+
     override fun onTaskRemoved(rootIntent: Intent?) {
-        // وقتی کاربر اپلیکیشن را از لیست Recent به بیرون می‌کشد (Swipe)
-        // در واتساپ این کار باعث بستن کامل سرویس نمی‌شود.
-        // ما اینجا تلاش می‌کنیم سرویس را زنده نگه داریم یا دوباره لانچ کنیم.
         val restartServiceIntent = Intent(applicationContext, this.javaClass).apply {
             setPackage(packageName)
-            putExtra(EXTRA_SHOW_NOTIFICATION, true)
         }
         
-        // اگر سیستم اجازه دهد، سرویس را ری‌استارت می‌کنیم
         val pendingIntent = android.app.PendingIntent.getService(
             this, 1, restartServiceIntent,
             android.app.PendingIntent.FLAG_ONE_SHOT or android.app.PendingIntent.FLAG_IMMUTABLE
@@ -73,6 +108,7 @@ class ChatConnectionService : Service() {
     }
 
     override fun onDestroy() {
+        unregisterNetworkCallback()
         stompManager.disconnect()
         serviceScope.cancel()
         super.onDestroy()
@@ -81,21 +117,18 @@ class ChatConnectionService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
-        private const val EXTRA_SHOW_NOTIFICATION = "extra_show_notification"
-
         fun start(context: Context) {
-            val intent = Intent(context, ChatConnectionService::class.java).apply {
-                putExtra(EXTRA_SHOW_NOTIFICATION, true)
+            val intent = Intent(context, ChatConnectionService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ContextCompat.startForegroundService(context, intent)
+            } else {
+                context.startService(intent)
             }
-            ContextCompat.startForegroundService(context, intent)
         }
 
         fun updateNotificationVisibility(context: Context, isVisible: Boolean) {
-            val intent = Intent(context, ChatConnectionService::class.java).apply {
-                putExtra(EXTRA_SHOW_NOTIFICATION, isVisible)
-            }
-            // چون سرویس از قبل شروع شده، فقط استارت معمولی می‌زنیم تا onStartCommand اجرا شود
-            context.startService(intent)
+            // نگه داشتن برای سازگاری با کدهای موجود
+            start(context)
         }
 
         fun stop(context: Context) {

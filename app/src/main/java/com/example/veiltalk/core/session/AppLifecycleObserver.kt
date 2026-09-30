@@ -1,15 +1,16 @@
 package com.example.veiltalk.core.session
 
+import android.content.Context
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
-import android.content.Context
 import com.example.veiltalk.core.service.ChatConnectionService
+import com.example.veiltalk.core.websocket.StompManager
 import com.example.veiltalk.feature.chat.data.ChatRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -17,7 +18,8 @@ import javax.inject.Singleton
 class AppLifecycleObserver @Inject constructor(
     @ApplicationContext private val context: Context,
     private val chatRepository: ChatRepository,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val stompManager: StompManager
 ) : DefaultLifecycleObserver {
 
     private var isAppInForeground = false
@@ -31,10 +33,11 @@ class AppLifecycleObserver @Inject constructor(
         isAppInForeground = true
         updatePresence(true)
         
-        // مخفی کردن نوتیفیکیشن ثابت (چون کاربر داخل اپ است)
-        ChatConnectionService.updateNotificationVisibility(context, false)
+        // اطمینان از زنده بودن سرویس و وصل مجدد وب‌سوکت در صورت قطعی
+        ChatConnectionService.start(context)
+        stompManager.reconnectIfDisconnected()
         
-        // واکشی پیام‌هایی که احتمالاً در زمان حضور در پس‌زمینه ارسال شده‌اند
+        // واکشی تاریخچه پیام‌هایی که احتمالاً در زمان حضور در پس‌زمینه ارسال شده‌اند
         chatRepository.fetchHistory()
     }
 
@@ -42,12 +45,11 @@ class AppLifecycleObserver @Inject constructor(
         // اپلیکیشن به Background رفت
         isAppInForeground = false
         // یک تاخیر کوچک برای اطمینان از اینکه کاربر واقعاً از اپ خارج شده (نه فقط چرخش صفحه)
-        kotlinx.coroutines.MainScope().launch {
-            kotlinx.coroutines.delay(1000)
+        MainScope().launch {
+            delay(1000)
             if (!isAppInForeground) {
                 updatePresence(false)
-                // نمایش مجدد نوتیفیکیشن (برای جلوگیری از بسته شدن سرویس توسط اندروید)
-                ChatConnectionService.updateNotificationVisibility(context, true)
+                ChatConnectionService.start(context)
             }
         }
     }

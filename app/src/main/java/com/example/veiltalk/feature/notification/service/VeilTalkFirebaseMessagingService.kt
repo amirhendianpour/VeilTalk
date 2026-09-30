@@ -46,8 +46,16 @@ class VeilTalkFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
 
-        val messageId = remoteMessage.data["id"] ?: return
-        val senderUsername = remoteMessage.data["senderUsername"] ?: return
+        val messageId = remoteMessage.data["id"]
+            ?: remoteMessage.data["messageId"]
+            ?: remoteMessage.messageId
+            ?: System.currentTimeMillis().toString()
+
+        val senderUsername = remoteMessage.data["senderUsername"]
+            ?: remoteMessage.data["sender"]
+            ?: remoteMessage.data["from"]
+            ?: "VeilTalk"
+
         val type = remoteMessage.data["type"] // PRIVATE_MESSAGE یا GROUP_MESSAGE
         val groupName = remoteMessage.data["groupName"]
         val groupId = remoteMessage.data["groupId"]?.toLongOrNull()
@@ -64,6 +72,9 @@ class VeilTalkFirebaseMessagingService : FirebaseMessagingService() {
         scope.launch {
             val me = sessionManager.currentUsername ?: return@launch
             
+            // اگر پیام توسط خود کاربری که لاگین است فرستاده شده، نوتیفیکیشن نشان نده
+            if (senderUsername == me) return@launch
+
             // ۱. ارسال رسید تحویل بلافاصله (Delivery Receipt) مشابه واتساپ
             // این کار باعث می‌شود فرستنده متوجه شود پیام به گوشی رسیده حتی اگر اپ بسته باشد
             // بیدار کردن سرویس اتصال برای دریافت پیام از وب‌سوکت

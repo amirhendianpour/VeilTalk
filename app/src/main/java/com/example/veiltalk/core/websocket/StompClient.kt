@@ -12,12 +12,14 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import java.util.concurrent.atomic.AtomicLong
 
 class StompClient(private val okHttpClient: OkHttpClient) {
 
     private var webSocket: WebSocket? = null
     private val clientScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var heartbeatJob: Job? = null
+    private val lastServerActivityTime = AtomicLong(0L)
 
     interface Listener {
         fun onStompConnected()
@@ -29,10 +31,12 @@ class StompClient(private val okHttpClient: OkHttpClient) {
     fun connect(url: String, connectHeaders: Map<String, String>, listener: Listener) {
         stopHeartbeat()
         val request = Request.Builder().url(url).build()
+        lastServerActivityTime.set(System.currentTimeMillis())
 
         webSocket = okHttpClient.newWebSocket(request, object : WebSocketListener() {
 
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                lastServerActivityTime.set(System.currentTimeMillis())
                 val connectFrame = StompFrame(
                     command = "CONNECT",
                     headers = connectHeaders + mapOf(
@@ -45,11 +49,12 @@ class StompClient(private val okHttpClient: OkHttpClient) {
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
+                lastServerActivityTime.set(System.currentTimeMillis())
                 if (text.isBlank() || text == "\n" || text == "\r\n") return // heartbeat های ارسالی از سرور
                 val frame = StompFrame.decode(text) ?: return
                 when (frame.command) {
                     "CONNECTED" -> {
-                        startHeartbeat()
+                        startHeartbeat(listener)
                         listener.onStompConnected()
                     }
                     "MESSAGE" -> listener.onStompFrame(frame)
@@ -70,14 +75,28 @@ class StompClient(private val okHttpClient: OkHttpClient) {
         })
     }
 
-    private fun startHeartbeat() {
+    private fun startHeartbeat(listener: Listener) {
         stopHeartbeat()
+        lastServerActivityTime.set(System.currentTimeMillis())
         heartbeatJob = clientScope.launch {
             while (isActive) {
-                delay(10000)
+                delay(5000)
+                val now = System.currentTimeMillis()
+                
+                // اگر از سمت سرور بیش از ۲۵ ثانیه هیچ دیتایی (فریم یا پینگ) دریافت نشده باشد، سوکت معلق تلقی می‌شود
+                if (now - lastServerActivityTime.get() > 25000) {
+                    val currentWs = webSocket
+                    webSocket = null
+                    currentWs?.cancel()
+                    stopHeartbeat()
+                    listener.onSocketClosed()
+                    break
+                }
+
                 val sent = webSocket?.send("\n") ?: false
                 if (!sent) {
-                    // اگر ارسال پینگ ناموفق بود سوکت قطعه
+                    stopHeartbeat()
+                    listener.onSocketClosed()
                     break
                 }
             }
@@ -95,8 +114,10 @@ class StompClient(private val okHttpClient: OkHttpClient) {
 
     fun close() {
         stopHeartbeat()
-        webSocket?.send(StompFrame("DISCONNECT", emptyMap(), "").encode())
-        webSocket?.close(1000, "Client disconnect")
+        try {
+            webSocket?.send(StompFrame("DISCONNECT", emptyMap(), "").encode())
+            webSocket?.close(1000, "Client disconnect")
+        } catch (_: Exception) {}
         webSocket = null
     }
 }

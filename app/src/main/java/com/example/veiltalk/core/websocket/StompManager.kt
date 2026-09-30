@@ -56,6 +56,14 @@ class StompManager @Inject constructor(
         openSocket(token)
     }
 
+    fun reconnectIfDisconnected() {
+        val token = currentToken ?: return
+        if (_connectionState.value == ConnectionState.DISCONNECTED) {
+            reconnectAttempt = 0
+            openSocket(token)
+        }
+    }
+
     private fun openSocket(token: String) {
         _connectionState.value = ConnectionState.CONNECTING
 
